@@ -12,6 +12,20 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/build-engine" />
+            <option value="$PROJECT_DIR$/build-tools" />
+            <option value="$PROJECT_DIR$/build-tools/android-common-resources" />
+            <option value="$PROJECT_DIR$/build-tools/android-stubs" />
+            <option value="$PROJECT_DIR$/build-tools/build-logic" />
+            <option value="$PROJECT_DIR$/build-tools/common" />
+            <option value="$PROJECT_DIR$/build-tools/eclipse-standalone" />
+            <option value="$PROJECT_DIR$/build-tools/javac" />
+            <option value="$PROJECT_DIR$/build-tools/jaxp" />
+            <option value="$PROJECT_DIR$/build-tools/jaxp/jaxp-internal" />
+            <option value="$PROJECT_DIR$/build-tools/jaxp/xml" />
+            <option value="$PROJECT_DIR$/build-tools/logging" />
+            <option value="$PROJECT_DIR$/build-tools/manifmerger" />
+            <option value="$PROJECT_DIR$/build-tools/project" />
+            <option value="$PROJECT_DIR$/build-tools/snapshots" />
           </set>
         </option>
       </GradleProjectSettings>

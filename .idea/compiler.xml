@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <bytecodeTargetLevel target="21" />
+    <bytecodeTargetLevel target="1.8">
+      <module name="VibeApp.build-tools.build-cache" target="11" />
+      <module name="VibeApp.build-tools.build-cache.main" target="11" />
+      <module name="VibeApp.build-tools.build-cache.test" target="11" />
+      <module name="VibeApp.build-tools.kotlinc" target="11" />
+      <module name="VibeApp.build-tools.kotlinc.main" target="11" />
+      <module name="VibeApp.build-tools.kotlinc.test" target="11" />
+    </bytecodeTargetLevel>
   </component>
 </project>

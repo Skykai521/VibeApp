@@ -23,3 +23,17 @@ dependencyResolutionManagement {
 rootProject.name = "VibeApp"
 include(":app")
 include(":build-engine")
+include(":build-tools:android-common-resources")
+include(":build-tools:android-stubs")
+include(":build-tools:build-logic")
+include(":build-tools:common")
+include(":build-tools:eclipse-standalone")
+include(":build-tools:javac")
+include(":build-tools:jaxp")
+include(":build-tools:logging")
+include(":build-tools:manifmerger")
+include(":build-tools:project")
+include(":build-tools:snapshots")
+include(":build-tools:jaxp:jaxp-internal")
+include(":build-tools:jaxp:xml")
+
