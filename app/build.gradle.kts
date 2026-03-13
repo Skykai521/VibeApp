@@ -53,6 +53,17 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/io.netty.versions.properties"
+            excludes += "META-INF/eclipse.inf"
+            excludes += "kotlin/kotlin.kotlin_builtins"
+            excludes += "kotlin/ranges/ranges.kotlin_builtins"
+            excludes += "kotlin/reflect/reflect.kotlin_builtins"
+            excludes += "kotlin/collections/collections.kotlin_builtins"
+            excludes += "kotlin/coroutines/coroutines.kotlin_builtins"
+            excludes += "kotlin/annotation/annotation.kotlin_builtins"
+            excludes += "kotlin/internal/internal.kotlin_builtins"
+            excludes += "about_files/LICENSE-2.0.txt"
+            excludes += "plugin.xml"
+            excludes += "plugin.properties"
         }
     }
 }
