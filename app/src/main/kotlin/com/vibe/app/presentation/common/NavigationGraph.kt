@@ -131,22 +131,22 @@ fun NavGraphBuilder.homeScreenNavigation(navController: NavHostController) {
     composable(Route.CHAT_LIST) {
         HomeScreen(
             settingOnClick = { navController.navigate(Route.SETTING_ROUTE) { launchSingleTop = true } },
-            onExistingChatClick = { chatRoom ->
-                val enabledPlatformString = chatRoom.enabledPlatform.joinToString(",")
+            onProjectClick = { chatId, enabledPlatforms ->
+                val enabledPlatformString = enabledPlatforms.joinToString(",")
                 navController.navigate(
                     Route.CHAT_ROOM
-                        .replace(oldValue = "{chatRoomId}", newValue = "${chatRoom.id}")
-                        .replace(oldValue = "{enabledPlatforms}", newValue = enabledPlatformString)
+                        .replace("{chatRoomId}", "$chatId")
+                        .replace("{enabledPlatforms}", enabledPlatformString),
                 )
             },
-            navigateToNewChat = {
-                val enabledPlatformString = it.joinToString(",")
+            navigateToChat = { chatId, enabledPlatforms ->
+                val enabledPlatformString = enabledPlatforms.joinToString(",")
                 navController.navigate(
                     Route.CHAT_ROOM
-                        .replace(oldValue = "{chatRoomId}", newValue = "0")
-                        .replace(oldValue = "{enabledPlatforms}", newValue = enabledPlatformString)
+                        .replace("{chatRoomId}", "$chatId")
+                        .replace("{enabledPlatforms}", enabledPlatformString),
                 )
-            }
+            },
         )
     }
 }

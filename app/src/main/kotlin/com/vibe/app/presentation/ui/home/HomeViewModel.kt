@@ -3,11 +3,12 @@ package com.vibe.app.presentation.ui.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
-import com.vibe.app.data.database.entity.ChatRoomV2
 import com.vibe.app.data.database.entity.PlatformV2
-import com.vibe.app.data.repository.ChatRepository
+import com.vibe.app.data.database.entity.ProjectWithChat
+import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
+import com.vibe.app.feature.project.ProjectManager
+import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,24 +24,36 @@ import kotlinx.coroutines.launch
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val chatRepository: ChatRepository,
-    private val settingRepository: SettingRepository
+    private val projectRepository: ProjectRepository,
+    private val projectManager: ProjectManager,
+    private val settingRepository: SettingRepository,
 ) : ViewModel() {
 
     companion object {
         private const val SEARCH_DEBOUNCE_MS = 300L
     }
 
-    data class ChatListState(
-        val chats: List<ChatRoomV2> = listOf(),
+    sealed interface ProjectCreationState {
+        data object Idle : ProjectCreationState
+        data class InProgress(val projectId: String) : ProjectCreationState
+        data class Failed(val message: String) : ProjectCreationState
+    }
+
+    sealed interface NavigationEvent {
+        data class OpenProject(val chatId: Int, val enabledPlatforms: List<String>) : NavigationEvent
+    }
+
+    data class ProjectListState(
+        val projects: List<ProjectWithChat> = emptyList(),
         val isSelectionMode: Boolean = false,
         val isSearchMode: Boolean = false,
-        val selectedPlatforms: List<Boolean> = listOf(),
-        val selectedChats: List<Boolean> = listOf()
+        val selectedProjects: List<Boolean> = emptyList(),
+        val creationState: ProjectCreationState = ProjectCreationState.Idle,
+        val navigationEvent: NavigationEvent? = null,
     )
 
-    private val _chatListState = MutableStateFlow(ChatListState())
-    val chatListState: StateFlow<ChatListState> = _chatListState.asStateFlow()
+    private val _projectListState = MutableStateFlow(ProjectListState())
+    val projectListState: StateFlow<ProjectListState> = _projectListState.asStateFlow()
 
     private val _platformState = MutableStateFlow(listOf<PlatformV2>())
     val platformState = _platformState.asStateFlow()
@@ -48,121 +61,28 @@ class HomeViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    private val _showSelectModelDialog = MutableStateFlow(false)
-    val showSelectModelDialog: StateFlow<Boolean> = _showSelectModelDialog.asStateFlow()
-
     private val _showDeleteWarningDialog = MutableStateFlow(false)
     val showDeleteWarningDialog: StateFlow<Boolean> = _showDeleteWarningDialog.asStateFlow()
 
     init {
-        // Set up debounced search
         _searchQuery
             .debounce(SEARCH_DEBOUNCE_MS)
             .distinctUntilChanged()
-            .onEach { query -> searchChats(query) }
+            .onEach { query -> searchProjects(query) }
             .launchIn(viewModelScope)
     }
 
-    fun updatePlatformCheckedState(idx: Int) {
-        if (idx < 0 || idx >= _chatListState.value.selectedPlatforms.size) return
-
-        _chatListState.update {
-            it.copy(
-                selectedPlatforms = it.selectedPlatforms.mapIndexed { index, b ->
-                    if (index == idx) {
-                        !b
-                    } else {
-                        b
-                    }
-                }
-            )
-        }
-    }
-
-    fun updateSearchQuery(query: String) {
-        _searchQuery.update { query }
-    }
-
-    private fun searchChats(query: String) {
+    fun fetchProjects() {
         viewModelScope.launch {
-            val chats = chatRepository.searchChatsV2(query)
-            _chatListState.update {
+            val projects = projectRepository.fetchProjects()
+            _projectListState.update {
                 it.copy(
-                    chats = chats,
-                    selectedChats = List(chats.size) { false }
+                    projects = projects,
+                    selectedProjects = List(projects.size) { false },
+                    isSelectionMode = false,
                 )
             }
-        }
-    }
-
-    fun openDeleteWarningDialog() {
-        closeSelectModelDialog()
-        _showDeleteWarningDialog.update { true }
-    }
-
-    fun closeDeleteWarningDialog() {
-        _showDeleteWarningDialog.update { false }
-    }
-
-    fun openSelectModelDialog() {
-        _showSelectModelDialog.update { true }
-        disableSelectionMode()
-    }
-
-    fun closeSelectModelDialog() {
-        _showSelectModelDialog.update { false }
-        _chatListState.update { it.copy(selectedPlatforms = List(it.selectedPlatforms.size) { false }) }
-    }
-
-    fun deleteSelectedChats() {
-        viewModelScope.launch {
-            val selectedChats = _chatListState.value.chats.filterIndexed { index, _ ->
-                _chatListState.value.selectedChats[index]
-            }
-
-            chatRepository.deleteChatsV2(selectedChats)
-            _chatListState.update { it.copy(chats = chatRepository.fetchChatListV2()) }
-            disableSelectionMode()
-        }
-    }
-
-    fun disableSelectionMode() {
-        _chatListState.update {
-            it.copy(
-                selectedChats = List(it.chats.size) { false },
-                isSelectionMode = false
-            )
-        }
-    }
-
-    fun disableSearchMode() {
-        _chatListState.update { it.copy(isSearchMode = false) }
-        _searchQuery.update { "" }
-    }
-
-    fun enableSelectionMode() {
-        disableSearchMode()
-        _chatListState.update { it.copy(isSelectionMode = true) }
-    }
-
-    fun enableSearchMode() {
-        disableSelectionMode()
-        _chatListState.update { it.copy(isSearchMode = true) }
-    }
-
-    fun fetchChats() {
-        viewModelScope.launch {
-            val chats = chatRepository.fetchChatListV2()
-
-            _chatListState.update {
-                it.copy(
-                    chats = chats,
-                    selectedChats = List(chats.size) { false },
-                    isSelectionMode = false
-                )
-            }
-
-            Log.d("chats", "${_chatListState.value.chats}")
+            Log.d("HomeViewModel", "Loaded ${projects.size} projects")
         }
     }
 
@@ -170,29 +90,121 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val platforms = settingRepository.fetchPlatformV2s()
             _platformState.update { platforms }
+        }
+    }
 
-            if (_chatListState.value.selectedPlatforms.size != platforms.size) {
-                _chatListState.update { it.copy(selectedPlatforms = List(platforms.size) { false }) }
+    fun createNewProject() {
+        val enabledPlatforms = _platformState.value.filter { it.enabled }.map { it.uid }
+        if (enabledPlatforms.isEmpty()) return
+
+        viewModelScope.launch {
+            _projectListState.update {
+                it.copy(creationState = ProjectCreationState.InProgress(""))
+            }
+            runCatching {
+                projectManager.createProject(enabledPlatforms = enabledPlatforms)
+            }.onSuccess { project ->
+                _projectListState.update {
+                    it.copy(
+                        creationState = ProjectCreationState.Idle,
+                        navigationEvent = NavigationEvent.OpenProject(
+                            chatId = project.chatId,
+                            enabledPlatforms = enabledPlatforms,
+                        ),
+                    )
+                }
+            }.onFailure { e ->
+                Log.e("HomeViewModel", "Failed to create project", e)
+                _projectListState.update {
+                    it.copy(creationState = ProjectCreationState.Failed(e.message ?: "Unknown error"))
+                }
             }
         }
     }
 
-    fun selectChat(chatRoomIdx: Int) {
-        if (chatRoomIdx < 0 || chatRoomIdx > _chatListState.value.chats.size) return
+    fun consumeNavigationEvent() {
+        _projectListState.update { it.copy(navigationEvent = null) }
+    }
 
-        _chatListState.update {
+    fun updateSearchQuery(query: String) {
+        _searchQuery.update { query }
+    }
+
+    private fun searchProjects(query: String) {
+        viewModelScope.launch {
+            val results = if (query.isBlank()) {
+                projectRepository.fetchProjects()
+            } else {
+                projectRepository.searchProjects(query)
+            }
+            _projectListState.update {
+                it.copy(
+                    projects = results,
+                    selectedProjects = List(results.size) { false },
+                )
+            }
+        }
+    }
+
+    fun openDeleteWarningDialog() {
+        _showDeleteWarningDialog.update { true }
+    }
+
+    fun closeDeleteWarningDialog() {
+        _showDeleteWarningDialog.update { false }
+    }
+
+    fun deleteSelectedProjects() {
+        viewModelScope.launch {
+            val toDelete = _projectListState.value.projects
+                .filterIndexed { idx, _ -> _projectListState.value.selectedProjects.getOrElse(idx) { false } }
+
+            toDelete.forEach { pwc ->
+                projectManager.deleteProject(pwc.project.projectId)
+            }
+
+            disableSelectionMode()
+            fetchProjects()
+        }
+    }
+
+    fun disableSelectionMode() {
+        _projectListState.update {
             it.copy(
-                selectedChats = it.selectedChats.mapIndexed { index, b ->
-                    if (index == chatRoomIdx) {
-                        !b
-                    } else {
-                        b
-                    }
-                }
+                selectedProjects = List(it.projects.size) { false },
+                isSelectionMode = false,
+            )
+        }
+    }
+
+    fun disableSearchMode() {
+        _projectListState.update { it.copy(isSearchMode = false) }
+        _searchQuery.update { "" }
+        fetchProjects()
+    }
+
+    fun enableSelectionMode() {
+        disableSearchMode()
+        _projectListState.update { it.copy(isSelectionMode = true) }
+    }
+
+    fun enableSearchMode() {
+        disableSelectionMode()
+        _projectListState.update { it.copy(isSearchMode = true) }
+    }
+
+    fun selectProject(projectIdx: Int) {
+        if (projectIdx < 0 || projectIdx >= _projectListState.value.projects.size) return
+
+        _projectListState.update {
+            it.copy(
+                selectedProjects = it.selectedProjects.mapIndexed { index, b ->
+                    if (index == projectIdx) !b else b
+                },
             )
         }
 
-        if (_chatListState.value.selectedChats.count { it } == 0) {
+        if (_projectListState.value.selectedProjects.count { it } == 0) {
             disableSelectionMode()
         }
     }

@@ -131,6 +131,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                             chatId = request.chatId,
                             platformUid = request.platform.uid,
                             iteration = iteration,
+                            projectId = request.projectId ?: "",
                         ),
                     )
                 }.getOrElse { error ->

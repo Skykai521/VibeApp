@@ -271,4 +271,15 @@
     <string name="platform_added_successfully">Platform added successfully</string>
     <string name="at_least_one_platform_required">Add at least one platform to continue</string>
     <string name="remove">Remove</string>
+
+    <!-- Project management strings -->
+    <string name="projects">Projects</string>
+    <string name="new_project">New Project</string>
+    <string name="search_projects">Search projects</string>
+    <string name="projects_selected">%d selected</string>
+    <string name="delete_selected_projects">Delete selected projects?</string>
+    <string name="deleted_projects">Deleted %d projects.</string>
+    <string name="project_initializing">Initializing project…</string>
+    <string name="project_ready">Ready</string>
+    <string name="no_projects_yet">No projects yet</string>
 </resources>

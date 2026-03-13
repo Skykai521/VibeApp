@@ -65,6 +65,64 @@ class ProjectInitializer @Inject constructor(
         buildProject(project)
     }
 
+    /**
+     * Prepares a project-specific workspace by copying the extracted template into
+     * `filesDir/projects/{projectId}/app`. Does NOT build the project.
+     *
+     * Callers should call this from a background coroutine.
+     */
+    suspend fun prepareProjectWorkspace(projectId: String): TemplateProject = withContext(Dispatchers.IO) {
+        // Ensure the shared template is extracted first
+        val template = ensureTemplateProject()
+
+        val targetAppDir = File(context.filesDir, "projects/$projectId/app")
+        if (targetAppDir.exists()) {
+            Log.d(tag, "Workspace for $projectId already exists, skipping copy")
+        } else {
+            Log.d(tag, "Copying template to projects/$projectId/app")
+            targetAppDir.parentFile?.mkdirs()
+            template.appModuleDir.copyRecursively(targetAppDir, overwrite = true)
+            deleteIgnoredFiles(targetAppDir)
+            Log.d(tag, "Workspace copy done for $projectId")
+        }
+
+        TemplateProject(
+            projectId = projectId,
+            projectName = TEMPLATE_PROJECT_NAME,
+            packageName = TEMPLATE_PACKAGE_NAME,
+            appModuleDir = targetAppDir,
+            minSdk = TEMPLATE_MIN_SDK,
+            targetSdk = TEMPLATE_TARGET_SDK,
+        )
+    }
+
+    /**
+     * Returns a [TemplateProject] pointing to the project-specific workspace.
+     * Throws if the workspace does not exist yet.
+     */
+    suspend fun ensureProject(projectId: String): TemplateProject = withContext(Dispatchers.IO) {
+        val appModuleDir = File(context.filesDir, "projects/$projectId/app")
+        require(appModuleDir.exists()) {
+            "Workspace for project $projectId does not exist. Call prepareProjectWorkspace first."
+        }
+        TemplateProject(
+            projectId = projectId,
+            projectName = TEMPLATE_PROJECT_NAME,
+            packageName = TEMPLATE_PACKAGE_NAME,
+            appModuleDir = appModuleDir,
+            minSdk = TEMPLATE_MIN_SDK,
+            targetSdk = TEMPLATE_TARGET_SDK,
+        )
+    }
+
+    /**
+     * Builds the project-specific workspace.
+     */
+    suspend fun buildProject(projectId: String): BuildResult = withContext(Dispatchers.IO) {
+        val project = ensureProject(projectId)
+        buildProject(project)
+    }
+
     private suspend fun buildProject(project: TemplateProject): BuildResult {
         return buildPipeline.run(project.toCompileInput())
     }

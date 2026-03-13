@@ -55,6 +55,7 @@ data class AgentToolResult(
 
 data class AgentLoopRequest(
     val chatId: Int,
+    val projectId: String? = null,
     val platform: PlatformV2,
     val userMessages: List<MessageV2>,
     val assistantMessages: List<List<MessageV2>>,

@@ -10,6 +10,7 @@ import com.vibe.app.data.database.entity.MessageV2
 import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.repository.ChatRepository
+import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
 import com.vibe.app.feature.agent.AgentLoopCoordinator
 import com.vibe.app.feature.agent.AgentLoopEvent
@@ -29,6 +30,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
     private val settingRepository: SettingRepository,
+    private val projectRepository: ProjectRepository,
     private val agentLoopCoordinator: AgentLoopCoordinator,
     private val agentToolRegistry: AgentToolRegistry,
 ) : ViewModel() {
@@ -45,6 +47,8 @@ class ChatViewModel @Inject constructor(
     private val chatRoomId: Int = checkNotNull(savedStateHandle["chatRoomId"])
     private val enabledPlatformString: String = checkNotNull(savedStateHandle["enabledPlatforms"])
     val enabledPlatformsInChat = enabledPlatformString.split(',')
+
+    private var currentProjectId: String? = null
 
     private val currentTimeStamp: Long
         get() = System.currentTimeMillis() / 1000
@@ -115,6 +119,11 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { fetchMessages() }
         fetchEnabledPlatformsInApp()
         observeStateChanges()
+        viewModelScope.launch {
+            if (chatRoomId != 0) {
+                currentProjectId = projectRepository.fetchProjectByChatId(chatRoomId)?.projectId
+            }
+        }
     }
 
     fun addMessage(userMessage: MessageV2) {
@@ -497,7 +506,9 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
-        return enabledPlatformsInChat.size == 1 && platform.compatibleType == ClientType.OPENAI
+        return enabledPlatformsInChat.size == 1 &&
+            (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC) &&
+            currentProjectId != null
     }
 
     private suspend fun runAgentLoop(
@@ -507,6 +518,7 @@ class ChatViewModel @Inject constructor(
         agentLoopCoordinator.run(
             AgentLoopRequest(
                 chatId = chatRoomId,
+                projectId = currentProjectId,
                 platform = platform,
                 userMessages = _groupedMessages.value.userMessages,
                 assistantMessages = _groupedMessages.value.assistantMessages,

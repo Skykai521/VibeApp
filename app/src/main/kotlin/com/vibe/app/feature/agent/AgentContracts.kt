@@ -16,6 +16,7 @@ data class AgentToolContext(
     val chatId: Int,
     val platformUid: String,
     val iteration: Int,
+    val projectId: String,
 )
 
 interface AgentToolRegistry {

@@ -6,19 +6,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Delete
@@ -26,7 +21,9 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -56,112 +53,113 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibe.app.R
-import com.vibe.app.data.database.entity.ChatRoomV2
-import com.vibe.app.data.database.entity.PlatformV2
-import com.vibe.app.presentation.common.PlatformCheckBoxItem
-import com.vibe.app.util.getPlatformName
+import com.vibe.app.data.database.entity.ProjectBuildStatus
+import com.vibe.app.data.database.entity.ProjectWithChat
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     homeViewModel: HomeViewModel = hiltViewModel(),
     settingOnClick: () -> Unit,
-    onExistingChatClick: (ChatRoomV2) -> Unit,
-    navigateToNewChat: (enabledPlatforms: List<String>) -> Unit
+    onProjectClick: (chatId: Int, enabledPlatforms: List<String>) -> Unit,
+    navigateToChat: (chatId: Int, enabledPlatforms: List<String>) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val chatListState by homeViewModel.chatListState.collectAsStateWithLifecycle()
-    val showSelectModelDialog by homeViewModel.showSelectModelDialog.collectAsStateWithLifecycle()
+    val projectListState by homeViewModel.projectListState.collectAsStateWithLifecycle()
     val showDeleteWarningDialog by homeViewModel.showDeleteWarningDialog.collectAsStateWithLifecycle()
-    val platformState by homeViewModel.platformState.collectAsStateWithLifecycle()
     val searchQuery by homeViewModel.searchQuery.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // Handle navigation events from ViewModel
+    LaunchedEffect(projectListState.navigationEvent) {
+        projectListState.navigationEvent?.let { event ->
+            when (event) {
+                is HomeViewModel.NavigationEvent.OpenProject -> {
+                    navigateToChat(event.chatId, event.enabledPlatforms)
+                    homeViewModel.consumeNavigationEvent()
+                }
+            }
+        }
+    }
+
     LaunchedEffect(lifecycleState) {
-        if (lifecycleState == Lifecycle.State.RESUMED && !chatListState.isSelectionMode && !chatListState.isSearchMode) {
-            homeViewModel.fetchChats()
+        if (lifecycleState == Lifecycle.State.RESUMED &&
+            !projectListState.isSelectionMode &&
+            !projectListState.isSearchMode
+        ) {
+            homeViewModel.fetchProjects()
             homeViewModel.fetchPlatformStatus()
         }
     }
 
-    BackHandler(enabled = chatListState.isSelectionMode || chatListState.isSearchMode) {
+    BackHandler(enabled = projectListState.isSelectionMode || projectListState.isSearchMode) {
         when {
-            chatListState.isSelectionMode -> homeViewModel.disableSelectionMode()
-            chatListState.isSearchMode -> homeViewModel.disableSearchMode()
+            projectListState.isSelectionMode -> homeViewModel.disableSelectionMode()
+            projectListState.isSearchMode -> homeViewModel.disableSearchMode()
         }
     }
 
     Scaffold(
-        modifier = Modifier
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             HomeTopAppBar(
-                isSelectionMode = chatListState.isSelectionMode,
-                isSearchMode = chatListState.isSearchMode,
-                selectedChats = chatListState.selectedChats.count { it },
+                isSelectionMode = projectListState.isSelectionMode,
+                isSearchMode = projectListState.isSearchMode,
+                selectedCount = projectListState.selectedProjects.count { it },
                 scrollBehavior = scrollBehavior,
                 actionOnClick = {
-                    if (chatListState.isSelectionMode) {
+                    if (projectListState.isSelectionMode) {
                         homeViewModel.openDeleteWarningDialog()
                     } else {
                         settingOnClick()
                     }
                 },
                 navigationOnClick = {
-                    if (chatListState.isSelectionMode) {
+                    if (projectListState.isSelectionMode) {
                         homeViewModel.disableSelectionMode()
                         return@HomeTopAppBar
                     }
-
-                    if (chatListState.isSearchMode) {
+                    if (projectListState.isSearchMode) {
                         homeViewModel.disableSearchMode()
                     } else {
                         homeViewModel.enableSearchMode()
                     }
                 },
                 onSearchQueryChanged = homeViewModel::updateSearchQuery,
-                searchQuery = searchQuery
+                searchQuery = searchQuery,
             )
         },
         floatingActionButton = {
-            if (!chatListState.isSelectionMode && !chatListState.isSearchMode) {
-                NewChatButton(expanded = listState.isScrollingUp(), onClick = {
-                    val enabledApiTypes = platformState.filter { it.enabled }.map { it.uid }
-                    if (enabledApiTypes.size == 1) {
-                        // Navigate to new chat directly if only one platform is enabled
-                        navigateToNewChat(enabledApiTypes)
-                    } else {
-                        homeViewModel.openSelectModelDialog()
-                    }
-                })
+            if (!projectListState.isSelectionMode && !projectListState.isSearchMode) {
+                NewProjectButton(
+                    expanded = listState.isScrollingUp(),
+                    isCreating = projectListState.creationState is HomeViewModel.ProjectCreationState.InProgress,
+                    onClick = { homeViewModel.createNewProject() },
+                )
             }
-        }
+        },
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.padding(innerPadding),
-            state = listState
+            state = listState,
         ) {
-            if (!chatListState.isSearchMode) {
-                item { ChatsTitle(scrollBehavior) }
+            if (!projectListState.isSearchMode) {
+                item { ProjectsTitle(scrollBehavior) }
             }
-            if (chatListState.isSearchMode && chatListState.chats.isEmpty() && searchQuery.isNotEmpty()) {
+            if (projectListState.isSearchMode && projectListState.projects.isEmpty() && searchQuery.isNotEmpty()) {
                 item {
                     Text(
                         modifier = Modifier
@@ -170,95 +168,133 @@ fun HomeScreen(
                         text = stringResource(R.string.no_search_results),
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            itemsIndexed(chatListState.chats, key = { _, it -> it.id }) { idx, chatRoom ->
-                val usingPlatform = chatRoom.enabledPlatform.joinToString(", ") { uid -> platformState.getPlatformName(uid) }
-                ListItem(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onLongClick = {
-                                if (!chatListState.isSearchMode) {
-                                    homeViewModel.enableSelectionMode()
-                                    homeViewModel.selectChat(idx)
-                                }
-                            },
-                            onClick = {
-                                if (chatListState.isSelectionMode) {
-                                    homeViewModel.selectChat(idx)
-                                } else {
-                                    onExistingChatClick(chatRoom)
-                                }
-                            }
-                        )
-                        .padding(start = 8.dp, end = 8.dp)
-                        .animateItem(),
-                    headlineContent = { Text(text = chatRoom.title) },
-                    leadingContent = {
-                        if (chatListState.isSelectionMode) {
-                            Checkbox(
-                                checked = chatListState.selectedChats[idx],
-                                onCheckedChange = { homeViewModel.selectChat(idx) }
-                            )
-                        } else {
-                            Icon(
-                                ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
-                                contentDescription = stringResource(R.string.chat_icon)
-                            )
+            itemsIndexed(projectListState.projects, key = { _, it -> it.project.projectId }) { idx, pwc ->
+                ProjectListItem(
+                    pwc = pwc,
+                    isSelectionMode = projectListState.isSelectionMode,
+                    isSelected = projectListState.selectedProjects.getOrElse(idx) { false },
+                    onLongClick = {
+                        if (!projectListState.isSearchMode) {
+                            homeViewModel.enableSelectionMode()
+                            homeViewModel.selectProject(idx)
                         }
                     },
-                    supportingContent = { Text(text = stringResource(R.string.using_certain_platform, usingPlatform)) }
+                    onClick = {
+                        if (projectListState.isSelectionMode) {
+                            homeViewModel.selectProject(idx)
+                        } else {
+                            onProjectClick(pwc.project.chatId, pwc.chat.enabledPlatform)
+                        }
+                    },
                 )
+                if (idx < projectListState.projects.lastIndex) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                }
             }
-        }
-
-        if (showSelectModelDialog) {
-            SelectPlatformDialog(
-                platformState,
-                selectedPlatforms = chatListState.selectedPlatforms,
-                onDismissRequest = { homeViewModel.closeSelectModelDialog() },
-                onConfirmation = {
-                    navigateToNewChat(it)
-                    homeViewModel.closeSelectModelDialog()
-                },
-                onPlatformSelect = { homeViewModel.updatePlatformCheckedState(it) }
-            )
         }
 
         if (showDeleteWarningDialog) {
             DeleteWarningDialog(
                 onDismissRequest = homeViewModel::closeDeleteWarningDialog,
                 onConfirm = {
-                    val deletedChatRoomCount = chatListState.selectedChats.count { it }
-                    homeViewModel.deleteSelectedChats()
-                    Toast.makeText(context, context.getString(R.string.deleted_chats, deletedChatRoomCount), Toast.LENGTH_SHORT).show()
+                    val deletedCount = projectListState.selectedProjects.count { it }
+                    homeViewModel.deleteSelectedProjects()
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.deleted_projects, deletedCount),
+                        Toast.LENGTH_SHORT,
+                    ).show()
                     homeViewModel.closeDeleteWarningDialog()
-                }
+                },
             )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ProjectListItem(
+    pwc: ProjectWithChat,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onLongClick = onLongClick, onClick = onClick)
+            .padding(start = 8.dp, end = 8.dp),
+        headlineContent = {
+            Text(text = pwc.project.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        leadingContent = {
+            if (isSelectionMode) {
+                Checkbox(checked = isSelected, onCheckedChange = { onClick() })
+            } else {
+                Icon(
+                    ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
+                    contentDescription = null,
+                )
+            }
+        },
+        trailingContent = {
+            BuildStatusBadge(status = pwc.project.buildStatus)
+        },
+        supportingContent = {
+            Text(
+                text = pwc.chat.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+    )
+}
+
+@Composable
+private fun BuildStatusBadge(status: ProjectBuildStatus) {
+    when (status) {
+        ProjectBuildStatus.INITIALIZING -> CircularProgressIndicator(
+            modifier = Modifier.padding(4.dp),
+            strokeWidth = 2.dp,
+        )
+        ProjectBuildStatus.SUCCESS -> Badge(containerColor = MaterialTheme.colorScheme.tertiary) {
+            Text("\u2713")
+        }
+        ProjectBuildStatus.FAILED -> Badge(containerColor = MaterialTheme.colorScheme.error) {
+            Text("!")
+        }
+        ProjectBuildStatus.BUILDING -> CircularProgressIndicator(
+            modifier = Modifier.padding(4.dp),
+            strokeWidth = 2.dp,
+        )
+        ProjectBuildStatus.READY -> Unit
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopAppBar(
+private fun HomeTopAppBar(
     isSelectionMode: Boolean,
     isSearchMode: Boolean,
-    selectedChats: Int,
+    selectedCount: Int,
     scrollBehavior: TopAppBarScrollBehavior,
     actionOnClick: () -> Unit,
     navigationOnClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
-    searchQuery: String
+    searchQuery: String,
 ) {
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
             scrolledContainerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else Color.Unspecified,
             containerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.background,
-            titleContentColor = if (isSelectionMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground
+            titleContentColor = if (isSelectionMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onBackground,
         ),
         title = {
             when {
@@ -267,127 +303,126 @@ fun HomeTopAppBar(
                         value = searchQuery,
                         onValueChange = onSearchQueryChanged,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.search_chats)) },
+                        placeholder = { Text(stringResource(R.string.search_projects)) },
                         singleLine = true,
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
+                            unfocusedIndicatorColor = Color.Transparent,
                         ),
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { onSearchQueryChanged("") }) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = stringResource(R.string.clear)
-                                    )
+                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.clear))
                                 }
                             }
-                        }
+                        },
                     )
                 }
-
                 isSelectionMode -> {
                     Text(
                         modifier = Modifier.padding(4.dp),
-                        text = stringResource(R.string.chats_selected, selectedChats),
+                        text = stringResource(R.string.projects_selected, selectedCount),
                         maxLines = 1,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-
                 else -> {
                     Text(
                         modifier = Modifier.padding(4.dp),
-                        text = stringResource(R.string.chats),
+                        text = stringResource(R.string.projects),
                         maxLines = 1,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = scrollBehavior.state.overlappedFraction),
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         },
         navigationIcon = {
             when {
-                isSelectionMode -> {
-                    IconButton(
-                        modifier = Modifier.padding(4.dp),
-                        onClick = navigationOnClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            contentDescription = stringResource(R.string.close)
-                        )
-                    }
+                isSelectionMode -> IconButton(modifier = Modifier.padding(4.dp), onClick = navigationOnClick) {
+                    Icon(Icons.Rounded.Close, tint = MaterialTheme.colorScheme.onPrimaryContainer, contentDescription = stringResource(R.string.close))
                 }
-
-                isSearchMode -> {
-                    IconButton(
-                        modifier = Modifier.padding(4.dp),
-                        onClick = navigationOnClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.close)
-                        )
-                    }
+                isSearchMode -> IconButton(modifier = Modifier.padding(4.dp), onClick = navigationOnClick) {
+                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close))
                 }
-
-                else -> {
-                    IconButton(
-                        modifier = Modifier.padding(4.dp),
-                        onClick = navigationOnClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = stringResource(R.string.search_chats)
-                        )
-                    }
+                else -> IconButton(modifier = Modifier.padding(4.dp), onClick = navigationOnClick) {
+                    Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.search_projects))
                 }
             }
         },
         actions = {
             when {
-                isSelectionMode -> {
-                    IconButton(
-                        modifier = Modifier.padding(4.dp),
-                        onClick = actionOnClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            contentDescription = stringResource(R.string.delete)
-                        )
-                    }
+                isSelectionMode -> IconButton(modifier = Modifier.padding(4.dp), onClick = actionOnClick) {
+                    Icon(Icons.Outlined.Delete, tint = MaterialTheme.colorScheme.onPrimaryContainer, contentDescription = stringResource(R.string.delete))
                 }
-
-                !isSearchMode -> {
-                    IconButton(
-                        modifier = Modifier.padding(4.dp),
-                        onClick = actionOnClick
-                    ) {
-                        Icon(imageVector = Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
-                    }
+                !isSearchMode -> IconButton(modifier = Modifier.padding(4.dp), onClick = actionOnClick) {
+                    Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                 }
             }
         },
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChatsTitle(scrollBehavior: TopAppBarScrollBehavior) {
+private fun ProjectsTitle(scrollBehavior: TopAppBarScrollBehavior) {
     Text(
         modifier = Modifier
             .padding(top = 32.dp)
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        text = stringResource(R.string.chats),
+        text = stringResource(R.string.projects),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 1.0F - scrollBehavior.state.overlappedFraction),
-        style = MaterialTheme.typography.headlineLarge
+        style = MaterialTheme.typography.headlineLarge,
+    )
+}
+
+@Composable
+private fun NewProjectButton(
+    modifier: Modifier = Modifier,
+    expanded: Boolean = true,
+    isCreating: Boolean = false,
+    onClick: () -> Unit = {},
+) {
+    val orientation = LocalConfiguration.current.orientation
+    val fabModifier = if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        modifier.systemBarsPadding()
+    } else {
+        modifier
+    }
+    ExtendedFloatingActionButton(
+        modifier = fabModifier,
+        onClick = { if (!isCreating) onClick() },
+        expanded = expanded,
+        icon = {
+            if (isCreating) {
+                CircularProgressIndicator(strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.new_project))
+            }
+        },
+        text = { Text(text = stringResource(R.string.new_project)) },
+    )
+}
+
+@Composable
+private fun DeleteWarningDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(R.string.delete_selected_projects)) },
+        text = { Text(stringResource(R.string.this_operation_can_t_be_undone)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.delete)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) { Text(stringResource(R.string.cancel)) }
+        },
     )
 }
 
@@ -407,145 +442,4 @@ private fun LazyListState.isScrollingUp(): Boolean {
             }
         }
     }.value
-}
-
-@Preview
-@Composable
-fun NewChatButton(
-    modifier: Modifier = Modifier,
-    expanded: Boolean = true,
-    onClick: () -> Unit = { }
-) {
-    val orientation = LocalConfiguration.current.orientation
-    val fabModifier = if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-        modifier.systemBarsPadding()
-    } else {
-        modifier
-    }
-    ExtendedFloatingActionButton(
-        modifier = fabModifier,
-        onClick = { onClick() },
-        expanded = expanded,
-        icon = { Icon(Icons.Filled.Add, stringResource(R.string.new_chat)) },
-        text = { Text(text = stringResource(R.string.new_chat)) }
-    )
-}
-
-@Composable
-fun SelectPlatformDialog(
-    platforms: List<PlatformV2>,
-    selectedPlatforms: List<Boolean>,
-    onDismissRequest: () -> Unit,
-    onConfirmation: (enabledPlatforms: List<String>) -> Unit,
-    onPlatformSelect: (idx: Int) -> Unit
-) {
-    val configuration = LocalWindowInfo.current
-    val screenWidth = with(LocalDensity.current) { configuration.containerSize.width.toDp() }
-    val screenHeight = with(LocalDensity.current) { configuration.containerSize.height.toDp() }
-
-    AlertDialog(
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier
-            .widthIn(max = screenWidth - 40.dp)
-            .heightIn(max = screenHeight - 80.dp),
-        onDismissRequest = onDismissRequest,
-        title = {
-            Column {
-                Text(
-                    text = stringResource(R.string.select_platform),
-                    modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                Text(
-                    text = stringResource(R.string.select_platform_description),
-                    modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        },
-        text = {
-            HorizontalDivider()
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                if (platforms.any { it.enabled }) {
-                    platforms.forEachIndexed { i, platform ->
-                        PlatformCheckBoxItem(
-                            title = platform.name,
-                            enabled = platform.enabled,
-                            selected = selectedPlatforms[i],
-                            description = null,
-                            onClickEvent = { onPlatformSelect(i) }
-                        )
-                    }
-                } else {
-                    EnablePlatformWarningText()
-                }
-                HorizontalDivider(Modifier.padding(top = 8.dp))
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = selectedPlatforms.any { it },
-                onClick = { onConfirmation(platforms.filterIndexed { i, _ -> selectedPlatforms[i] }.map { it.uid }) }
-            ) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = { onDismissRequest() }
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-@Preview
-@Composable
-fun EnablePlatformWarningText() {
-    Text(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .wrapContentHeight(align = Alignment.CenterVertically)
-            .padding(16.dp),
-        textAlign = TextAlign.Center,
-        text = stringResource(R.string.enable_at_leat_one_platform)
-    )
-}
-
-@Composable
-fun DeleteWarningDialog(
-    onDismissRequest: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    val configuration = LocalWindowInfo.current
-    val screenWidth = with(LocalDensity.current) { configuration.containerSize.width.toDp() }
-    val screenHeight = with(LocalDensity.current) { configuration.containerSize.height.toDp() }
-    AlertDialog(
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-        modifier = Modifier
-            .widthIn(max = screenWidth - 40.dp)
-            .heightIn(max = screenHeight - 80.dp),
-        title = {
-            Text(
-                text = stringResource(R.string.delete_selected_chats),
-                style = MaterialTheme.typography.headlineSmall
-            )
-        },
-        text = {
-            Text(stringResource(R.string.this_operation_can_t_be_undone))
-        },
-        onDismissRequest = onDismissRequest,
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
 }

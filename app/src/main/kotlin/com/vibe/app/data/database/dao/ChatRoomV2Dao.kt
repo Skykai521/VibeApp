@@ -13,6 +13,9 @@ interface ChatRoomV2Dao {
     @Query("SELECT * FROM chats_v2 ORDER BY updated_at DESC")
     suspend fun getChatRooms(): List<ChatRoomV2>
 
+    @Query("SELECT * FROM chats_v2 WHERE chat_id = :chatId")
+    suspend fun getChatRoomById(chatId: Int): ChatRoomV2?
+
     @Query("SELECT * FROM chats_v2 WHERE title LIKE '%' || :query || '%' ORDER BY updated_at DESC")
     suspend fun searchChatRoomsByTitle(query: String): List<ChatRoomV2>
 

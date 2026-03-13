@@ -17,6 +17,7 @@ import com.vibe.app.data.database.dao.ChatRoomV2Dao
 import com.vibe.app.data.database.dao.MessageDao
 import com.vibe.app.data.database.dao.MessageV2Dao
 import com.vibe.app.data.database.dao.PlatformV2Dao
+import com.vibe.app.data.database.dao.ProjectDao
 import javax.inject.Singleton
 
 @Module
@@ -24,6 +25,27 @@ import javax.inject.Singleton
 object DatabaseModule {
     private const val DB_NAME = "chat"
     private const val DB_NAME_V2 = "chat_v2"
+    private val MIGRATION_CHAT_DB_V2_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `projects` (
+                    `project_id` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `chat_id` INTEGER NOT NULL,
+                    `workspace_path` TEXT NOT NULL,
+                    `build_status` TEXT NOT NULL,
+                    `last_built_at` INTEGER,
+                    `created_at` INTEGER NOT NULL,
+                    `updated_at` INTEGER NOT NULL,
+                    PRIMARY KEY(`project_id`),
+                    FOREIGN KEY(`chat_id`) REFERENCES `chats_v2`(`chat_id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
     private val MIGRATION_CHAT_DB_V2_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(
@@ -76,6 +98,9 @@ object DatabaseModule {
     }
 
     @Provides
+    fun provideProjectDao(chatDatabaseV2: ChatDatabaseV2): ProjectDao = chatDatabaseV2.projectDao()
+
+    @Provides
     fun provideChatPlatformModelV2Dao(chatDatabaseV2: ChatDatabaseV2): ChatPlatformModelV2Dao = chatDatabaseV2.chatPlatformModelDao()
 
     @Provides
@@ -108,6 +133,7 @@ object DatabaseModule {
         ChatDatabaseV2::class.java,
         DB_NAME_V2
     ).addMigrations(
-        MIGRATION_CHAT_DB_V2_1_2
+        MIGRATION_CHAT_DB_V2_1_2,
+        MIGRATION_CHAT_DB_V2_2_3,
     ).build()
 }

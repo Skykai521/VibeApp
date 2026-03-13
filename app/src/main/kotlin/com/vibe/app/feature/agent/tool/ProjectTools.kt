@@ -1,12 +1,13 @@
 package com.vibe.app.feature.agent.tool
 
+import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.agent.AgentTool
+import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
-import com.vibe.app.feature.agent.AgentToolResult
-import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolRegistry
-import com.vibe.app.feature.projectinit.ProjectWorkspaceService
+import com.vibe.app.feature.agent.AgentToolResult
+import com.vibe.app.feature.project.ProjectManager
 import com.vibe.build.engine.model.BuildResult
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,10 +23,11 @@ import kotlinx.serialization.json.jsonPrimitive
 private const val READ_PROJECT_FILE = "read_project_file"
 private const val WRITE_PROJECT_FILE = "write_project_file"
 private const val RUN_BUILD_PIPELINE = "run_build_pipeline"
+private const val RENAME_PROJECT = "rename_project"
 
 @Singleton
 class ReadProjectFileTool @Inject constructor(
-    private val projectWorkspaceService: ProjectWorkspaceService,
+    private val projectManager: ProjectManager,
 ) : AgentTool {
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
@@ -50,12 +52,10 @@ class ReadProjectFileTool @Inject constructor(
         },
     )
 
-    override suspend fun execute(
-        call: AgentToolCall,
-        context: AgentToolContext,
-    ): AgentToolResult {
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         val path = call.arguments.requireString("path")
-        val content = projectWorkspaceService.readTextFile(path)
+        val workspace = projectManager.openWorkspace(context.projectId)
+        val content = workspace.readTextFile(path)
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
@@ -69,7 +69,7 @@ class ReadProjectFileTool @Inject constructor(
 
 @Singleton
 class WriteProjectFileTool @Inject constructor(
-    private val projectWorkspaceService: ProjectWorkspaceService,
+    private val projectManager: ProjectManager,
 ) : AgentTool {
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
@@ -80,40 +80,23 @@ class WriteProjectFileTool @Inject constructor(
             put(
                 "properties",
                 buildJsonObject {
-                    put(
-                        "path",
-                        buildJsonObject {
-                            put("type", JsonPrimitive("string"))
-                        },
-                    )
-                    put(
-                        "content",
-                        buildJsonObject {
-                            put("type", JsonPrimitive("string"))
-                        },
-                    )
+                    put("path", buildJsonObject { put("type", JsonPrimitive("string")) })
+                    put("content", buildJsonObject { put("type", JsonPrimitive("string")) })
                 },
             )
             put(
                 "required",
-                JsonArray(
-                    listOf(
-                        JsonPrimitive("path"),
-                        JsonPrimitive("content"),
-                    ),
-                ),
+                JsonArray(listOf(JsonPrimitive("path"), JsonPrimitive("content"))),
             )
             put("additionalProperties", JsonPrimitive(false))
         },
     )
 
-    override suspend fun execute(
-        call: AgentToolCall,
-        context: AgentToolContext,
-    ): AgentToolResult {
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         val path = call.arguments.requireString("path")
         val content = call.arguments.requireString("content")
-        projectWorkspaceService.writeTextFile(path, content)
+        val workspace = projectManager.openWorkspace(context.projectId)
+        workspace.writeTextFile(path, content)
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
@@ -128,7 +111,7 @@ class WriteProjectFileTool @Inject constructor(
 
 @Singleton
 class RunBuildPipelineTool @Inject constructor(
-    private val projectWorkspaceService: ProjectWorkspaceService,
+    private val projectManager: ProjectManager,
 ) : AgentTool {
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
@@ -141,11 +124,9 @@ class RunBuildPipelineTool @Inject constructor(
         },
     )
 
-    override suspend fun execute(
-        call: AgentToolCall,
-        context: AgentToolContext,
-    ): AgentToolResult {
-        val result = projectWorkspaceService.buildProject()
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val workspace = projectManager.openWorkspace(context.projectId)
+        val result = workspace.buildProject()
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
@@ -156,16 +137,70 @@ class RunBuildPipelineTool @Inject constructor(
 }
 
 @Singleton
+class RenameProjectTool @Inject constructor(
+    private val projectRepository: ProjectRepository,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = RENAME_PROJECT,
+        description = "Rename the current project to a short, descriptive name that reflects what the user is building. " +
+            "Call this ONCE when you understand the user's intent from their first message. " +
+            "Use a concise name like 'Calculator App', 'Todo List', 'Weather App'.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "name",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("string"))
+                            put("description", JsonPrimitive("A short descriptive project name, max 30 characters."))
+                            put("maxLength", JsonPrimitive(30))
+                        },
+                    )
+                },
+            )
+            put("required", JsonArray(listOf(JsonPrimitive("name"))))
+            put("additionalProperties", JsonPrimitive(false))
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val name = call.arguments.requireString("name").take(30)
+        if (context.projectId.isBlank()) {
+            return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject { put("error", JsonPrimitive("No project context available")) },
+                isError = true,
+            )
+        }
+        projectRepository.renameProject(context.projectId, name)
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                put("renamed", JsonPrimitive(true))
+                put("name", JsonPrimitive(name))
+            },
+        )
+    }
+}
+
+@Singleton
 class DefaultAgentToolRegistry @Inject constructor(
     readProjectFileTool: ReadProjectFileTool,
     writeProjectFileTool: WriteProjectFileTool,
     runBuildPipelineTool: RunBuildPipelineTool,
+    renameProjectTool: RenameProjectTool,
 ) : AgentToolRegistry {
 
     private val tools = listOf(
         readProjectFileTool,
         writeProjectFileTool,
         runBuildPipelineTool,
+        renameProjectTool,
     )
 
     override fun listDefinitions(): List<AgentToolDefinition> = tools.map { it.definition }
