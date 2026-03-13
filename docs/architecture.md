@@ -6,15 +6,15 @@ VibeApp 采用分层架构，每层职责明确、可独立测试：
 
 ```
 ┌─────────────────────────────────────────────┐
-│              UI Layer (Compose)              │  ← 用户看到的一切
+│          UI Layer (Compose)                 │  ← 用户看到的一切
 ├─────────────────────────────────────────────┤
-│          Feature API Layer                   │  ← 业务逻辑编排
+│          Feature API Layer                  │  ← 业务逻辑编排
 ├─────────────────────────────────────────────┤
-│          Build Pipeline                      │  ← 编译引擎
+│          Build Pipeline                     │  ← 编译引擎
 ├─────────────────────────────────────────────┤
-│          AI Agent Layer                      │  ← 大模型交互
+│          AI Agent Layer                     │  ← 大模型交互
 ├─────────────────────────────────────────────┤
-│          Data Layer                          │  ← 持久化
+│          Data Layer                         │  ← 持久化
 └─────────────────────────────────────────────┘
 ```
 
@@ -27,7 +27,6 @@ VibeApp 采用分层架构，每层职责明确、可独立测试：
 | 页面 | 职责 |
 |------|------|
 | ChatScreen | 对话式交互主界面，接收自然语言输入 |
-| PreviewScreen | XML 静态预览 / 动态预览 |
 | ProjectListScreen | 多项目管理列表 |
 | SettingsScreen | API Key 配置、模型选择 |
 
@@ -73,7 +72,7 @@ User Action → ViewModel → Repository → Data Source
 
 ```
            ┌─────────┐
-           │ PreCheck │  黑白名单扫描
+           │ PreCheck│  黑白名单扫描
            └────┬────┘
                 ↓
            ┌─────────┐
