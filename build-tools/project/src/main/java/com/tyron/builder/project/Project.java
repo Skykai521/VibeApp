@@ -1,39 +1,18 @@
 package com.tyron.builder.project;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
-import com.google.common.graph.ElementOrder;
-import com.google.common.graph.Graph;
-import com.google.common.graph.GraphBuilder;
-import com.google.common.graph.Graphs;
-import com.google.common.graph.MutableGraph;
 import com.tyron.builder.model.ProjectSettings;
 import com.tyron.builder.project.api.ContentRoot;
 import com.tyron.builder.project.api.Module;
-import com.tyron.builder.project.impl.AndroidModuleImpl;
 import com.tyron.builder.project.mock.MockAndroidModule;
-import com.tyron.code.event.EventManager;
-
-import org.jetbrains.kotlin.com.intellij.util.messages.MessageBusConnection;
-import org.jetbrains.kotlin.com.intellij.util.messages.MessageBusFactory;
-import org.jetbrains.kotlin.com.intellij.util.messages.SimpleMessageBusConnection;
-import org.jetbrains.kotlin.com.intellij.util.messages.impl.MessageBusFactoryImpl;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
 
 @SuppressWarnings("UnstableApiUsage")
 public class Project {
@@ -48,13 +27,10 @@ public class Project {
     private volatile boolean mCompiling;
     private volatile boolean mIndexing;
 
-    private final EventManager eventManager;
-
     public Project(File root) {
         mRoot = root;
         mModules = new LinkedHashMap<>();
         mSettings = new ProjectSettings(new File(root, "settings.json"));
-        eventManager = new EventManager();
     }
 
     public void clear() {
@@ -158,9 +134,5 @@ public class Project {
     @Override
     public int hashCode() {
         return Objects.hash(mRoot);
-    }
-
-    public EventManager getEventManager() {
-        return eventManager;
     }
 }

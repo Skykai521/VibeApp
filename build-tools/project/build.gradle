@@ -11,13 +11,14 @@ java {
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions {
         jvmTarget = '11'
-        freeCompilerArgs += '-Xjvm-default=enable'
+        freeCompilerArgs += '-Xjvm-default=all'
     }
 }
 
 dependencies {
     implementation 'androidx.annotation:annotation:1.4.0'
     implementation project(path: ':build-tools:common')
+    implementation project(path: ':build-tools:kotlinc')
     // for manifest  parsing
     implementation project(path: ':build-tools:manifmerger')
 
@@ -29,4 +30,3 @@ dependencies {
 
     testImplementation 'junit:junit:4.13.2'
 }
-

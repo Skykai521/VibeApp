@@ -1,0 +1,36 @@
+plugins {
+    id 'java-library'
+}
+apply plugin: 'kotlin'
+
+configurations.implementation {
+    exclude group: "org.jetbrains", module: "annotations"
+}
+
+dependencies {
+    implementation 'com.github.marschall:zipfilesystem-standalone:1.0.1'
+    implementation 'androidx.annotation:annotation:1.5.0'
+    implementation project(path: ':build-tools:jaxp:xml')
+
+
+    runtimeOnly ('org.jetbrains.kotlin:kotlin-reflect:1.7.10')
+
+    api 'org.jetbrains.trove4j:trove4j:20160824'
+    api files('libs/kotlin-compiler-embeddable-1.7.20-RC.jar')
+
+    compileOnly files('libs/the-unsafe.jar')
+    compileOnly project(path: ':build-tools:android-stubs')
+
+}
+
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}

@@ -22,6 +22,7 @@
             <option value="$PROJECT_DIR$/build-tools/jaxp" />
             <option value="$PROJECT_DIR$/build-tools/jaxp/jaxp-internal" />
             <option value="$PROJECT_DIR$/build-tools/jaxp/xml" />
+            <option value="$PROJECT_DIR$/build-tools/kotlinc" />
             <option value="$PROJECT_DIR$/build-tools/logging" />
             <option value="$PROJECT_DIR$/build-tools/manifmerger" />
             <option value="$PROJECT_DIR$/build-tools/project" />
