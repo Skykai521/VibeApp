@@ -1,24 +1,25 @@
 package com.vibe.build.engine
 
-import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.vibe.build.engine.compiler.JavacCompiler
+import com.vibe.build.engine.dex.D8DexConverter
+import com.vibe.build.engine.resource.Aapt2ResourceCompiler
+import com.vibe.build.engine.sign.DebugApkSigner
 
 import org.junit.Test
 import org.junit.runner.RunWith
 
-import org.junit.Assert.*
+import org.junit.Assert.assertNotNull
 
-/**
- * Instrumented test, which will execute on an Android device.
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
     @Test
-    fun useAppContext() {
-        // Context of the app under test.
+    fun buildComponents_canBeConstructed() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.vibe.build.engine.test", appContext.packageName)
+        assertNotNull(JavacCompiler(appContext))
+        assertNotNull(Aapt2ResourceCompiler(appContext))
+        assertNotNull(D8DexConverter(appContext))
+        assertNotNull(DebugApkSigner(appContext))
     }
 }

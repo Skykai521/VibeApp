@@ -55,7 +55,7 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 ### 核心能力
 
 - **💬 对话式创作** — 用自然语言描述需求，多轮对话持续迭代
-- **📱 设备端全链路编译** — JavacTool + D8 + AAPT2，完整编译链跑在你的手机上
+- **📱 设备端全链路编译** — AAPT2 + JavacTool + D8 + 打包/签名，完整编译链跑在你的手机上
 - **🔁 自动错误修复** — 编译失败自动将错误喂给 AI 修复。
 - **📂 多项目管理** — 同时管理多个 App 项目，带版本快照和编译缓存
 - **🧠 多模型支持** — Claude、GPT-4o、DeepSeek、本地 Ollama 均可接入
@@ -89,7 +89,7 @@ AI 生成代码的稳定性是产品的核心，VibeApp 采用三重保障机制
 │       │                                                    │
 │  ┌────▼─────────────────────────────────────────────────┐  │
 │  │                   Build Pipeline                     │  │
-│  │  PreCheck → JavacTool → D8 → AAPT2 → Sign → Install  │  │
+│  │  PreCheck → AAPT2 → JavacTool → D8 → Package → Sign  │  │
 │  └────┬─────────────────────────────────────────────────┘  │
 │       │                                                    │
 │  ┌────▼─────────────────────────────────────────────────┐  │
@@ -115,14 +115,16 @@ AI 生成 Java 源码 + XML 布局（System Prompt 严格约束）
 预检（黑白名单扫描）
   ├─ 不通过 → AI 修复 → 重新预检
   └─ 通过 ↓
-JavacTool 编译（.java → .class）
+AAPT2（编译 `res/` + 链接 Manifest + 生成 `R.java` + `generated.apk.res`）
   ├─ 失败 → 错误清洗 → AI 修复 → 最多重试 3 次
   └─ 成功 ↓
-D8 转换（.class → .dex）
+JavacTool 编译（业务源码 + `R.java` → `.class`）
      ↓
-AAPT2（资源编译 + 打包 → 未签名 APK）
+D8 转换（`.class` → `classes.dex`）
      ↓
-ApkSigner（V1 + V2 签名）
+APK 打包（`generated.apk.res` + `classes.dex` → `generated.apk`）
+     ↓
+ApkSigner（V1 + V2 签名 → `signed.apk`）
      ↓
 PackageInstaller 引导用户安装 ✅
 ```
@@ -131,10 +133,10 @@ PackageInstaller 引导用户安装 ✅
 
 | 组件 | 作用 | 说明 |
 |------|------|------|
-| **JavacTool** | Java → .class | 纯 Java 实现，直接嵌入 App |
-| **D8** | .class → .dex | Android 官方 DEX 编译器 |
-| **AAPT2** | 资源编译 + 打包 | 预置各 ABI 二进制（arm64-v8a, armeabi-v7a, x86_64） |
-| **ApkSigner** | APK 签名 | V1 + V2 签名支持 |
+| **AAPT2** | `res/` + Manifest → `R.java` + `generated.apk.res` | 先完成资源编译和链接，再交给 Java 编译阶段 |
+| **JavacTool** | Java → `.class` | 编译业务源码和 AAPT2 生成的 `R.java` |
+| **D8** | `.class` → `.dex` | Android 官方 DEX 编译器 |
+| **ApkBuilder + ApkSigner** | 打包 + 签名 | 产出最终 `signed.apk` |
 
 ---
 
@@ -203,13 +205,17 @@ VibeApp/
 │       │       └── whitelist.json    # SDK API 白名单
 │       └── res/
 ├── build-engine/                     # 编译引擎模块（独立 module）
-│   ├── libs/                         # JavacTool JAR、D8 JAR
 │   └── src/main/
-│       ├── jniLibs/                  # AAPT2 native binaries
-│       │   ├── arm64-v8a/
-│       │   ├── armeabi-v7a/
-│       │   └── x86_64/
-│       └── java/
+│       ├── java/com/vibe/build/engine/
+│       │   ├── compiler/             # JavacCompiler（兼容保留 EcjCompiler 名称包装）
+│       │   ├── resource/             # Aapt2ResourceCompiler
+│       │   ├── dex/                  # D8DexConverter
+│       │   ├── apk/                  # AndroidApkBuilder
+│       │   ├── sign/                 # DebugApkSigner
+│       │   ├── pipeline/             # DefaultBuildPipeline
+│       │   └── model/                # CompileInput / BuildResult
+│       ├── assets/                   # rt.zip / lambda-stubs / debug signing key
+│       └── jniLibs/                  # AAPT2 native binaries
 ├── docs/                             # 项目文档
 │   ├── architecture.md               # 架构设计详解
 │   ├── build-chain.md                # 编译链原理

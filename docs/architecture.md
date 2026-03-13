@@ -75,17 +75,21 @@ User Action → ViewModel → Repository → Data Source
            │ PreCheck │  黑白名单扫描
            └────┬─────┘
                 ↓
+           ┌─────────┐
+           │  AAPT2  │  资源编译 + 生成 R.java
+           └────┬────┘
+                ↓
            ┌────────────┐
-           │ JavacTool  │  .java → .class
+           │ JavacTool  │  业务源码 + R.java → .class
            └────┬───────┘
                 ↓
            ┌─────────┐
            │   D8    │  .class → .dex
            └────┬────┘
                 ↓
-           ┌─────────┐
-           │  AAPT2  │  资源编译 + 打包
-           └────┬────┘
+           ┌──────────┐
+           │ Package  │  生成 unsigned.apk
+           └────┬─────┘
                 ↓
            ┌──────────┐
            │ ApkSigner│  V1 + V2 签名
@@ -96,29 +100,40 @@ User Action → ViewModel → Repository → Data Source
            └──────────────────┘
 ```
 
-各组件封装为独立接口，便于单元测试和替换：
+当前 `build-engine` 的实际实现类：
+
+- `Aapt2ResourceCompiler`
+- `JavacCompiler`
+- `D8DexConverter`
+- `AndroidApkBuilder`
+- `DebugApkSigner`
+- `DefaultBuildPipeline`
+
+各组件仍然通过接口隔离，便于单元测试和替换：
 
 ```kotlin
 interface Compiler {
-    suspend fun compile(input: CompileInput): CompileResult
+    suspend fun compile(input: CompileInput): BuildResult
 }
 
 interface DexConverter {
-    suspend fun convert(classFiles: List<File>): File  // returns .dex
+    suspend fun convert(input: CompileInput): BuildResult
 }
 
 interface ResourceCompiler {
-    suspend fun compile(resDir: File, manifest: File): File  // returns resources.arsc
+    suspend fun compile(input: CompileInput): BuildResult
 }
 
 interface ApkBuilder {
-    suspend fun build(dexFile: File, resources: File): File  // returns unsigned.apk
+    suspend fun build(input: CompileInput): BuildResult
 }
 
 interface ApkSigner {
-    suspend fun sign(unsignedApk: File): File  // returns signed.apk
+    suspend fun sign(input: CompileInput): BuildResult
 }
 ```
+
+`CompileInput` 现在直接携带 `workingDirectory`、源文件映射、资源文件映射、Manifest 输入、classpath、SDK 版本和签名配置；pipeline 在工作目录内按标准 Android 结构写入文件并产出构建结果。
 
 ### 4. AI Agent Layer
 
@@ -176,7 +191,7 @@ data class ChatMessage(
 data class BuildRecord(
     val id: String,
     val projectId: String,
-    val status: BuildStatus,    // SUCCESS, ECJ_ERROR, D8_ERROR, AAPT2_ERROR, SIGN_ERROR
+    val status: BuildStatus,    // SUCCESS, RESOURCE_ERROR, JAVA_ERROR, D8_ERROR, SIGN_ERROR
     val errorLog: String?,
     val duration: Long,
     val snapshotPath: String?,

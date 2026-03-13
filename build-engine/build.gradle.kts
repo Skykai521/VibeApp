@@ -35,5 +35,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation(project(":build-tools:common"))
     implementation(project(":build-tools:build-logic"))
+    implementation(project(":build-tools:javac"))
+    implementation(project(":build-tools:logging"))
+    implementation("com.android.tools.build:apksig:9.1.0")
 }

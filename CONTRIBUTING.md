@@ -23,7 +23,7 @@ cd VibeApp
 
 ```
 app/           → 主应用（UI + Feature API + AI Agent）
-build-engine/  → 编译引擎模块（JavacTool + D8 + AAPT2）
+build-engine/  → 编译引擎模块（AAPT2 + JavacTool + D8 + 打包/签名）
 docs/          → 项目文档
 ```
 
@@ -99,6 +99,14 @@ AI 代码生成的质量直接决定产品体验。Prompt 模板位于 `app/src/
 - 内存占用优化
 - 支持更多 ABI
 - 增量编译支持
+
+当前真实链路顺序：
+
+- `Aapt2ResourceCompiler`
+- `JavacCompiler`
+- `D8DexConverter`
+- `AndroidApkBuilder`
+- `DebugApkSigner`
 
 ### 📱 UI 组件扩展
 

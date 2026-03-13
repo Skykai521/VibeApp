@@ -1,5 +1,8 @@
 package com.vibe.build.engine.compiler
 
-import com.vibe.build.engine.pipeline.StubCompiler
+import android.content.Context
 
-class EcjCompiler : StubCompiler()
+@Deprecated("build-engine now compiles with JavacTool. Use JavacCompiler instead.")
+class EcjCompiler(
+    context: Context,
+) : JavacCompiler(context)
