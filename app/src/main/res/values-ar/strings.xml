@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="system_default">النظام الافتراضي</string>
-    <string name="app_name">جي بي تي موبايل</string>
+    <string name="app_name">VibeApp</string>
     <string name="welcome_title">أفضل مساعد ذكاء اصطناعي\nيمكنك الحصول عليه في هاتفك\nالذكي.</string>
     <string name="welcome_description">استخدم النموذج الذي يناسبك\nأكثر. اسأل أي شيء تريده!</string>
     <string name="get_started">البدء</string>
@@ -20,7 +20,7 @@
     <string name="gpt_4_turbo_description">موثوقية جيدة، أرخص بثلاث مرات من GPT-4.</string>
     <string name="gpt_4_description">يؤدي أفضل أداء في حل المشكلات المجردة.</string>
     <string name="setup_complete">أنت جاهز!</string>
-    <string name="setup_complete_description">لنبدأ باستخدام جي بي تي موبايل!</string>
+    <string name="setup_complete_description">لنبدأ باستخدام VibeApp!</string>
     <string name="ask_a_question">اطرح سؤالاً…</string>
     <string name="some_platforms_disabled">بعض واجهات برمجة التطبيقات معطلة</string>
     <string name="temperature">درجة الحرارة</string>
@@ -43,7 +43,7 @@
     <string name="edit_question">تحرير رسالة المستخدم</string>
     <string name="token_input_warning">ملاحظة: يستخدم OpenAI و Anthropic الفوترة المدفوعة مسبقًا، لذا يجب عليك شحن أرصدة في كل حساب قبل استخدامها. خلاف ذلك، ستعيد الاستجابة خطأ.</string>
     <string name="user_message">رسالة المستخدم</string>
-    <string name="gpt_mobile_introduction_logo">شعار مقدمة جي بي تي موبايل</string>
+    <string name="gpt_mobile_introduction_logo">شعار مقدمة VibeApp</string>
     <string name="select_platform">حدد المنصة</string>
     <string name="platform_setting_description">مفتاح API، النموذج، موجِّه النظام</string>
     <string name="supported_soon">سيٌدعم قريبا</string>

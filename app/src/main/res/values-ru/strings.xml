@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GPTMobile</string>
-    <string name="gpt_mobile_introduction_logo">Логотип приветствия GPT Mobile</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">Логотип приветствия VibeApp</string>
     <string name="welcome_title">Лучший ИИ помощник,\nкоторый вы можете получить\nна свой смартфон.</string>
     <string name="welcome_description">Используйте модель, которая вам больше всего подходит.\nЗадавайте любые вопросы!</string>
     <string name="get_started">Начать</string>
@@ -37,7 +37,7 @@
     <string name="gemini_1_5_flash_description">Быстрая и универсальная производительность в широком спектре задач.</string>
     <string name="gemini_1_0_pro_description">Задачи обработки естественного языка, многооборотный текстовый и кодовый чаты, а также генерация кода.</string>
     <string name="setup_complete">Готово!</string>
-    <string name="setup_complete_description">Давайте начнем использовать GPT Mobile!</string>
+    <string name="setup_complete_description">Давайте начнем использовать VibeApp!</string>
     <string name="done">Готово</string>
     <string name="setup_complete_logo">Логотип завершения настройки</string>
     <string name="chats">Чаты</string>

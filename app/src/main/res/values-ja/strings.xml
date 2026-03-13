@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GPTモバイル</string>
-    <string name="gpt_mobile_introduction_logo">GPTモバイル紹介ロゴ</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">VibeApp紹介ロゴ</string>
     <string name="welcome_title">あなたのスマートフォンで\n使える最高の\nAIアシスタント。</string>
     <string name="welcome_description">あなたにピッタリのモデルを使えます。\n何でも聞きましょう！</string>
     <string name="get_started">始める</string>
@@ -26,7 +26,7 @@
     <string name="gpt_4_turbo_description">信頼性は十分で、GPT-4より3倍安価です。</string>
     <string name="gpt_4_description">抽象的な問題を解決するのに最も優れています。</string>
     <string name="select_anthropic_model">Anthropic Chat Modelを選択</string>
-    <string name="select_anthropic_model_description">Anthropicチャットモデルを選択してください。 現在、Claude 3ファミリーモデルをテキスト入力のみでサポートしています.</string>
+    <string name="select_anthropic_model_description">Please select the Anthropic chat model. We currently support the Claude 3 family of models with only text inputs.</string>
     <string name="claude_3_5_sonnet_description">Anthropicの最もインテリジェントなモデル.</string>
     <string name="claude_3_opus_description">文書作成や複雑なタスクに向いています。</string>
     <string name="claude_3_sonnet_description">インテリジェンスとスピードの両立モデル.</string>
@@ -37,7 +37,7 @@
     <string name="gemini_1_5_flash_description">多様なタスクを横断して、迅速かつ多彩なパフォーマンスを実現します.</string>
     <string name="gemini_1_0_pro_description">自然言語タスク、マルチターンテキスト、コードチャット、コード生成.</string>
     <string name="setup_complete">準備完了です！</string>
-    <string name="setup_complete_description">GPT Mobileを始めましょう！</string>
+    <string name="setup_complete_description">VibeAppを始めましょう！</string>
     <string name="done">完了</string>
     <string name="setup_complete_logo">セットアップ完了ロゴ</string>
     <string name="chats">チャット</string>
@@ -119,7 +119,7 @@
     <string name="model_custom_example">例:llama3.2、llava、llama3:latest…</string>
     <string name="custom_model_warning">API でモデル名がサポートされている必要があります.</string>
     <string name="enter_api_address">API アドレスを入力</string>
-    <string name="api_address_description">ポート番号を含むOllama APIのアドレスを入力してください。 アプリは v1/chat/completions エンドポイントを利用しますので、フルアドレスのフロント部分だけを入力してください。 アドレスは \'/\' で終わる必要があります。例: http://192.168.1.100:11434/</string>
+    <string name="api_address_description">ポート番号を含むOllama APIのアドレスを入力してください。 アプリは v1/chat/completions エンドポイントを利用しますので、フルアドレスของフロント部分だけを入力してください。 アドレスは \'/\' で終わる必要があります。例: http://192.168.1.100:11434/</string>
     <string name="ollama_api_address">Ollama APIアドレス</string>
     <string name="reset">リセット</string>
     <string name="ollama_api_key">Ollama API キー</string>

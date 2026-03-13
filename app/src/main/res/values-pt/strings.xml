@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GPTMovel</string>
-    <string name="gpt_mobile_introduction_logo">Logotipo de introdução do GPT Mobile</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">Logotipo de introdução do VibeApp</string>
     <string name="welcome_title">O melhor assistente de IA\nque pode ter no seu\nsmartphone.</string>
     <string name="welcome_description">Use o modelo que mais combina consigo\nmais. Pergunte o que quiser!</string>
     <string name="get_started">Começar</string>
@@ -37,7 +37,7 @@
     <string name="gemini_1_5_flash_description">Desempenho rápido e versátil numa grande variedade de tarefas.</string>
     <string name="gemini_1_0_pro_description">Tarefas de linguagem natural, bate-papo com texto e código multi-turno e geração de códigos.</string>
     <string name="setup_complete">Está tudo pronto!</string>
-    <string name="setup_complete_description">Vamos começar a usar o GPT Mobile!</string>
+    <string name="setup_complete_description">Vamos começar a usar o VibeApp!</string>
     <string name="done">Feito</string>
     <string name="setup_complete_logo">Configuração concluída</string>
     <string name="chats">Bate-papos</string>

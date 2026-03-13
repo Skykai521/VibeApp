@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">GPTMobile</string>
-    <string name="gpt_mobile_introduction_logo">GPT Mobile Introduction Logo</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">VibeApp Introduction Logo</string>
     <string name="welcome_title">The best AI assistant\nyou can get in your\nsmartphone.</string>
     <string name="welcome_description">Use the model that suits you\nthe most. Ask anything you want!</string>
     <string name="get_started">Get Started</string>
@@ -53,7 +53,7 @@
     <string name="gemini_1_5_flash_description">Fast and versatile performance across a diverse variety of tasks.</string>
     <string name="gemini_1_0_pro_description">Natural language tasks, multi-turn text and code chat, and code generation.</string>
     <string name="setup_complete">You’re all set!</string>
-    <string name="setup_complete_description">Let’s start using GPT Mobile!</string>
+    <string name="setup_complete_description">Let’s start using VibeApp!</string>
     <string name="done">Done</string>
     <string name="setup_complete_logo">Setup Complete Logo</string>
     <string name="chats">Chats</string>

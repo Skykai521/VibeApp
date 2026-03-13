@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GPTMobile</string>
-    <string name="gpt_mobile_introduction_logo">GPT Moble 시작 로고</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">VibeApp 시작 로고</string>
     <string name="welcome_title">휴대폰에서 사용할 수 있는 최고의 AI 챗봇.</string>
     <string name="welcome_description">가장 적합한 모델을 사용해 무엇이든 질문해보세요!</string>
     <string name="get_started">시작하기</string>
@@ -36,7 +36,7 @@
     <string name="gemini_1_5_flash_description">"다양한 작업에서 빠르고 다재다능한 성능을 발휘합니다. "</string>
     <string name="gemini_1_0_pro_description">"자연어 작업, 멀티턴 텍스트 및 코드 채팅, 코드 생성에 최적화되어 있습니다. "</string>
     <string name="setup_complete">설정 완료!</string>
-    <string name="setup_complete_description">이제 GPT Mobile을 사용할 수 있습니다!</string>
+    <string name="setup_complete_description">이제 VibeApp을 사용할 수 있습니다!</string>
     <string name="done">완료</string>
     <string name="setup_complete_logo">설정 완료 로고</string>
     <string name="chats">채팅 목록</string>

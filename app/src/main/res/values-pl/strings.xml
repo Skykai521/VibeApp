@@ -15,7 +15,7 @@
     <string name="gemini_1_5_flash_description">Szybki i uniwersalny model, wydajny w różnorodnych zadaniach.</string>
     <string name="gemini_1_0_pro_description">Przetwarzanie języka naturalnego, wieloetapowe dwukierunkowe rozmowy oraz pisanie kodu.</string>
     <string name="setup_complete">Konfiguracja zakończona!</string>
-    <string name="setup_complete_description">Zacznij korzystać z GPT Mobile!</string>
+    <string name="setup_complete_description">Zacznij korzystać z VibeApp!</string>
     <string name="done">Gotowe</string>
     <string name="new_chat">Nowy czat</string>
     <string name="enable_at_leat_one_platform">Aby rozpocząć czat, wybierz przynajmniej jedną platformę.</string>
@@ -71,8 +71,8 @@
     <string name="token_set">Ustawiono token %s*****</string>
     <string name="close">Zamknij</string>
     <string name="delete">Usuń</string>
-    <string name="app_name">GPTMobile</string>
-    <string name="gpt_mobile_introduction_logo">Logo startowe GPTMobile</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">Logo startowe VibeApp</string>
     <string name="sample_item_title">Pozycja 1</string>
     <string name="sample_item_description">Opis pozycji</string>
     <string name="anthropic_description">Tu narodził się Claude.</string>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GPTMobile</string>
-    <string name="gpt_mobile_introduction_logo">GPT Mobile Tanıtım Logosu</string>
+    <string name="app_name">VibeApp</string>
+    <string name="gpt_mobile_introduction_logo">VibeApp Tanıtım Logosu</string>
     <string name="welcome_title">Akıllı telefonunuzda\nalabileceğiniz en iyi\nyapay zeka asistanı.</string>
     <string name="welcome_description">Size en uygun modeli\nkullanın. İstediğiniz her şeyi sorun!</string>
     <string name="get_started">Başla</string>
@@ -54,7 +54,7 @@
     <string name="gemini_1_5_flash_description">Çeşitli görevlerde hızlı ve çok yönlü performans.</string>
     <string name="gemini_1_0_pro_description">Doğal dil görevleri, çok turlu metin ve kod sohbeti ve kod oluşturma.</string>
     <string name="setup_complete">Her şey hazır!</string>
-    <string name="setup_complete_description">GPT Mobile’ı kullanmaya başlayalım!</string>
+    <string name="setup_complete_description">VibeApp’ı kullanmaya başlayalım!</string>
     <string name="done">Tamam</string>
     <string name="setup_complete_logo">Kurulum Tamamlandı Logosu</string>
     <string name="chats">Sohbetler</string>

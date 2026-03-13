@@ -2,7 +2,7 @@
 <resources>
     <string name="clear_token">נקה אסימון</string>
     <string name="welcome_description">השתמש במודל שהכי מתאים לך.\nתשאל כל מה שאתה רוצה!</string>
-    <string name="app_name">GPTMobile</string>
+    <string name="app_name">VibeApp</string>
     <string name="welcome_title">עוזר הבינה המלאכותית הטוב ביותר\nשאתה יכול לקבל\nבסמארטפון שלך.</string>
     <string name="get_started">התחל</string>
     <string name="sample_item_title">פריט 1</string>
@@ -20,9 +20,9 @@
     <string name="claude_3_sonnet_description">מודל מאוזן בין אינטליגנציה ומהירות.</string>
     <string name="claude_3_haiku_description">הדגם המהיר והקומפקטי ביותר של אנתרופיק.</string>
     <string name="gemini_1_5_pro_description">מותאם למשימות חשיבה כולל קוד ויצירת טקסט.</string>
-    <string name="gemini_1_5_flash_description">ביצועים מהירים ורב-תכליתיים במגוון רחב של משימות.</string>
+    <string name="gemini_1_5_flash_description">ביצועים מהירים ורב-תכליתיים במגוون רחב של משימות.</string>
     <string name="setup_complete">אתה מוכן!</string>
-    <string name="setup_complete_description">בואו נתחיל להשתמש ב-GPT Mobile!</string>
+    <string name="setup_complete_description">בואו נתחיל להשתמש ב-VibeApp!</string>
     <string name="setup_complete_logo">הגדרת לוגו מלא</string>
     <string name="chats">שיחות</string>
     <string name="settings">הגדרות</string>
@@ -39,7 +39,7 @@
     <string name="supported_soon">נתמך בקרוב</string>
     <string name="anthropic_setting">הגדרות Anthropic</string>
     <string name="google_setting">הגדרות גוגל</string>
-    <string name="platform_setting_description">מפתח API, דגם, הוראת מערכת</string>
+    <string name="platform_setting_description">מפתח API, דגם, הוראת מערکت</string>
     <string name="api_model">מודלים של API</string>
     <string name="dynamic_theme">נושא דינמי</string>
     <string name="dark_mode">מצב כהה</string>
@@ -85,7 +85,7 @@
     <string name="model_name">שם מודל</string>
     <string name="model_custom_example">דוגמא. llama3.2, llava, llama3:latest, …</string>
     <string name="custom_model_warning">שימו לב ששם הדגם צריך להיות נתמך על ידי ה-API.</string>
-    <string name="enter_api_address">הזן כתובת API</string>
+    <string name="enter_api_address">הزן כתובת API</string>
     <string name="reset">איפוס</string>
     <string name="api_url_cautions">כתובת ה-URL חייבת להסתיים ב-\'/\'.</string>
     <string name="bug_report">דוח באגים</string>
@@ -107,13 +107,13 @@
     <string name="title_length_limit">מגבלת אורך כותרת: %1$s/50</string>
     <string name="apply_generated_title">החל כותרת שנוצרה</string>
     <string name="retry_ai_title">נסה שוב את הכותרת שנוצרה על ידי AI</string>
-    <string name="token_input_warning">הערה: OpenAI ו-Anthropic משתמשות בחיוב בתשלום מראש, לכן עליך לקנות קרדיטים בחשבונות לפני שתשתמש בהם. אחרת תקבל שגיאה.</string>
+    <string name="token_input_warning">הערה: OpenAI ו-Anthropic משתמשות בחיוב בתשלوم מראש, לכן עליך לקנות קרדיטים בחשבונות לפני שתשתמש בהם. אחרת תקבל שגיאה.</string>
     <string name="edit">ערוך</string>
     <string name="edit_question">ערוך הודעת משתמש</string>
     <string name="user_message">הודעת משתמש</string>
     <string name="export_chat">ייצוא שיחה</string>
-    <string name="gpt_mobile_introduction_logo">לוגו מבוא של GPT Mobile</string>
-    <string name="platform_select_description">בחר את הפלטפורמה שבה אתה רוצה להשתמש. תוכל לשנות זאת מאוחר יותר בהגדרות. יש תמיכה בפלטפורמות נוספות.</string>
+    <string name="gpt_mobile_introduction_logo">לוגו מבוא של VibeApp</string>
+    <string name="platform_select_description">בחר את הפלטפורמה שבה אתה רוצה להשתמש. תוכל לשנות זאת מאוחר보다 בהגדרות. יש תמיכה בפלטפורמות נוספות.</string>
     <string name="openai_description">יוצר ChatGPT.</string>
     <string name="token_input_description">הזן את מפתח ה-API של הפלטפורמה שבחרת. האפליקציה הזו לעולם לא אוספת את הנתונים האלה. מפתחות ונתוני צ\'אט אלה יאוחסנו רק במכשיר שלך, ולא יישלחו לשרתים אחרים מלבד נקודות קצה API.</string>
     <string name="openai_api_key">מפתח API של OpenAI</string>
@@ -125,7 +125,7 @@
     <string name="api_key">מפתח API</string>
     <string name="ollama_api_key">מפתח API של Ollama</string>
     <string name="groq_setting">הגדרות Groq</string>
-    <string name="select_openai_model_description">אנא בחר את מודל הצ\'אט של OpenAI. גם אם הדגם הנבחר הוא מולטי-מודאלי, האפליקציה תומכת כרגע בהזנת טקסט בלבד. ייתכן שיתמכו בהמשך בעתיד.</string>
+    <string name="select_openai_model_description">אנא בחר את מودל הצ\'אט של OpenAI. גם אם הדגם הנבחר הוא מולטי-מודאלי, האפליקציה תומכת כרגע בהזנת טקסט בלבד. ייתכן שיתמכו בהמשך בעתיד.</string>
     <string name="done">הושלם</string>
     <string name="gpt_4o_description">דגם הדגל המהיר והמשתלם ביותר.</string>
     <string name="off">כבוי</string>
@@ -136,7 +136,7 @@
     <string name="select_google_model">בחר דגם צ\'אט של גוגל</string>
     <string name="gemini_1_0_pro_description">משימות בשפה טבעית, צ\'אט טקסט וקוד מרובה פניות והפקת קוד.</string>
     <string name="new_chat">שיחה חדשה</string>
-    <string name="select_platform_description">בחר פלטפורמות שבהן תרצה להשתמש בצ\'אט זה. לאחר יצירת הצ\'אט, אינך יכול לשנות הגדרות אלו. אם תרצה לשנות זאת, אנא צור צ\'אט חדש.</string>
+    <string name="select_platform_description">בחר פלטפורמות שבהן תרצה להשתמש בצ\'אט זה. לאחר יצירת הצ\'אט, אינך יכול לשנות הגדרות אלו. אם תרצה לשנות זאת, אנא צור צ\'אט חדش.</string>
     <string name="confirm">אשר</string>
     <string name="theme_description">ערכת נושא דינמית, מצב כהה</string>
     <string name="key_icon">סמל מפתח</string>
@@ -150,7 +150,7 @@
     <string name="ollama_api_address">כתובת API של Ollama</string>
     <string name="chat_title_dialog_description">כותרת שנוצרה בינה מלאכותית זמינה רק במכשירים הנתמכים ב-AICore.</string>
     <string name="feedback_icon">סמל משוב</string>
-    <string name="api_address_description">אנא הזן את כתובת ה-API של Ollama שלך כולל מספר הפורט. האפליקציה תשתמש בנקודת קצה v1/chat/completions, אז אנא הזן רק את החלק הקדמי של הכתובת המלאה. הכתובת חייבת להסתיים ב-\'/\'. למשל) http://192.168.1.100:11434/</string>
+    <string name="api_address_description">אנא הזן את כתובת ה-API של Ollama שלך כולל מספר הפורט. האפליקציה תשתמש בנקודת קצה v1/chat/completions, אז אנא הזן רק את החלק הקדمی של הכתובת המלאה. הכתובת חייبت להסתיים ב-\'/\'. למשל) http://192.168.1.100:11434/</string>
     <string name="select_groq_model_description">אנא בחר את מודל הצ\'אט של Groq. אם אתה רוצה דגמים שאינם ברשימה, בדוק את אתר התיעוד של Groq API והזן שם של מודל זמין.</string>
     <string name="default_mode">ברירת מחדל</string>
 </resources>
