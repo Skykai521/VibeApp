@@ -3,7 +3,9 @@ package com.vibe.app.presentation.ui.startscreen
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavHostController
 import com.vibe.app.feature.projectinit.ProjectInitializer
+import com.vibe.app.presentation.common.Route
 import com.vibe.build.engine.model.BuildStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -28,7 +30,7 @@ class StartViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(StartUiState())
     val uiState: StateFlow<StartUiState> = _uiState.asStateFlow()
 
-    fun initProject() {
+    fun initProject(navController: NavHostController) {
         if (_uiState.value.isInitializing) {
             return
         }
@@ -52,6 +54,7 @@ class StartViewModel @Inject constructor(
                     isInitializing = false,
                     statusMessage = if (result.status == BuildStatus.SUCCESS) {
                         val signedApk = result.artifacts.lastOrNull()?.path
+                        navController.navigate(Route.SETUP_ROUTE)
                         if (signedApk.isNullOrBlank()) {
                             "Project initialized and build completed."
                         } else {
