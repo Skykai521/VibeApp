@@ -1,9 +1,6 @@
 package com.tyron.builder.internal.jar;
 
 import com.tyron.builder.project.api.JavaModule;
-
-import org.jetbrains.kotlin.backend.wasm.lower.GenericReturnTypeLowering;
-
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
