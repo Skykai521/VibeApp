@@ -23,7 +23,7 @@ cd VibeApp
 
 ```
 app/           → 主应用（UI + Feature API + AI Agent）
-build-engine/  → 编译引擎模块（ECJ + D8 + AAPT2）
+build-engine/  → 编译引擎模块（JavacTool + D8 + AAPT2）
 docs/          → 项目文档
 ```
 

@@ -71,13 +71,13 @@ User Action → ViewModel → Repository → Data Source
 独立 Gradle module（`build-engine`），封装完整编译链。
 
 ```
-           ┌─────────┐
-           │ PreCheck│  黑白名单扫描
-           └────┬────┘
+           ┌──────────┐
+           │ PreCheck │  黑白名单扫描
+           └────┬─────┘
                 ↓
-           ┌─────────┐
-           │   ECJ   │  .java → .class
-           └────┬────┘
+           ┌────────────┐
+           │ JavacTool  │  .java → .class
+           └────┬───────┘
                 ↓
            ┌─────────┐
            │   D8    │  .class → .dex

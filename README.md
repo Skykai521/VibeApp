@@ -55,7 +55,7 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 ### 核心能力
 
 - **💬 对话式创作** — 用自然语言描述需求，多轮对话持续迭代
-- **📱 设备端全链路编译** — ECJ + D8 + AAPT2，完整编译链跑在你的手机上
+- **📱 设备端全链路编译** — JavacTool + D8 + AAPT2，完整编译链跑在你的手机上
 - **🔁 自动错误修复** — 编译失败自动将错误喂给 AI 修复。
 - **📂 多项目管理** — 同时管理多个 App 项目，带版本快照和编译缓存
 - **🧠 多模型支持** — Claude、GPT-4o、DeepSeek、本地 Ollama 均可接入
@@ -89,7 +89,7 @@ AI 生成代码的稳定性是产品的核心，VibeApp 采用三重保障机制
 │       │                                                    │
 │  ┌────▼─────────────────────────────────────────────────┐  │
 │  │                   Build Pipeline                     │  │
-│  │   PreCheck → ECJ → D8 → AAPT2 → Sign → Install       │  │
+│  │  PreCheck → JavacTool → D8 → AAPT2 → Sign → Install  │  │
 │  └────┬─────────────────────────────────────────────────┘  │
 │       │                                                    │
 │  ┌────▼─────────────────────────────────────────────────┐  │
@@ -115,7 +115,7 @@ AI 生成 Java 源码 + XML 布局（System Prompt 严格约束）
 预检（黑白名单扫描）
   ├─ 不通过 → AI 修复 → 重新预检
   └─ 通过 ↓
-ECJ 编译（.java → .class）
+JavacTool 编译（.java → .class）
   ├─ 失败 → 错误清洗 → AI 修复 → 最多重试 3 次
   └─ 成功 ↓
 D8 转换（.class → .dex）
@@ -131,7 +131,7 @@ PackageInstaller 引导用户安装 ✅
 
 | 组件 | 作用 | 说明 |
 |------|------|------|
-| **ECJ** (Eclipse JDT) | Java → .class | 纯 Java 实现，直接嵌入 App |
+| **JavacTool** | Java → .class | 纯 Java 实现，直接嵌入 App |
 | **D8** | .class → .dex | Android 官方 DEX 编译器 |
 | **AAPT2** | 资源编译 + 打包 | 预置各 ABI 二进制（arm64-v8a, armeabi-v7a, x86_64） |
 | **ApkSigner** | APK 签名 | V1 + V2 签名支持 |
@@ -203,7 +203,7 @@ VibeApp/
 │       │       └── whitelist.json    # SDK API 白名单
 │       └── res/
 ├── build-engine/                     # 编译引擎模块（独立 module）
-│   ├── libs/                         # ECJ JAR、D8 JAR
+│   ├── libs/                         # JavacTool JAR、D8 JAR
 │   └── src/main/
 │       ├── jniLibs/                  # AAPT2 native binaries
 │       │   ├── arm64-v8a/
@@ -237,7 +237,7 @@ VibeApp/
 > 目标：用户输入一句话 → 得到一个可安装的 APK
 
 - [ ] 接入 Claude API，实现基础代码生成
-- [ ] 集成编译模块（ECJ + D8 + AAPT2）
+- [ ] 集成编译模块（JavacTool + D8 + AAPT2）
 - [ ] 实现单 Activity + View 体系的应用生成
 - [ ] 代码预检机制（黑白名单）
 - [ ] 自动修复循环（最多 3 次重试）
