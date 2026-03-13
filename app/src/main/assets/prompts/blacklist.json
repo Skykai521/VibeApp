@@ -1,0 +1,7 @@
+{
+  "blocked_imports": [
+    "java.lang.reflect",
+    "okhttp3",
+    "retrofit2"
+  ]
+}

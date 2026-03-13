@@ -4,8 +4,8 @@
 > *Describe it. Build it. Install it. All on your phone.*
 
 [![License](https://img.shields.io/badge/license-GPL%203.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-green.svg)](https://android.com)
-[![Min SDK](https://img.shields.io/badge/minSdk-26-brightgreen.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Android%2010.0%2B-green.svg)](https://android.com)
+[![Min SDK](https://img.shields.io/badge/minSdk-29-brightgreen.svg)]()
 [![Status](https://img.shields.io/badge/status-In%20Development-orange.svg)]()
 
 <p align="center">
@@ -38,13 +38,13 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 
 市面上已经有很多 AI App Builder，但它们有一个共同的问题：**生成的不是真正的 App**。
 
-| | 其他 AI Builder | VibeApp |
-|---|---|---|
+| | 其他 AI Builder     | VibeApp |
+|---|-------------------|---|
 | 输出物 | Web App / PWA / 需要云编译 | **原生 APK** |
-| 编译方式 | 云端 | **设备端本地编译** |
-| 数据隐私 | 代码上传到服务器 | **代码不离开你的手机** |
-| 离线运行 | 大多不支持 | **完全离线运行** |
-| 技术门槛 | 需要部署/配置环境 | **零配置，开箱即用** |
+| 编译方式 | 云端                | **设备端本地编译** |
+| 数据隐私 | 代码上传到服务器          | **代码不离开你的手机** |
+| 离线运行 | 大多不支持             | **完全离线运行** |
+| 技术门槛 | 需要部署/配置环境         | **零配置，开箱即用** |
 
 我们相信，AI 时代不会消灭 App，而是会让更多人**第一次成为 App 的创造者**。
 
@@ -56,8 +56,7 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 
 - **💬 对话式创作** — 用自然语言描述需求，多轮对话持续迭代
 - **📱 设备端全链路编译** — ECJ + D8 + AAPT2，完整编译链跑在你的手机上
-- **👁️ 即时静态预览** — AI 生成布局后立即渲染，无需等待编译
-- **🔁 自动错误修复** — 编译失败自动将错误喂给 AI 修复，最多重试 3 次
+- **🔁 自动错误修复** — 编译失败自动将错误喂给 AI 修复。
 - **📂 多项目管理** — 同时管理多个 App 项目，带版本快照和编译缓存
 - **🧠 多模型支持** — Claude、GPT-4o、DeepSeek、本地 Ollama 均可接入
 - **📤 灵活导出** — 直接安装 APK、导出完整源码
@@ -142,16 +141,15 @@ PackageInstaller 引导用户安装 ✅
 
 ### 环境要求
 
-- Android 8.0 (API 26) 及以上
-- 至少 200MB 可用存储空间
+- Android 10.0 (API 30) 及以上
 - AI API Key（Claude / GPT-4o / DeepSeek 任选其一）或本地 Ollama 服务
 
 ### 安装
+[从 Release 页面下载最新 APK](https://github.com/Skykai521/VibeApp/releases)
 
+### 源码构建
 ```bash
-# 从 Release 页面下载最新 APK
-# 或从源码构建：
-git clone https://github.com/user/VibeApp.git
+git clone https://github.com/Skykai521/VibeApp.git
 cd VibeApp
 ./gradlew assembleDebug
 ```
@@ -161,7 +159,7 @@ cd VibeApp
 1. 打开 VibeApp → 设置 → 配置你的 AI API Key
 2. 点击「新建项目」
 3. 用自然语言描述你想要的 App
-4. 等待生成 → 预览 → 编译 → 安装
+4. 等待生成 → 编译 → 安装
 
 ---
 
@@ -171,23 +169,16 @@ cd VibeApp
 VibeApp/
 ├── app/                              # 主应用模块
 │   └── src/main/
-│       ├── java/.../vibeapp/
-│       │   ├── ui/                   # UI 层（Jetpack Compose）
-│       │   │   ├── chat/             # 对话界面
-│       │   │   ├── preview/          # 预览界面
-│       │   │   ├── project/          # 项目管理界面
-│       │   │   └── settings/         # 设置界面
+│       ├── java/vibe/app/
+│       │   ├── presentation/         # UI 层（Jetpack Compose）
+│       │   │   ├── common/           # 对话界面
+│       │   │   ├── ui/               # 项目管理界面
+│       │   │   └── icons/            # 设置界面
 │       │   ├── feature/              # Feature API 层
 │       │   │   ├── codegen/          # AI 代码生成
 │       │   │   ├── fileops/          # 文件操作
 │       │   │   ├── dependency/       # 依赖管理
 │       │   │   └── fixloop/          # 自动修复循环
-│       │   ├── build/                # 编译引擎
-│       │   │   ├── compiler/         # ECJ 编译器封装
-│       │   │   ├── dex/              # D8 DEX 转换
-│       │   │   ├── resource/         # AAPT2 资源处理
-│       │   │   ├── sign/             # APK 签名
-│       │   │   └── pipeline/         # 编译流水线编排
 │       │   ├── ai/                   # AI Agent 层
 │       │   │   ├── provider/         # 多模型适配（Claude/GPT/DeepSeek/Ollama）
 │       │   │   ├── prompt/           # Prompt 模板管理
@@ -284,7 +275,6 @@ VibeApp 站在以下优秀开源项目的肩膀上：
 | [gpt_mobile](https://github.com/Taewan-P/gpt_mobile) | AI Chat UI 参考 |
 | [CodeAssist](https://github.com/tyron12233/CodeAssist/) | 设备端完整 Android IDE，验证了全链路可行性 |
 | [Eclipse JDT](https://github.com/eclipse-jdt/eclipse.jdt.core) | Java 编译器核心 |
-| [Dyad](https://github.com/dyad-sh/dyad) | 开源 AI App Builder 参考 |
 
 ---
 
