@@ -8,8 +8,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import com.vibe.app.data.database.entity.ChatRoomV2
 import com.vibe.app.data.database.entity.MessageV2
 import com.vibe.app.data.database.entity.PlatformV2
+import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.SettingRepository
+import com.vibe.app.feature.agent.AgentLoopCoordinator
+import com.vibe.app.feature.agent.AgentLoopEvent
+import com.vibe.app.feature.agent.AgentLoopRequest
+import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.handleStates
 import javax.inject.Inject
@@ -23,7 +28,9 @@ import kotlinx.coroutines.launch
 class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
-    private val settingRepository: SettingRepository
+    private val settingRepository: SettingRepository,
+    private val agentLoopCoordinator: AgentLoopCoordinator,
+    private val agentToolRegistry: AgentToolRegistry,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -193,17 +200,21 @@ class ChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            chatRepository.completeChat(
-                _groupedMessages.value.userMessages,
-                _groupedMessages.value.assistantMessages,
-                platformWithChatModel
-            ).handleStates(
-                messageFlow = _groupedMessages,
-                platformIdx = platformIndex,
-                onLoadingComplete = {
-                    _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
-                }
-            )
+            if (shouldUseAgentMode(platformWithChatModel)) {
+                runAgentLoop(platformWithChatModel, platformIndex)
+            } else {
+                chatRepository.completeChat(
+                    _groupedMessages.value.userMessages,
+                    _groupedMessages.value.assistantMessages,
+                    platformWithChatModel
+                ).handleStates(
+                    messageFlow = _groupedMessages,
+                    platformIdx = platformIndex,
+                    onLoadingComplete = {
+                        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
+                    }
+                )
+            }
         }
     }
 
@@ -337,17 +348,21 @@ class ChatViewModel @Inject constructor(
             val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid } ?: return@forEachIndexed
             val platformWithChatModel = resolvePlatformModel(platform)
             viewModelScope.launch {
-                chatRepository.completeChat(
-                    _groupedMessages.value.userMessages,
-                    _groupedMessages.value.assistantMessages,
-                    platformWithChatModel
-                ).handleStates(
-                    messageFlow = _groupedMessages,
-                    platformIdx = idx,
-                    onLoadingComplete = {
-                        _loadingStates.update { it.toMutableList().apply { this[idx] = LoadingState.Idle } }
-                    }
-                )
+                if (shouldUseAgentMode(platformWithChatModel)) {
+                    runAgentLoop(platformWithChatModel, idx)
+                } else {
+                    chatRepository.completeChat(
+                        _groupedMessages.value.userMessages,
+                        _groupedMessages.value.assistantMessages,
+                        platformWithChatModel
+                    ).handleStates(
+                        messageFlow = _groupedMessages,
+                        platformIdx = idx,
+                        onLoadingComplete = {
+                            _loadingStates.update { it.toMutableList().apply { this[idx] = LoadingState.Idle } }
+                        }
+                    )
+                }
             }
         }
     }
@@ -479,6 +494,116 @@ class ChatViewModel @Inject constructor(
         if (chatModel.isBlank() || chatModel == platform.model) return platform
 
         return platform.copy(model = chatModel)
+    }
+
+    private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
+        return enabledPlatformsInChat.size == 1 && platform.compatibleType == ClientType.OPENAI
+    }
+
+    private suspend fun runAgentLoop(
+        platform: PlatformV2,
+        platformIndex: Int,
+    ) {
+        agentLoopCoordinator.run(
+            AgentLoopRequest(
+                chatId = chatRoomId,
+                platform = platform,
+                userMessages = _groupedMessages.value.userMessages,
+                assistantMessages = _groupedMessages.value.assistantMessages,
+                systemPrompt = platform.systemPrompt,
+                tools = agentToolRegistry.listDefinitions(),
+            ),
+        ).collect { event ->
+            when (event) {
+                is AgentLoopEvent.ThinkingDelta -> appendAssistantThought(platformIndex, event.delta)
+                is AgentLoopEvent.OutputDelta -> appendAssistantContent(platformIndex, event.delta)
+                is AgentLoopEvent.ToolExecutionStarted -> appendAssistantThought(
+                    platformIndex,
+                    "\n[Tool] ${event.call.name}\n",
+                )
+
+                is AgentLoopEvent.ToolExecutionFinished -> appendAssistantThought(
+                    platformIndex,
+                    "\n[Tool Result] ${event.result.toolName}: ${if (event.result.isError) "error" else "ok"}\n",
+                )
+
+                is AgentLoopEvent.LoopCompleted -> finishAssistantMessage(
+                    platformIndex = platformIndex,
+                    fallbackText = event.finalText.ifBlank { "Build completed." },
+                )
+                is AgentLoopEvent.LoopFailed -> failAssistantMessage(platformIndex, event.message)
+                else -> Unit
+            }
+        }
+    }
+
+    private fun appendAssistantThought(
+        platformIndex: Int,
+        delta: String,
+    ) {
+        _groupedMessages.update { groupedMessages ->
+            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
+            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
+                thoughts = updatedMessages[platformIndex].thoughts + delta,
+            )
+            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
+            assistantMessages[assistantMessages.lastIndex] = updatedMessages
+            groupedMessages.copy(assistantMessages = assistantMessages)
+        }
+    }
+
+    private fun appendAssistantContent(
+        platformIndex: Int,
+        delta: String,
+    ) {
+        _groupedMessages.update { groupedMessages ->
+            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
+            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
+                content = updatedMessages[platformIndex].content + delta,
+            )
+            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
+            assistantMessages[assistantMessages.lastIndex] = updatedMessages
+            groupedMessages.copy(assistantMessages = assistantMessages)
+        }
+    }
+
+    private fun finishAssistantMessage(
+        platformIndex: Int,
+        fallbackText: String,
+    ) {
+        _groupedMessages.update { groupedMessages ->
+            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
+            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
+                content = updatedMessages[platformIndex].content.ifBlank { fallbackText },
+                createdAt = System.currentTimeMillis() / 1000,
+            )
+            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
+            assistantMessages[assistantMessages.lastIndex] = updatedMessages
+            groupedMessages.copy(assistantMessages = assistantMessages)
+        }
+        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
+    }
+
+    private fun failAssistantMessage(
+        platformIndex: Int,
+        error: String,
+    ) {
+        _groupedMessages.update { groupedMessages ->
+            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
+            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
+                content = if (updatedMessages[platformIndex].content.isBlank()) {
+                    "Error: $error"
+                } else {
+                    updatedMessages[platformIndex].content
+                },
+                thoughts = updatedMessages[platformIndex].thoughts + "\n[Agent Error] $error",
+                createdAt = System.currentTimeMillis() / 1000,
+            )
+            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
+            assistantMessages[assistantMessages.lastIndex] = updatedMessages
+            groupedMessages.copy(assistantMessages = assistantMessages)
+        }
+        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
     }
 
     private fun ungroupedMessages(): List<MessageV2> {

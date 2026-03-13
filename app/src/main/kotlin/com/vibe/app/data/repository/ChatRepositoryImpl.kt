@@ -38,7 +38,7 @@ import com.vibe.app.data.dto.openai.request.ChatMessage
 import com.vibe.app.data.dto.openai.request.ReasoningConfig
 import com.vibe.app.data.dto.openai.request.ResponseContentPart
 import com.vibe.app.data.dto.openai.request.ResponseInputContent
-import com.vibe.app.data.dto.openai.request.ResponseInputMessage
+import com.vibe.app.data.dto.openai.request.ResponseInputItem
 import com.vibe.app.data.dto.openai.request.ResponsesRequest
 import com.vibe.app.data.dto.openai.response.OutputTextDeltaEvent
 import com.vibe.app.data.dto.openai.response.ReasoningSummaryTextDeltaEvent
@@ -140,7 +140,7 @@ class ChatRepositoryImpl @Inject constructor(
         openAIAPI.setAPIUrl(platform.apiUrl)
 
         // Build input messages for Responses API
-        val inputMessages = mutableListOf<ResponseInputMessage>()
+        val inputMessages = mutableListOf<ResponseInputItem>()
 
         // Add conversation history (interleaved user and assistant messages)
         userMessages.forEachIndexed { index, userMsg ->
@@ -307,7 +307,7 @@ class ChatRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun transformMessageV2ToResponsesInput(message: MessageV2, isUser: Boolean): ResponseInputMessage {
+    private fun transformMessageV2ToResponsesInput(message: MessageV2, isUser: Boolean): ResponseInputItem {
         val role = if (isUser) "user" else "assistant"
 
         // Check if there are any image files
@@ -318,7 +318,7 @@ class ChatRepositoryImpl @Inject constructor(
 
         // If no images, use simple text content
         if (imageFiles.isEmpty()) {
-            return ResponseInputMessage(
+            return ResponseInputItem.message(
                 role = role,
                 content = ResponseInputContent.text(message.content)
             )
@@ -341,7 +341,7 @@ class ChatRepositoryImpl @Inject constructor(
             }
         }
 
-        return ResponseInputMessage(
+        return ResponseInputItem.message(
             role = role,
             content = ResponseInputContent.parts(parts)
         )

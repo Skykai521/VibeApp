@@ -290,7 +290,22 @@ data class OutputItem(
     val type: String,
 
     @SerialName("id")
-    val id: String
+    val id: String,
+
+    @SerialName("call_id")
+    val callId: String? = null,
+
+    @SerialName("name")
+    val name: String? = null,
+
+    @SerialName("arguments")
+    val arguments: String? = null,
+
+    @SerialName("output")
+    val output: String? = null,
+
+    @SerialName("status")
+    val status: String? = null,
 )
 
 @Serializable

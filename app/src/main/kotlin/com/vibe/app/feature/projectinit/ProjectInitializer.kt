@@ -25,21 +25,30 @@ class ProjectInitializer @Inject constructor(
 
     private val tag = "ProjectInitializer"
 
+    data class TemplateProject(
+        val projectId: String,
+        val projectName: String,
+        val packageName: String,
+        val appModuleDir: File,
+        val minSdk: Int,
+        val targetSdk: Int,
+    ) {
+        fun toCompileInput(): CompileInput = CompileInput(
+            projectId = projectId,
+            projectName = projectName,
+            packageName = packageName,
+            workingDirectory = appModuleDir.absolutePath,
+            minSdk = minSdk,
+            targetSdk = targetSdk,
+            buildType = EngineBuildType.DEBUG,
+        )
+    }
+
     suspend fun initProject(): BuildResult = withContext(Dispatchers.IO) {
         Log.d(tag, "initProject started")
-        val appModuleDir = prepareTemplateProject()
-        Log.d(tag, "Template project prepared at ${appModuleDir.absolutePath}")
-        val result = buildPipeline.run(
-            CompileInput(
-                projectId = TEMPLATE_PROJECT_ID,
-                projectName = TEMPLATE_PROJECT_NAME,
-                packageName = TEMPLATE_PACKAGE_NAME,
-                workingDirectory = appModuleDir.absolutePath,
-                minSdk = TEMPLATE_MIN_SDK,
-                targetSdk = TEMPLATE_TARGET_SDK,
-                buildType = EngineBuildType.DEBUG,
-            ),
-        )
+        val project = prepareTemplateProject(forceReset = true)
+        Log.d(tag, "Template project prepared at ${project.appModuleDir.absolutePath}")
+        val result = buildProject(project)
         Log.d(
             tag,
             "initProject finished with status=${result.status}, error=${result.errorMessage}, logs=${result.logs.size}",
@@ -47,21 +56,49 @@ class ProjectInitializer @Inject constructor(
         result
     }
 
-    private fun prepareTemplateProject(): File {
+    suspend fun ensureTemplateProject(): TemplateProject = withContext(Dispatchers.IO) {
+        prepareTemplateProject(forceReset = false)
+    }
+
+    suspend fun buildTemplateProject(): BuildResult = withContext(Dispatchers.IO) {
+        val project = ensureTemplateProject()
+        buildProject(project)
+    }
+
+    private suspend fun buildProject(project: TemplateProject): BuildResult {
+        return buildPipeline.run(project.toCompileInput())
+    }
+
+    private fun prepareTemplateProject(forceReset: Boolean): TemplateProject {
         val templatesRootDir = File(context.filesDir, TEMPLATE_ROOT_DIR)
-        if (templatesRootDir.exists()) {
+        var extracted = false
+        if (forceReset && templatesRootDir.exists()) {
             Log.d(tag, "Deleting existing template root ${templatesRootDir.absolutePath}")
             templatesRootDir.deleteRecursively()
         }
-        unzipTemplateArchive(File(context.filesDir, TEMPLATE_ROOT_DIR))
+        if (!templatesRootDir.exists()) {
+            unzipTemplateArchive(File(context.filesDir, TEMPLATE_ROOT_DIR))
+            extracted = true
+        }
 
         val appModuleDir = File(context.filesDir, "$TEMPLATE_ROOT_DIR/EmptyActivity/app")
         require(appModuleDir.exists()) {
             "Template app module was not found after extraction: ${appModuleDir.absolutePath}"
         }
 
-        rewriteTemplateProject(appModuleDir)
-        return appModuleDir
+        val placeholderPackageDir = File(appModuleDir, "src/main/java/\$packagename")
+        if (forceReset || extracted || placeholderPackageDir.exists()) {
+            rewriteTemplateProject(appModuleDir)
+        }
+
+        return TemplateProject(
+            projectId = TEMPLATE_PROJECT_ID,
+            projectName = TEMPLATE_PROJECT_NAME,
+            packageName = TEMPLATE_PACKAGE_NAME,
+            appModuleDir = appModuleDir,
+            minSdk = TEMPLATE_MIN_SDK,
+            targetSdk = TEMPLATE_TARGET_SDK,
+        )
     }
 
     private fun unzipTemplateArchive(destinationRoot: File) {
