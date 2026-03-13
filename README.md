@@ -16,7 +16,7 @@
 
 ## ✨ 是什么 | What is VibeApp
 
-VibeApp 是一个**完全开源**的 Android 应用，它让任何人都可以通过自然语言描述，**在手机上直接生成、编译、安装**一款真正的原生 Android App——无需电脑，无需编程基础，无需任何云端服务。
+VibeApp 是一个**完全开源**的 Android 应用，它让任何人都可以通过自然语言描述，**在手机上直接生成、编译、安装**一款真正的原生 Android App——无需电脑，无需编程基础，无需关注代码实现。
 
 你只需要告诉它你想要什么，它就帮你造出来。
 
@@ -58,7 +58,7 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 - **📱 设备端全链路编译** — AAPT2 + JavacTool + D8 + 打包/签名，完整编译链跑在你的手机上
 - **🔁 自动错误修复** — 编译失败自动将错误喂给 AI 修复。
 - **📂 多项目管理** — 同时管理多个 App 项目，带版本快照和编译缓存
-- **🧠 多模型支持** — Claude、GPT-4o、DeepSeek、本地 Ollama 均可接入
+- **🧠 多模型支持** — Claude、GPT-4o、Qwen、未来支持本地 Ollama 接入
 - **📤 灵活导出** — 直接安装 APK、导出完整源码
 
 ### 代码生成策略（三重保障）
@@ -145,7 +145,7 @@ PackageInstaller 引导用户安装 ✅
 ### 环境要求
 
 - Android 10.0 (API 30) 及以上
-- AI API Key（Claude / GPT-4o / DeepSeek 任选其一）或本地 Ollama 服务
+- AI API Key（Claude / GPT-4o / Qwen 任选其一）或本地 Ollama 服务
 
 ### 安装
 [从 Release 页面下载最新 APK](https://github.com/Skykai521/VibeApp/releases)
@@ -162,7 +162,7 @@ cd VibeApp
 1. 打开 VibeApp → 设置 → 配置你的 AI API Key
 2. 点击「新建项目」
 3. 用自然语言描述你想要的 App
-4. 等待生成 → 编译 → 安装
+4. 等待自动生成 → 编译 → 安装
 
 ---
 
@@ -242,7 +242,7 @@ VibeApp/
 
 > 目标：用户输入一句话 → 得到一个可安装的 APK
 
-- [ ] 接入 Claude / OpenAI API，实现基础代码生成
+- [ ] 接入 Claude / OpenAI / Qwen API，实现基础代码生成
 - [ ] 集成编译模块（JavacTool + D8 + AAPT2）
 - [ ] 实现单 Activity + View 体系的应用生成
 - [ ] 代码预检机制（黑白名单）
@@ -258,7 +258,7 @@ VibeApp/
 - [ ] XML 静态预览（无需编译的即时渲染）
 - [ ] 动态预览（DexClassLoader 设备内运行）
 - [ ] 多项目管理 + 版本快照
-- [ ] 多模型切换支持（GPT-4o / DeepSeek / Ollama）
+- [ ] 多模型切换支持（GPT-4o / Qwen / Ollama）
 - [ ] 编译缓存 + 增量编译
 - [ ] 多轮对话迭代优化
 - [ ] 支持 AI 多模态
