@@ -1,5 +1,6 @@
 package com.vibe.build.engine.internal
 
+import android.util.Log
 import com.tyron.builder.log.ILogger
 import com.tyron.builder.model.DiagnosticWrapper
 import com.vibe.build.engine.model.BuildLogEntry
@@ -11,6 +12,8 @@ import javax.tools.Diagnostic
 class RecordingLogger(
     private val stage: BuildStage,
 ) : ILogger {
+
+    private val tag = "BuildEngine-${stage.name}"
 
     private val _entries = Collections.synchronizedList(mutableListOf<BuildLogEntry>())
 
@@ -34,21 +37,45 @@ class RecordingLogger(
     }
 
     override fun quiet(s: String) {
-        _entries += BuildLogEntry(
+        val entry = BuildLogEntry(
             stage = stage,
             level = BuildLogLevel.INFO,
             message = s,
         )
+        _entries += entry
+        printToLogcat(entry)
     }
 
     private fun record(level: BuildLogLevel, wrapper: DiagnosticWrapper) {
-        _entries += BuildLogEntry(
+        val entry = BuildLogEntry(
             stage = stage,
             level = level,
             message = wrapper.messageOrFallback(),
             sourcePath = wrapper.source?.absolutePath,
             line = wrapper.lineNumber.takeIf { it > 0 },
         )
+        _entries += entry
+        printToLogcat(entry)
+    }
+
+    private fun printToLogcat(entry: BuildLogEntry) {
+        val rendered = buildString {
+            append(entry.message)
+            entry.sourcePath?.let { source ->
+                append(" | source=")
+                append(source)
+            }
+            entry.line?.let { line ->
+                append(" | line=")
+                append(line)
+            }
+        }
+        when (entry.level) {
+            BuildLogLevel.DEBUG -> Log.d(tag, rendered)
+            BuildLogLevel.INFO -> Log.i(tag, rendered)
+            BuildLogLevel.WARNING -> Log.w(tag, rendered)
+            BuildLogLevel.ERROR -> Log.e(tag, rendered)
+        }
     }
 
     private fun DiagnosticWrapper.messageOrFallback(): String {

@@ -26,7 +26,11 @@ import com.vibe.app.presentation.common.PrimaryLongButton
 import com.vibe.app.presentation.icons.GptMobileStartScreen
 
 @Composable
-fun StartScreen(onStartClick: () -> Unit) {
+fun StartScreen(
+    onStartClick: () -> Unit,
+    isInitializing: Boolean = false,
+    statusMessage: String? = null,
+) {
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier = Modifier
@@ -40,8 +44,16 @@ fun StartScreen(onStartClick: () -> Unit) {
             WelcomeText()
             PrimaryLongButton(
                 onClick = onStartClick,
+                enabled = isInitializing.not(),
                 text = stringResource(R.string.get_started)
             )
+            if (statusMessage != null) {
+                Text(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    text = statusMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
     }
 }

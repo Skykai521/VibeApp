@@ -1,6 +1,7 @@
 package com.vibe.build.engine.pipeline
 
 import android.content.Context
+import android.util.Log
 import com.vibe.build.engine.internal.BuildWorkspace
 import com.vibe.build.engine.internal.BuildWorkspacePreparer
 import com.vibe.build.engine.model.BuildResult
@@ -16,33 +17,47 @@ class DefaultBuildPipeline(
     private val apkSigner: ApkSigner,
 ) : BuildPipeline {
 
+    private val tag = "BuildEngine-Pipeline"
+
     override suspend fun run(input: CompileInput): BuildResult {
+        Log.d(tag, "Pipeline start for ${input.projectId} at ${input.workingDirectory}")
         val workspace = BuildWorkspacePreparer.prepare(context, input)
         if (input.cleanOutput) {
+            Log.d(tag, "Cleaning build directory: ${workspace.buildDir.absolutePath}")
             workspace.buildDir.deleteRecursively()
         }
 
-        val steps = listOf(
-            resourceCompiler.compile(input),
-            compiler.compile(input),
-            dexConverter.convert(input),
-            apkBuilder.build(input),
-            apkSigner.sign(input),
+        val stepRunners = listOf<suspend () -> BuildResult>(
+            { resourceCompiler.compile(input) },
+            { compiler.compile(input) },
+            { dexConverter.convert(input) },
+            { apkBuilder.build(input) },
+            { apkSigner.sign(input) },
         )
+        val stepResults = mutableListOf<BuildResult>()
 
-        val firstFailure = steps.firstOrNull { it.status == BuildStatus.FAILED }
-        if (firstFailure != null) {
-            return BuildResult(
-                status = BuildStatus.FAILED,
-                artifacts = steps.flatMap { it.artifacts },
-                logs = steps.flatMap { it.logs },
-                errorMessage = firstFailure.errorMessage,
+        stepRunners.forEachIndexed { index, step ->
+            val result = step()
+            stepResults += result
+            Log.d(
+                tag,
+                "Step ${index + 1}/${stepRunners.size} finished with status=${result.status}, error=${result.errorMessage}",
             )
+            if (result.status == BuildStatus.FAILED) {
+                Log.e(tag, "Pipeline failed: ${result.errorMessage}")
+                return BuildResult(
+                    status = BuildStatus.FAILED,
+                    artifacts = stepResults.flatMap { it.artifacts },
+                    logs = stepResults.flatMap { it.logs },
+                    errorMessage = result.errorMessage,
+                )
+            }
         }
 
+        Log.d(tag, "Pipeline succeeded")
         return BuildResult.success(
-            artifacts = steps.flatMap { it.artifacts } + BuildWorkspace.pipelineArtifacts(workspace),
-            logs = steps.flatMap { it.logs },
+            artifacts = stepResults.flatMap { it.artifacts } + BuildWorkspace.pipelineArtifacts(workspace),
+            logs = stepResults.flatMap { it.logs },
         )
     }
 }

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
@@ -29,6 +31,7 @@ import com.vibe.app.presentation.ui.setup.SetupPlatformTypeScreen
 import com.vibe.app.presentation.ui.setup.SetupPlatformWizardScreen
 import com.vibe.app.presentation.ui.setup.SetupViewModelV2
 import com.vibe.app.presentation.ui.startscreen.StartScreen
+import com.vibe.app.presentation.ui.startscreen.StartViewModel
 
 @Composable
 fun SetupNavGraph(navController: NavHostController) {
@@ -60,7 +63,13 @@ fun NavGraphBuilder.migrationScreenNavigation(navController: NavHostController) 
 
 fun NavGraphBuilder.startScreenNavigation(navController: NavHostController) {
     composable(Route.GET_STARTED) {
-        StartScreen { navController.navigate(Route.SETUP_ROUTE) }
+        val startViewModel: StartViewModel = hiltViewModel()
+        val uiState by startViewModel.uiState.collectAsState()
+        StartScreen(
+            onStartClick = startViewModel::initProject,
+            isInitializing = uiState.isInitializing,
+            statusMessage = uiState.statusMessage,
+        )
     }
 }
 

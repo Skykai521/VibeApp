@@ -1,6 +1,7 @@
 package com.vibe.build.engine.compiler
 
 import android.content.Context
+import android.util.Log
 import com.sun.tools.javac.api.JavacTool
 import com.sun.tools.javac.file.JavacFileManager
 import com.vibe.build.engine.internal.BuildStep
@@ -22,6 +23,8 @@ open class JavacCompiler(
     context: Context,
 ) : BuildStep(context, BuildStage.COMPILE), com.vibe.build.engine.pipeline.Compiler {
 
+    private val tag = "BuildEngine-Javac"
+
     override suspend fun compile(input: CompileInput): BuildResult = run(input)
 
     override suspend fun execute(
@@ -31,6 +34,10 @@ open class JavacCompiler(
     ): BuildResult {
         val javaSources = workspace.allJavaSources()
         require(javaSources.isNotEmpty()) { "No Java sources found under ${workspace.sourceDir.absolutePath}" }
+        Log.d(
+            tag,
+            "Compiling ${javaSources.size} Java files from ${workspace.sourceDir.absolutePath} and ${workspace.generatedSourcesDir.absolutePath}",
+        )
 
         if (workspace.classesDir.exists()) {
             workspace.classesDir.deleteRecursively()
@@ -55,6 +62,14 @@ open class JavacCompiler(
         }
 
         val classpath = input.classpathEntries.map(::File).filter { it.exists() } + workspace.classesDir
+        Log.d(
+            tag,
+            "Classpath entries=${classpath.joinToString { it.absolutePath }}",
+        )
+        Log.d(
+            tag,
+            "Platform classpath=${workspace.bootstrapJar.absolutePath}, ${workspace.lambdaStubsJar.absolutePath}",
+        )
         fileManager.setLocation(StandardLocation.CLASS_OUTPUT, listOf(workspace.classesDir))
         fileManager.setLocation(
             StandardLocation.PLATFORM_CLASS_PATH,
@@ -86,7 +101,15 @@ open class JavacCompiler(
             closeQuietly(fileManager)
         }
 
-        check(success && !hasErrors) { "JavacTool compilation failed" }
+        if (!success || hasErrors) {
+            Log.e(
+                tag,
+                "JavacTool failed. success=$success, hasErrors=$hasErrors, sources=${javaSources.joinToString { it.absolutePath }}",
+            )
+        }
+        check(success && !hasErrors) {
+            "JavacTool compilation failed. See logcat tag $tag for source list and diagnostics."
+        }
 
         return BuildResult.success(
             artifacts = listOf(
