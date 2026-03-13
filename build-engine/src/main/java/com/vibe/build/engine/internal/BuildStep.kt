@@ -7,7 +7,7 @@ import com.vibe.build.engine.model.BuildStage
 import java.io.FileNotFoundException
 
 abstract class BuildStep(
-    private val context: Context,
+    protected val context: Context,
     private val stage: BuildStage,
 ) {
 

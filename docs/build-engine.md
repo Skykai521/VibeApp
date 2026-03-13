@@ -74,6 +74,7 @@
 - 生成 `build/gen/R.java`
 - 生成 `build/bin/generated.apk.res`
 - 生成 `build/bin/res/R.txt`
+- 运行前会优先解析 APK 内 `lib/<abi>/libaapt2.so`，解压到应用私有目录再执行，避免部分设备上 `nativeLibraryDir` 下的可执行文件不可直接启动
 
 ### 2. JavacTool
 

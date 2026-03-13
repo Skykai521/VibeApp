@@ -6,6 +6,7 @@ import com.android.tools.aapt2.Aapt2Jni
 import com.tyron.builder.model.DiagnosticWrapper
 import com.vibe.build.engine.internal.BuildStep
 import com.vibe.build.engine.internal.BuildWorkspace
+import com.vibe.build.engine.internal.PackagedBinaryResolver
 import com.vibe.build.engine.internal.RecordingLogger
 import com.vibe.build.engine.model.BuildArtifact
 import com.vibe.build.engine.model.BuildResult
@@ -26,6 +27,10 @@ class Aapt2ResourceCompiler(
         workspace: BuildWorkspace,
         logger: RecordingLogger,
     ): BuildResult {
+        val aapt2Binary = PackagedBinaryResolver.resolveAapt2(context)
+        Aapt2Jni.setAapt2Binary(aapt2Binary)
+        Log.d(tag, "Resolved AAPT2 binary ${aapt2Binary.absolutePath}")
+
         workspace.generatedSourcesDir.deleteRecursively()
         workspace.generatedSourcesDir.mkdirs()
         workspace.compiledResZip.parentFile?.mkdirs()

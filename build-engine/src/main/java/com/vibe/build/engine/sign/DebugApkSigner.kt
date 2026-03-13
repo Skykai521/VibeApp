@@ -19,7 +19,7 @@ import java.security.cert.X509Certificate
 import java.security.spec.PKCS8EncodedKeySpec
 
 class DebugApkSigner(
-    private val context: Context,
+    context: Context,
 ) : BuildStep(context, BuildStage.SIGN), com.vibe.build.engine.pipeline.ApkSigner {
 
     override suspend fun sign(input: CompileInput): BuildResult = run(input)
