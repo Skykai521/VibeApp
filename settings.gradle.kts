@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "VibeApp"
 include(":app")
+include(":build-engine")
