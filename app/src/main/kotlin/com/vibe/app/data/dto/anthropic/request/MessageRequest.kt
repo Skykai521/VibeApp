@@ -4,6 +4,7 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
 When certain value is used in the future, use @EncodeDefault or remove default values
@@ -51,7 +52,15 @@ data class MessageRequest(
 
     @SerialName("thinking")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val thinking: ThinkingConfig? = null
+    val thinking: ThinkingConfig? = null,
+
+    @SerialName("tools")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tools: List<AnthropicTool>? = null,
+
+    @SerialName("tool_choice")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val toolChoice: AnthropicToolChoice? = null,
 )
 
 @OptIn(ExperimentalSerializationApi::class)

@@ -16,7 +16,6 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 
 @Singleton
@@ -34,7 +33,11 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         )
 
         var previousResponseId: String? = null
-        var conversation = buildInitialConversation(request)
+        val initialConversation = buildInitialConversation(request)
+        // delta: new items to send for this turn (used by stateful providers like OpenAI)
+        var conversationDelta: List<AgentConversationItem> = initialConversation
+        // fullConversation: the entire accumulated history (used by stateless providers like Anthropic)
+        val fullConversation = initialConversation.toMutableList()
         val collectedToolResults = mutableListOf<AgentToolResult>()
 
         for (iteration in 1..request.policy.maxIterations) {
@@ -47,7 +50,8 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             agentModelGateway.streamTurn(
                 AgentModelRequest(
                     platform = request.platform,
-                    conversation = conversation,
+                    conversation = conversationDelta,
+                    fullConversation = fullConversation.toList(),
                     instructions = buildInstructions(request),
                     tools = request.tools,
                     policy = request.policy,
@@ -94,6 +98,14 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 return@flow
             }
 
+            // Append the assistant's turn (text + tool calls) to the full history so stateless
+            // providers can reconstruct the complete conversation on the next turn.
+            fullConversation += AgentConversationItem(
+                role = AgentMessageRole.ASSISTANT,
+                text = outputBuilder.toString().trim().takeIf { it.isNotEmpty() },
+                toolCalls = pendingCalls.toList(),
+            )
+
             pendingCalls.forEach { call ->
                 val tool = agentToolRegistry.findTool(call.name)
                 if (tool == null) {
@@ -136,7 +148,8 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
             }
 
-            conversation = pendingToolResults.map { result ->
+            // Build tool result items and append to full history.
+            val toolResultItems = pendingToolResults.map { result ->
                 AgentConversationItem(
                     role = AgentMessageRole.TOOL,
                     toolCallId = result.toolCallId,
@@ -144,6 +157,10 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     payload = result.output,
                 )
             }
+            fullConversation += toolResultItems
+
+            // For stateful providers (OpenAI), only the tool results are needed as the delta.
+            conversationDelta = toolResultItems
         }
 
         emit(

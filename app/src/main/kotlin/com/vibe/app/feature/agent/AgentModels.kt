@@ -29,6 +29,9 @@ data class AgentConversationItem(
     val toolCallId: String? = null,
     val toolName: String? = null,
     val payload: JsonElement? = null,
+    // Non-null only for ASSISTANT items that ended with tool calls.
+    // Used by stateless providers (e.g. Anthropic) to reconstruct full conversation history.
+    val toolCalls: List<AgentToolCall>? = null,
 )
 
 data class AgentToolDefinition(

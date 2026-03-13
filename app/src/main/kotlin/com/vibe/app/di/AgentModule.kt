@@ -4,7 +4,7 @@ import com.vibe.app.feature.agent.AgentLoopCoordinator
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.loop.DefaultAgentLoopCoordinator
-import com.vibe.app.feature.agent.loop.OpenAiResponsesAgentGateway
+import com.vibe.app.feature.agent.loop.ProviderAgentGatewayRouter
 import com.vibe.app.feature.agent.tool.DefaultAgentToolRegistry
 import dagger.Module
 import dagger.Provides
@@ -19,8 +19,8 @@ object AgentModule {
     @Provides
     @Singleton
     fun provideAgentModelGateway(
-        gateway: OpenAiResponsesAgentGateway,
-    ): AgentModelGateway = gateway
+        router: ProviderAgentGatewayRouter,
+    ): AgentModelGateway = router
 
     @Provides
     @Singleton

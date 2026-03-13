@@ -26,7 +26,12 @@ interface AgentToolRegistry {
 
 data class AgentModelRequest(
     val platform: PlatformV2,
+    // Delta items for this turn only (new messages since the last model response).
+    // Stateful providers (OpenAI Responses API) use this together with previousResponseId.
     val conversation: List<AgentConversationItem>,
+    // Full accumulated conversation history from the very beginning.
+    // Stateless providers (Anthropic Messages API) must use this to reconstruct context.
+    val fullConversation: List<AgentConversationItem>,
     val instructions: String? = null,
     val tools: List<AgentToolDefinition>,
     val policy: AgentLoopPolicy,
