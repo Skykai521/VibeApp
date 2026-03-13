@@ -9,7 +9,7 @@
 [![Status](https://img.shields.io/badge/status-In%20Development-orange.svg)]()
 
 <p align="center">
-  <img src="docs/assets/banner.png" alt="VibeApp Banner" width="600"/>
+  <img src="docs/assets/banner.png" alt="VibeApp Banner" width="1850"/>
 </p>
 
 ---
