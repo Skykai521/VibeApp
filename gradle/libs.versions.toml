@@ -58,7 +58,6 @@ room = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-lifecycle-runtime-compose-android = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose-android", version.ref = "lifecycleRuntime" }
-
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

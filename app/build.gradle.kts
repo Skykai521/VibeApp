@@ -16,10 +16,10 @@ android {
 
     defaultConfig {
         applicationId = "com.vibe.app"
-        minSdk = 31
+        minSdk = 30
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.7.2"
+        versionCode = 1
+        versionName = "0.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -27,20 +27,14 @@ android {
         }
     }
 
+    //noinspection WrongGradleMethod
     ksp {
         arg("room.schemaLocation", "$projectDir/schemas")
-    }
-
-    androidResources {
-        @file:Suppress("UnstableApiUsage") // Incubating class
-        generateLocaleConfig = true
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
-            @file:Suppress("UnstableApiUsage")
-            vcsInfo.include = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
