@@ -1,0 +1,33 @@
+# Gradle
+*.iml
+.gradle
+
+# Android
+/local.properties
+
+# Android Studio
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/appInsightsSettings.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/other.xml
+
+# MacOS
+.DS_Store
+
+# Build
+/build
+/captures
+.externalNativeBuild
+.cxx
+app/release/**
+app/build/**
+.idea/copilot.data.migration.ask.xml
+.idea/copilot.data.migration.agent.xml
+.idea/copilot.data.migration.edit.xml
+.idea/copilot.data.migration.ask2agent.xml
