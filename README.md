@@ -38,13 +38,13 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 
 市面上已经有很多 AI App Builder，但它们有一个共同的问题：**生成的不是真正的 App**。
 
-| | 其他 AI Builder     | VibeApp |
-|---|-------------------|---|
-| 输出物 | Web App / PWA / 需要云编译 | **原生 APK** |
-| 编译方式 | 云端                | **设备端本地编译** |
-| 数据隐私 | 代码上传到服务器          | **代码不离开你的手机** |
-| 离线运行 | 大多不支持             | **完全离线运行** |
-| 技术门槛 | 需要部署/配置环境         | **零配置，开箱即用** |
+|      | 其他 AI Builder     | VibeApp             |
+|------|-------------------|---------------------|
+| 输出物  | Web App / PWA / 需要云编译 | **原生 APK**          |
+| 编译方式 | 云端                | **设备端本地编译**         |
+| 数据隐私 | 代码上传到服务器          | **代码不离开你的手机**       |
+| 源码导出 | 大多不支持             | **一键导出源码**          |
+| 技术门槛 | 需要部署/配置环境         | **仅需配置 AI API key** |
 
 我们相信，AI 时代不会消灭 App，而是会让更多人**第一次成为 App 的创造者**。
 
@@ -242,12 +242,13 @@ VibeApp/
 
 > 目标：用户输入一句话 → 得到一个可安装的 APK
 
-- [ ] 接入 Claude API，实现基础代码生成
+- [ ] 接入 Claude / OpenAI API，实现基础代码生成
 - [ ] 集成编译模块（JavacTool + D8 + AAPT2）
 - [ ] 实现单 Activity + View 体系的应用生成
 - [ ] 代码预检机制（黑白名单）
 - [ ] 自动修复循环（最多 3 次重试）
 - [ ] APK 签名 + PackageInstaller 引导安装
+- [ ] 支持生成 Image
 - [ ] 基础 UI：对话界面 + 编译进度
 
 ### Phase 2 — 体验优化 🎨
@@ -260,14 +261,15 @@ VibeApp/
 - [ ] 多模型切换支持（GPT-4o / DeepSeek / Ollama）
 - [ ] 编译缓存 + 增量编译
 - [ ] 多轮对话迭代优化
+- [ ] 支持 AI 多模态
 
 ### Phase 3 — 生态扩展 🌍
 
 > 目标：支持更复杂的 App 和社区生态
 
 - [ ] Kotlin + Jetpack Compose 支持
-- [ ] 常用三方库白名单（预编译 DEX 方式引入）
-- [ ] 源码导出 + GitHub 推送
+- [ ] 支持完整编译流程，支持引入第三方库
+- [ ] 支持本地 termux，git
 - [ ] 社区模板市场
 - [ ] 国际化（i18n）
 
@@ -281,7 +283,6 @@ VibeApp 站在以下优秀开源项目的肩膀上：
 |------|------|
 | [gpt_mobile](https://github.com/Taewan-P/gpt_mobile) | AI Chat UI 参考 |
 | [CodeAssist](https://github.com/tyron12233/CodeAssist/) | 设备端完整 Android IDE，验证了全链路可行性 |
-| [Eclipse JDT](https://github.com/eclipse-jdt/eclipse.jdt.core) | Java 编译器核心 |
 
 ---
 
