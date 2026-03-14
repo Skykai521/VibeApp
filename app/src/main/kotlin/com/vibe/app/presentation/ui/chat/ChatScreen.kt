@@ -88,8 +88,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibe.app.R
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,6 +127,7 @@ fun ChatScreen(
     val canUseChat = (chatViewModel.enabledPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
+    val isProjectMenuEnabled = currentProjectId != null
     val context = LocalContext.current
 
     val scope = rememberCoroutineScope()
@@ -166,11 +171,26 @@ fun ChatScreen(
                 chatRoom.title,
                 chatRoom.id > 0,
                 runButtonEnabled,
+                isProjectMenuEnabled,
                 onBackAction,
                 scrollBehavior,
                 chatViewModel::openChatTitleDialog,
                 chatViewModel::runBuild,
-                onExportChatItemClick = { exportChat(context, chatViewModel) }
+                onExportChatItemClick = { exportChat(context, chatViewModel) },
+                onExportSourceCodeItemClick = {
+                    val projectId = currentProjectId ?: return@ChatTopBar
+                    scope.launch { exportSourceCode(context, projectId) }
+                },
+                onExportApkItemClick = {
+                    scope.launch {
+                        val apkPath = withContext(Dispatchers.IO) { chatViewModel.getSignedApkPath() }
+                        if (apkPath != null) {
+                            shareApk(context, apkPath)
+                        } else {
+                            Toast.makeText(context, "No built APK found. Please run a build first.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             )
         }
     ) { innerPadding ->
@@ -348,11 +368,14 @@ private fun ChatTopBar(
     title: String,
     isMenuItemEnabled: Boolean,
     isRunEnabled: Boolean,
+    isProjectMenuEnabled: Boolean,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     onChatTitleItemClick: () -> Unit,
     onRunClick: () -> Unit,
-    onExportChatItemClick: () -> Unit
+    onExportChatItemClick: () -> Unit,
+    onExportSourceCodeItemClick: () -> Unit,
+    onExportApkItemClick: () -> Unit
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
@@ -384,12 +407,21 @@ private fun ChatTopBar(
             ChatDropdownMenu(
                 isDropdownMenuExpanded = isDropDownMenuExpanded,
                 isMenuItemEnabled = isMenuItemEnabled,
+                isProjectMenuEnabled = isProjectMenuEnabled,
                 onDismissRequest = { isDropDownMenuExpanded = false },
                 onChatTitleItemClick = {
                     onChatTitleItemClick.invoke()
                     isDropDownMenuExpanded = false
                 },
-                onExportChatItemClick = onExportChatItemClick
+                onExportChatItemClick = onExportChatItemClick,
+                onExportSourceCodeItemClick = {
+                    onExportSourceCodeItemClick()
+                    isDropDownMenuExpanded = false
+                },
+                onExportApkItemClick = {
+                    onExportApkItemClick()
+                    isDropDownMenuExpanded = false
+                }
             )
         },
         scrollBehavior = scrollBehavior
@@ -400,9 +432,12 @@ private fun ChatTopBar(
 fun ChatDropdownMenu(
     isDropdownMenuExpanded: Boolean,
     isMenuItemEnabled: Boolean,
+    isProjectMenuEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onChatTitleItemClick: () -> Unit,
-    onExportChatItemClick: () -> Unit
+    onExportChatItemClick: () -> Unit,
+    onExportSourceCodeItemClick: () -> Unit,
+    onExportApkItemClick: () -> Unit
 ) {
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
@@ -414,7 +449,6 @@ fun ChatDropdownMenu(
             text = { Text(text = stringResource(R.string.update_chat_title)) },
             onClick = onChatTitleItemClick
         )
-        /* Export Chat */
         DropdownMenuItem(
             enabled = isMenuItemEnabled,
             text = { Text(text = stringResource(R.string.export_chat)) },
@@ -422,6 +456,16 @@ fun ChatDropdownMenu(
                 onExportChatItemClick()
                 onDismissRequest()
             }
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.export_source_code)) },
+            onClick = onExportSourceCodeItemClick
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.export_apk)) },
+            onClick = onExportApkItemClick
         )
     }
 }
@@ -466,6 +510,81 @@ fun ChatBubbleDropdownMenu(
                 onDismissRequest.invoke()
             }
         )
+    }
+}
+
+private suspend fun exportSourceCode(context: Context, projectId: String) {
+    try {
+        val sourceDir = File(context.filesDir, "projects/$projectId/app")
+        if (!sourceDir.exists()) {
+            Toast.makeText(context, "Project workspace not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val zipFileName = "${projectId}_source.zip"
+        val exportDir = context.getExternalFilesDir(null)!!
+        val zipFile = File(exportDir, zipFileName)
+        withContext(Dispatchers.IO) {
+            if (zipFile.exists()) zipFile.delete()
+            ZipOutputStream(zipFile.outputStream().buffered()).use { zos ->
+                sourceDir.walkTopDown()
+                    .filter { file ->
+                        // Exclude build output to keep zip size small
+                        file.toRelativeString(sourceDir).split(File.separator).none { it == "build" }
+                    }
+                    .forEach { file ->
+                        if (file.isFile) {
+                            val entryName = file.toRelativeString(sourceDir)
+                            zos.putNextEntry(ZipEntry(entryName))
+                            file.inputStream().use { it.copyTo(zos) }
+                            zos.closeEntry()
+                        }
+                    }
+            }
+        }
+        val uri = getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/zip"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(shareIntent, "Share Source Code").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val resInfo = context.packageManager.queryIntentActivities(chooser, PackageManager.MATCH_DEFAULT_ONLY)
+        resInfo.forEach { res ->
+            context.grantUriPermission(res.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        Log.e("ExportSource", "Failed to export source code", e)
+        Toast.makeText(context, "Failed to export source code", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun shareApk(context: Context, apkPath: String) {
+    try {
+        val file = File(apkPath)
+        if (!file.exists()) {
+            Toast.makeText(context, "APK file not found", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/vnd.android.package-archive"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(shareIntent, "Share APK").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val resInfo = context.packageManager.queryIntentActivities(chooser, PackageManager.MATCH_DEFAULT_ONLY)
+        resInfo.forEach { res ->
+            context.grantUriPermission(res.activityInfo.packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        Log.e("ExportApk", "Failed to share APK", e)
+        Toast.makeText(context, "Failed to share APK", Toast.LENGTH_SHORT).show()
     }
 }
 

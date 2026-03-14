@@ -182,6 +182,11 @@ class ChatViewModel @Inject constructor(
 
     fun openChatTitleDialog() = _isChatTitleDialogOpen.update { true }
 
+    fun getSignedApkPath(): String? {
+        val projectId = _currentProjectId.value ?: return null
+        return projectInitializer.findSignedApkPath(projectId)
+    }
+
     fun runBuild() {
         val projectId = _currentProjectId.value
         Log.d("RunBuild", "runBuild called, projectId=$projectId")

@@ -116,6 +116,18 @@ class ProjectInitializer @Inject constructor(
     }
 
     /**
+     * Searches for a signed APK in the project-specific workspace.
+     * Returns the absolute path if found, null otherwise.
+     */
+    fun findSignedApkPath(projectId: String): String? {
+        val projectDir = File(context.filesDir, "projects/$projectId")
+        if (!projectDir.exists()) return null
+        return projectDir.walkTopDown()
+            .firstOrNull { it.isFile && it.name == "signed.apk" }
+            ?.absolutePath
+    }
+
+    /**
      * Builds the project-specific workspace.
      */
     suspend fun buildProject(projectId: String): BuildResult = withContext(Dispatchers.IO) {
