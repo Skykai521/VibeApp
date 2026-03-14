@@ -313,6 +313,6 @@ private fun getModelPlaceholder(clientType: ClientType): String = when (clientTy
     ClientType.GROQ -> "openai/gpt-oss-120b"
     ClientType.OLLAMA -> "gpt-oss"
     ClientType.OPENROUTER -> "openai/gpt-4o"
-    ClientType.QWEN -> "Qwen3-Coder-Plus"
+    ClientType.QWEN -> "qwen3-coder-plus"
     ClientType.CUSTOM -> stringResource(R.string.model_name)
 }
