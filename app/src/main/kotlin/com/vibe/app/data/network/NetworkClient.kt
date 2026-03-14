@@ -5,9 +5,7 @@ import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.logging.DEFAULT
 import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.request.header
@@ -38,7 +36,7 @@ class NetworkClient @Inject constructor(
             }
 
             install(Logging) {
-                logger = Logger.DEFAULT
+                logger = NetworkLogcatLogger
                 level = LogLevel.ALL
                 sanitizeHeader { header -> header == HttpHeaders.Authorization }
             }
