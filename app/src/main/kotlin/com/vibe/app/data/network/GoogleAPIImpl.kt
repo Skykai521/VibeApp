@@ -9,6 +9,7 @@ import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readUTF8Line
@@ -34,21 +35,53 @@ class GoogleAPIImpl @Inject constructor(
     }
 
     override fun streamGenerateContent(request: GenerateContentRequest, model: String): Flow<GenerateContentResponse> = flow {
-        try {
-            val endpoint = if (apiUrl.endsWith("/")) {
-                "${apiUrl}v1beta/models/$model:streamGenerateContent"
-            } else {
-                "$apiUrl/v1beta/models/$model:streamGenerateContent"
-            }
+        val endpoint = if (apiUrl.endsWith("/")) {
+            "${apiUrl}v1beta/models/$model:streamGenerateContent"
+        } else {
+            "$apiUrl/v1beta/models/$model:streamGenerateContent"
+        }
+        val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
+        NetworkLogcatLogger.logRequest(
+            method = "POST",
+            url = endpoint,
+            commonHeaders = mapOf(
+                "alt" to "sse",
+                "key" to token.orEmpty(),
+            ),
+            bodyContentType = ContentType.Application.Json.toString(),
+            body = requestBody,
+        )
 
+        try {
+            val startTime = System.currentTimeMillis()
             networkClient().preparePost(endpoint) {
                 parameter("key", token ?: "")
                 parameter("alt", "sse")
                 contentType(ContentType.Application.Json)
-                setBody(NetworkClient.json.encodeToJsonElement(request))
+                setBody(requestBody)
             }.execute { response ->
+                NetworkLogcatLogger.logResponse(
+                    method = "POST",
+                    url = endpoint,
+                    statusCode = response.status.value,
+                    statusText = response.status.description,
+                    headers = response.headers.entries().associate { it.key to it.value },
+                    bodyContentType = response.headers[HttpHeaders.ContentType],
+                    durationMillis = System.currentTimeMillis() - startTime,
+                    streamedBody = response.status.isSuccess(),
+                )
+
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    NetworkLogcatLogger.logResponse(
+                        method = "POST",
+                        url = endpoint,
+                        statusCode = response.status.value,
+                        statusText = response.status.description,
+                        headers = response.headers.entries().associate { it.key to it.value },
+                        bodyContentType = response.headers[HttpHeaders.ContentType],
+                        body = errorBody,
+                    )
 
                     // Parse error - Google returns array format: [{"error": {...}}]
                     val errorMessage = try {
@@ -78,21 +111,23 @@ class GoogleAPIImpl @Inject constructor(
 
                 // Success - read SSE stream
                 val channel = response.bodyAsChannel()
+                val eventLines = mutableListOf<String>()
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
-
-                    if (line.startsWith("data: ")) {
-                        val data = line.removePrefix("data: ").trim()
-                        try {
-                            val chunk = NetworkClient.json.decodeFromString<GenerateContentResponse>(data)
-                            emit(chunk)
-                        } catch (_: Exception) {
-                            // Skip malformed chunks
-                        }
+                    if (line.isBlank()) {
+                        handleGoogleSseEvent(endpoint, eventLines) { emit(it) }
+                        eventLines.clear()
+                        continue
                     }
+                    eventLines += line
+                }
+
+                if (eventLines.isNotEmpty()) {
+                    handleGoogleSseEvent(endpoint, eventLines) { emit(it) }
                 }
             }
         } catch (e: Exception) {
+            NetworkLogcatLogger.logNetworkError("POST", endpoint, e)
             val errorMessage = when (e) {
                 is java.net.UnknownHostException -> "Network error: Unable to resolve host."
                 is java.nio.channels.UnresolvedAddressException -> "Network error: Unable to resolve address. Check your internet connection."
@@ -110,6 +145,34 @@ class GoogleAPIImpl @Inject constructor(
                     )
                 )
             )
+        }
+    }
+
+    private suspend fun handleGoogleSseEvent(
+        endpoint: String,
+        lines: List<String>,
+        emitEvent: suspend (GenerateContentResponse) -> Unit,
+    ) {
+        if (lines.isEmpty()) {
+            return
+        }
+
+        val block = lines.joinToString("\n")
+        NetworkLogcatLogger.logSseEvent(endpoint, block)
+
+        val data = lines
+            .filter { it.startsWith("data:") }
+            .joinToString("\n") { it.removePrefix("data:").trimStart() }
+            .trim()
+
+        if (data.isBlank()) {
+            return
+        }
+
+        try {
+            emitEvent(NetworkClient.json.decodeFromString(data))
+        } catch (e: Exception) {
+            NetworkLogcatLogger.logDecodeFailure(endpoint, data, e)
         }
     }
 }

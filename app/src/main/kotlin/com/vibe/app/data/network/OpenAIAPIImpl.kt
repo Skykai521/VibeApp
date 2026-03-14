@@ -15,6 +15,7 @@ import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readUTF8Line
@@ -40,17 +41,40 @@ class OpenAIAPIImpl @Inject constructor(
     }
 
     override fun streamChatCompletion(request: ChatCompletionRequest): Flow<ChatCompletionChunk> = flow {
-        try {
-            val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val requestBody = NetworkClient.openAIJson.encodeToJsonElement(request).toString()
+        logOpenAiRequest(endpoint, requestBody)
 
+        try {
+            val startTime = System.currentTimeMillis()
             networkClient().preparePost(endpoint) {
                 contentType(ContentType.Application.Json)
-                setBody(NetworkClient.openAIJson.encodeToJsonElement(request))
+                setBody(requestBody)
                 accept(ContentType.Text.EventStream)
                 token?.let { bearerAuth(it) }
             }.execute { response ->
+                NetworkLogcatLogger.logResponse(
+                    method = "POST",
+                    url = endpoint,
+                    statusCode = response.status.value,
+                    statusText = response.status.description,
+                    headers = response.headers.entries().associate { it.key to it.value },
+                    bodyContentType = response.headers[HttpHeaders.ContentType],
+                    durationMillis = System.currentTimeMillis() - startTime,
+                    streamedBody = response.status.isSuccess(),
+                )
+
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    NetworkLogcatLogger.logResponse(
+                        method = "POST",
+                        url = endpoint,
+                        statusCode = response.status.value,
+                        statusText = response.status.description,
+                        headers = response.headers.entries().associate { it.key to it.value },
+                        bodyContentType = response.headers[HttpHeaders.ContentType],
+                        body = errorBody,
+                    )
 
                     val errorMessage = try {
                         val errorResponse = NetworkClient.openAIJson.decodeFromString<OpenAIErrorResponse>(errorBody)
@@ -73,24 +97,24 @@ class OpenAIAPIImpl @Inject constructor(
 
                 // Success - read SSE stream
                 val channel = response.bodyAsChannel()
+                val eventLines = mutableListOf<String>()
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
-
-                    if (line.startsWith("data: ")) {
-                        val data = line.removePrefix("data: ").trim()
-                        // OpenAI sends "[DONE]" as final message
-                        if (data == "[DONE]") break
-
-                        try {
-                            val chunk = NetworkClient.openAIJson.decodeFromString<ChatCompletionChunk>(data)
-                            emit(chunk)
-                        } catch (_: Exception) {
-                            // Skip malformed chunks
-                        }
+                    if (line.isBlank()) {
+                        val shouldStop = handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                        eventLines.clear()
+                        if (shouldStop) break
+                        continue
                     }
+                    eventLines += line
+                }
+
+                if (eventLines.isNotEmpty()) {
+                    handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
                 }
             }
         } catch (e: Exception) {
+            NetworkLogcatLogger.logNetworkError("POST", endpoint, e)
             val errorMessage = when (e) {
                 is java.net.UnknownHostException -> "Network error: Unable to resolve host."
                 is java.nio.channels.UnresolvedAddressException -> "Network error: Unable to resolve address. Check your internet connection."
@@ -111,17 +135,40 @@ class OpenAIAPIImpl @Inject constructor(
     }
 
     override fun streamResponses(request: ResponsesRequest): Flow<ResponsesStreamEvent> = flow {
-        try {
-            val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/responses" else "$apiUrl/v1/responses"
+        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/responses" else "$apiUrl/v1/responses"
+        val requestBody = NetworkClient.openAIJson.encodeToJsonElement(request).toString()
+        logOpenAiRequest(endpoint, requestBody)
 
+        try {
+            val startTime = System.currentTimeMillis()
             networkClient().preparePost(endpoint) {
                 contentType(ContentType.Application.Json)
-                setBody(NetworkClient.openAIJson.encodeToJsonElement(request))
+                setBody(requestBody)
                 accept(ContentType.Text.EventStream)
                 token?.let { bearerAuth(it) }
             }.execute { response ->
+                NetworkLogcatLogger.logResponse(
+                    method = "POST",
+                    url = endpoint,
+                    statusCode = response.status.value,
+                    statusText = response.status.description,
+                    headers = response.headers.entries().associate { it.key to it.value },
+                    bodyContentType = response.headers[HttpHeaders.ContentType],
+                    durationMillis = System.currentTimeMillis() - startTime,
+                    streamedBody = response.status.isSuccess(),
+                )
+
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    NetworkLogcatLogger.logResponse(
+                        method = "POST",
+                        url = endpoint,
+                        statusCode = response.status.value,
+                        statusText = response.status.description,
+                        headers = response.headers.entries().associate { it.key to it.value },
+                        bodyContentType = response.headers[HttpHeaders.ContentType],
+                        body = errorBody,
+                    )
 
                     val errorMessage = try {
                         val errorResponse = NetworkClient.openAIJson.decodeFromString<OpenAIErrorResponse>(errorBody)
@@ -136,23 +183,24 @@ class OpenAIAPIImpl @Inject constructor(
 
                 // Success - read SSE stream
                 val channel = response.bodyAsChannel()
+                val eventLines = mutableListOf<String>()
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
-
-                    if (line.startsWith("data: ")) {
-                        val data = line.removePrefix("data: ").trim()
-                        if (data == "[DONE]") break
-
-                        try {
-                            val streamEvent = NetworkClient.openAIJson.decodeFromString<ResponsesStreamEvent>(data)
-                            emit(streamEvent)
-                        } catch (_: Exception) {
-                            emit(UnknownEvent)
-                        }
+                    if (line.isBlank()) {
+                        val shouldStop = handleResponsesSseEvent(endpoint, eventLines) { emit(it) }
+                        eventLines.clear()
+                        if (shouldStop) break
+                        continue
                     }
+                    eventLines += line
+                }
+
+                if (eventLines.isNotEmpty()) {
+                    handleResponsesSseEvent(endpoint, eventLines) { emit(it) }
                 }
             }
         } catch (e: Exception) {
+            NetworkLogcatLogger.logNetworkError("POST", endpoint, e)
             val errorMessage = when (e) {
                 is java.net.UnknownHostException -> "Network error: Unable to resolve host."
                 is java.nio.channels.UnresolvedAddressException -> "Network error: Unable to resolve address. Check your internet connection."
@@ -168,6 +216,93 @@ class OpenAIAPIImpl @Inject constructor(
                 )
             )
         }
+    }
+
+    private fun logOpenAiRequest(
+        endpoint: String,
+        requestBody: String,
+    ) {
+        NetworkLogcatLogger.logRequest(
+            method = "POST",
+            url = endpoint,
+            commonHeaders = buildMap {
+                put("Accept", ContentType.Text.EventStream.toString())
+                if (token != null) {
+                    put(HttpHeaders.Authorization, "Bearer $token")
+                }
+            },
+            bodyContentType = ContentType.Application.Json.toString(),
+            body = requestBody,
+        )
+    }
+
+    private suspend fun handleChatCompletionSseEvent(
+        endpoint: String,
+        lines: List<String>,
+        emitEvent: suspend (ChatCompletionChunk) -> Unit,
+    ): Boolean {
+        if (lines.isEmpty()) {
+            return false
+        }
+
+        val block = lines.joinToString("\n")
+        NetworkLogcatLogger.logSseEvent(endpoint, block)
+
+        val data = lines
+            .filter { it.startsWith("data:") }
+            .joinToString("\n") { it.removePrefix("data:").trimStart() }
+            .trim()
+
+        if (data.isBlank()) {
+            return false
+        }
+
+        if (data == "[DONE]") {
+            return true
+        }
+
+        try {
+            emitEvent(NetworkClient.openAIJson.decodeFromString(data))
+        } catch (e: Exception) {
+            NetworkLogcatLogger.logDecodeFailure(endpoint, data, e)
+        }
+
+        return false
+    }
+
+    private suspend fun handleResponsesSseEvent(
+        endpoint: String,
+        lines: List<String>,
+        emitEvent: suspend (ResponsesStreamEvent) -> Unit,
+    ): Boolean {
+        if (lines.isEmpty()) {
+            return false
+        }
+
+        val block = lines.joinToString("\n")
+        NetworkLogcatLogger.logSseEvent(endpoint, block)
+
+        val data = lines
+            .filter { it.startsWith("data:") }
+            .joinToString("\n") { it.removePrefix("data:").trimStart() }
+            .trim()
+
+        if (data.isBlank()) {
+            return false
+        }
+
+        if (data == "[DONE]") {
+            return true
+        }
+
+        try {
+            emitEvent(NetworkClient.openAIJson.decodeFromString(data))
+        } catch (e: Exception) {
+            NetworkLogcatLogger.logDecodeFailure(endpoint, data, e)
+            emitEvent(UnknownEvent)
+        }
+
+        return false
     }
 }
 
