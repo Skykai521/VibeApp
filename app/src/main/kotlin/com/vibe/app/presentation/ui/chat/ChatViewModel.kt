@@ -16,11 +16,18 @@ import com.vibe.app.feature.agent.AgentLoopCoordinator
 import com.vibe.app.feature.agent.AgentLoopEvent
 import com.vibe.app.feature.agent.AgentLoopRequest
 import com.vibe.app.feature.agent.AgentToolRegistry
+import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.handleStates
+import com.vibe.build.engine.model.BuildLogLevel
+import com.vibe.build.engine.model.BuildStage
+import com.vibe.build.engine.model.BuildStatus
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,10 +40,15 @@ class ChatViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val agentLoopCoordinator: AgentLoopCoordinator,
     private val agentToolRegistry: AgentToolRegistry,
+    private val projectInitializer: ProjectInitializer,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
         data object Loading : LoadingState()
+    }
+
+    sealed class BuildEvent {
+        data class InstallApk(val apkPath: String) : BuildEvent()
     }
 
     data class GroupedMessages(
@@ -48,7 +60,14 @@ class ChatViewModel @Inject constructor(
     private val enabledPlatformString: String = checkNotNull(savedStateHandle["enabledPlatforms"])
     val enabledPlatformsInChat = enabledPlatformString.split(',')
 
-    private var currentProjectId: String? = null
+    private val _currentProjectId = MutableStateFlow<String?>(null)
+    val currentProjectId: StateFlow<String?> = _currentProjectId.asStateFlow()
+
+    private val _isBuildRunning = MutableStateFlow(false)
+    val isBuildRunning = _isBuildRunning.asStateFlow()
+
+    private val _buildEvent = MutableSharedFlow<BuildEvent>()
+    val buildEvent: SharedFlow<BuildEvent> = _buildEvent.asSharedFlow()
 
     private val currentTimeStamp: Long
         get() = System.currentTimeMillis() / 1000
@@ -64,9 +83,6 @@ class ChatViewModel @Inject constructor(
 
     private val _isSelectTextSheetOpen = MutableStateFlow(false)
     val isSelectTextSheetOpen = _isSelectTextSheetOpen.asStateFlow()
-
-    private val _isChatModelDialogOpen = MutableStateFlow(false)
-    val isChatModelDialogOpen = _isChatModelDialogOpen.asStateFlow()
 
     private val _chatPlatformModels = MutableStateFlow<Map<String, String>>(emptyMap())
     val chatPlatformModels = _chatPlatformModels.asStateFlow()
@@ -121,7 +137,7 @@ class ChatViewModel @Inject constructor(
         observeStateChanges()
         viewModelScope.launch {
             if (chatRoomId != 0) {
-                currentProjectId = projectRepository.fetchProjectByChatId(chatRoomId)?.projectId
+                _currentProjectId.update { projectRepository.fetchProjectByChatId(chatRoomId)?.projectId }
             }
         }
     }
@@ -164,10 +180,57 @@ class ChatViewModel @Inject constructor(
         _selectedText.update { "" }
     }
 
-    fun closeChatModelDialog() = _isChatModelDialogOpen.update { false }
-
     fun openChatTitleDialog() = _isChatTitleDialogOpen.update { true }
-    fun openChatModelDialog() = _isChatModelDialogOpen.update { true }
+
+    fun runBuild() {
+        val projectId = _currentProjectId.value
+        Log.d("RunBuild", "runBuild called, projectId=$projectId")
+        if (projectId == null) {
+            Log.w("RunBuild", "projectId is null, aborting")
+            return
+        }
+        _isBuildRunning.update { true }
+        viewModelScope.launch {
+            Log.d("RunBuild", "Starting buildProject for projectId=$projectId")
+            val result = projectInitializer.buildProject(projectId)
+            Log.d("RunBuild", "buildProject finished: status=${result.status}, artifacts=${result.artifacts.map { "${it.stage}=${it.path}" }}, errorMessage=${result.errorMessage}")
+            _isBuildRunning.update { false }
+            if (result.status == BuildStatus.SUCCESS) {
+                val signedApkPath = result.artifacts
+                    .firstOrNull { it.stage == BuildStage.SIGN }?.path
+                Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
+                if (signedApkPath != null) {
+                    Log.d("RunBuild", "Emitting InstallApk event")
+                    _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
+                } else {
+                    Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
+                }
+            } else {
+                val errorMsg = buildBuildErrorMessage(result)
+                Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
+                sendBuildErrorToChat(errorMsg)
+            }
+        }
+    }
+
+    private fun buildBuildErrorMessage(result: com.vibe.build.engine.model.BuildResult): String {
+        val baseError = result.errorMessage ?: ""
+        val errorLogs = result.logs
+            .filter { it.level == BuildLogLevel.ERROR }
+            .joinToString("\n") { it.message }
+        return if (baseError.isNotBlank()) baseError else errorLogs
+    }
+
+    private fun sendBuildErrorToChat(errorMessage: String) {
+        val content = "Build failed. Please fix the following errors:\n\n$errorMessage"
+        MessageV2(
+            chatId = chatRoomId,
+            content = content,
+            platformType = null,
+            createdAt = currentTimeStamp
+        ).let { addMessage(it) }
+        completeChat()
+    }
 
     fun openEditQuestionDialog(question: MessageV2) {
         _editedQuestion.update { question }
@@ -508,7 +571,7 @@ class ChatViewModel @Inject constructor(
     private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
         return enabledPlatformsInChat.size == 1 &&
             (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN) &&
-            currentProjectId != null
+            _currentProjectId.value != null
     }
 
     private suspend fun runAgentLoop(
@@ -518,7 +581,7 @@ class ChatViewModel @Inject constructor(
         agentLoopCoordinator.run(
             AgentLoopRequest(
                 chatId = chatRoomId,
-                projectId = currentProjectId,
+                projectId = _currentProjectId.value,
                 platform = platform,
                 userMessages = _groupedMessages.value.userMessages,
                 assistantMessages = _groupedMessages.value.assistantMessages,
