@@ -120,13 +120,7 @@ fun HomeScreen(
                 isSearchMode = projectListState.isSearchMode,
                 selectedCount = projectListState.selectedProjects.count { it },
                 scrollBehavior = scrollBehavior,
-                actionOnClick = {
-                    if (projectListState.isSelectionMode) {
-                        homeViewModel.openDeleteWarningDialog()
-                    } else {
-                        settingOnClick()
-                    }
-                },
+                settingsOnClick = settingOnClick,
                 navigationOnClick = {
                     if (projectListState.isSelectionMode) {
                         homeViewModel.disableSelectionMode()
@@ -143,7 +137,12 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            if (!projectListState.isSelectionMode && !projectListState.isSearchMode) {
+            if (projectListState.isSelectionMode) {
+                DeleteProjectsButton(
+                    selectedCount = projectListState.selectedProjects.count { it },
+                    onClick = { homeViewModel.openDeleteWarningDialog() },
+                )
+            } else if (!projectListState.isSearchMode) {
                 NewProjectButton(
                     expanded = listState.isScrollingUp(),
                     isCreating = projectListState.creationState is HomeViewModel.ProjectCreationState.InProgress,
@@ -278,6 +277,20 @@ private fun BuildStatusBadge(status: ProjectBuildStatus) {
     }
 }
 
+@Composable
+private fun DeleteProjectsButton(
+    selectedCount: Int,
+    onClick: () -> Unit,
+) {
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        icon = { Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.delete)) },
+        text = { Text(text = stringResource(R.string.delete) + " ($selectedCount)") },
+        containerColor = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeTopAppBar(
@@ -285,7 +298,7 @@ private fun HomeTopAppBar(
     isSearchMode: Boolean,
     selectedCount: Int,
     scrollBehavior: TopAppBarScrollBehavior,
-    actionOnClick: () -> Unit,
+    settingsOnClick: () -> Unit,
     navigationOnClick: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     searchQuery: String,
@@ -354,11 +367,8 @@ private fun HomeTopAppBar(
             }
         },
         actions = {
-            when {
-                isSelectionMode -> IconButton(modifier = Modifier.padding(4.dp), onClick = actionOnClick) {
-                    Icon(Icons.Outlined.Delete, tint = MaterialTheme.colorScheme.onPrimaryContainer, contentDescription = stringResource(R.string.delete))
-                }
-                !isSearchMode -> IconButton(modifier = Modifier.padding(4.dp), onClick = actionOnClick) {
+            if (!isSelectionMode && !isSearchMode) {
+                IconButton(modifier = Modifier.padding(4.dp), onClick = settingsOnClick) {
                     Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                 }
             }

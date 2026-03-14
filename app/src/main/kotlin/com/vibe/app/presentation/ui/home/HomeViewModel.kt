@@ -79,7 +79,6 @@ class HomeViewModel @Inject constructor(
                 it.copy(
                     projects = projects,
                     selectedProjects = List(projects.size) { false },
-                    isSelectionMode = false,
                 )
             }
             Log.d("HomeViewModel", "Loaded ${projects.size} projects")
@@ -184,8 +183,20 @@ class HomeViewModel @Inject constructor(
     }
 
     fun enableSelectionMode() {
-        disableSearchMode()
-        _projectListState.update { it.copy(isSelectionMode = true) }
+        val wasInSearchMode = _projectListState.value.isSearchMode
+        // Update state atomically — do NOT call disableSearchMode() because that
+        // triggers fetchProjects() which would race-reset isSelectionMode back to false.
+        _projectListState.update { it.copy(isSelectionMode = true, isSearchMode = false) }
+        _searchQuery.update { "" }
+        if (wasInSearchMode) {
+            // We were showing a filtered list; reload the full list now.
+            viewModelScope.launch {
+                val projects = projectRepository.fetchProjects()
+                _projectListState.update {
+                    it.copy(projects = projects, selectedProjects = List(projects.size) { false })
+                }
+            }
+        }
     }
 
     fun enableSearchMode() {
