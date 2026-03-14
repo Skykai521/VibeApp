@@ -10,12 +10,6 @@ import com.tyron.builder.project.impl.ModuleImpl;
 import com.tyron.builder.project.util.PackageTrie;
 import com.tyron.common.util.StringSearch;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.kotlin.com.intellij.openapi.util.Key;
-import org.jetbrains.kotlin.com.intellij.openapi.util.KeyWithDefaultValue;
-import org.jetbrains.kotlin.com.intellij.util.keyFMap.KeyFMap;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -30,7 +24,6 @@ import java.util.Set;
  */
 public class MockJavaModule extends ModuleImpl implements JavaModule {
 
-    private final KeyFMap mDataMap = KeyFMap.EMPTY_MAP;
     private final Map<String, File> mJavaFiles = new HashMap<>();
 
     private final FileManager mFileManager;
@@ -192,33 +185,5 @@ public class MockJavaModule extends ModuleImpl implements JavaModule {
     @Override
     public File getBuildDirectory() {
         return new File(getRootFile(), "build");
-    }
-
-    @NonNull
-    @Override
-    public <T> T putUserDataIfAbsent(@NotNull Key<T> key, @NotNull T t) {
-        if (mDataMap.get(key) == null) {
-            mDataMap.plus(key, t);
-        }
-        return t;
-    }
-
-    @Override
-    public <T> boolean replace(@NotNull Key<T> key, @Nullable T t, @Nullable T t1) {
-        return false;
-    }
-
-    @Override
-    public <T> T getUserData(@NotNull Key<T> key) {
-        T value = mDataMap.get(key);
-        if (value == null && key instanceof KeyWithDefaultValue) {
-            return ((KeyWithDefaultValue<T>) key).getDefaultValue();
-        }
-        return value;
-    }
-
-    @Override
-    public <T> void putUserData(@NotNull Key<T> key, @Nullable T t) {
-        mDataMap.plus(key, t);
     }
 }

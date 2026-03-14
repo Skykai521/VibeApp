@@ -18,7 +18,6 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
 dependencies {
     implementation 'androidx.annotation:annotation:1.4.0'
     implementation project(path: ':build-tools:common')
-    implementation project(path: ':build-tools:kotlinc')
     // for manifest  parsing
     implementation project(path: ':build-tools:manifmerger')
 

@@ -1,9 +1,8 @@
 package com.tyron.builder.project;
 
 import com.tyron.builder.compiler.manifest.xml.ManifestData;
-
-import org.jetbrains.kotlin.com.intellij.openapi.util.Key;
-import org.jetbrains.kotlin.com.intellij.openapi.util.KeyWithDefaultValue;
+import com.tyron.builder.project.util.Key;
+import com.tyron.builder.project.util.KeyWithDefaultValue;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -20,7 +19,7 @@ public class CommonProjectKeys {
     public static final Key<ManifestData> MANIFEST_DATA_KEY = Key.create("manifestData");
 
     public static final Key<List<File>> JAVA_FILES_KEY =
-            KeyWithDefaultValue.create("javaFiles", new ArrayList<>());
+            KeyWithDefaultValue.create("javaFiles", ArrayList::new);
     public static final Key<List<File>> KOTLIN_FILES_KEY =
-            KeyWithDefaultValue.create("kotlinFiles", new ArrayList<>());
+            KeyWithDefaultValue.create("kotlinFiles", ArrayList::new);
 }

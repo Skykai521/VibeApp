@@ -5,26 +5,22 @@ import androidx.annotation.Nullable;
 import com.tyron.builder.model.ModuleSettings;
 import com.tyron.builder.project.api.FileManager;
 import com.tyron.builder.project.api.Module;
+import com.tyron.builder.project.util.Key;
+import com.tyron.builder.project.util.KeyWithDefaultValue;
 import com.tyron.common.util.Cache;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.kotlin.com.intellij.openapi.util.Key;
-import org.jetbrains.kotlin.com.intellij.openapi.util.KeyWithDefaultValue;
-import org.jetbrains.kotlin.com.intellij.util.concurrency.AtomicFieldUpdater;
-import org.jetbrains.kotlin.com.intellij.util.keyFMap.KeyFMap;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.Map;
 
 public class ModuleImpl implements Module {
 
-    /**
-     * Concurrent writes to this field are via CASes only, using the {@link #updater}
-     */
     @NotNull
-    private volatile KeyFMap myUserMap = KeyFMap.EMPTY_MAP;
+    private final ConcurrentHashMap<Key<?>, Object> userData = new ConcurrentHashMap<>();
     private final File mRoot;
     private ModuleSettings myModuleSettings;
     private FileManager mFileManager;
@@ -76,53 +72,42 @@ public class ModuleImpl implements Module {
     @Nullable
     @Override
     public <T> T getUserData(@NotNull Key<T> key) {
-        T t = myUserMap.get(key);
+        @SuppressWarnings("unchecked")
+        T t = (T) userData.get(key);
         if (t == null && key instanceof KeyWithDefaultValue) {
             t = ((KeyWithDefaultValue<T>) key).getDefaultValue();
-            putUserData(key, t);
+            @SuppressWarnings("unchecked")
+            T existing = (T) userData.putIfAbsent(key, t);
+            if (existing != null) {
+                return existing;
+            }
         }
         return t;
     }
 
     @Override
     public <T> void putUserData(@NotNull Key<T> key, @Nullable T value) {
-        while (true) {
-            KeyFMap map = myUserMap;
-            KeyFMap newMap = value == null ? map.minus(key) : map.plus(key, value);
-            if (newMap == map || updater.compareAndSet(this, map, newMap)) {
-                break;
-            }
+        if (value == null) {
+            userData.remove(key);
+        } else {
+            userData.put(key, value);
         }
     }
 
     @NotNull
     @Override
     public <T> T putUserDataIfAbsent(@NotNull Key<T> key, @NotNull T value) {
-        while (true) {
-            KeyFMap map = myUserMap;
-            T oldValue = map.get(key);
-            if (oldValue != null) {
-                return oldValue;
-            }
-            KeyFMap newMap = map.plus(key, value);
-            if (newMap == map || updater.compareAndSet(this, map, newMap)) {
-                return value;
-            }
-        }
+        @SuppressWarnings("unchecked")
+        T existing = (T) userData.putIfAbsent(key, value);
+        return existing != null ? existing : value;
     }
 
     @Override
     public <T> boolean replace(@NotNull Key<T> key, @Nullable T oldValue, @Nullable T newValue) {
-        while (true) {
-            KeyFMap map = myUserMap;
-            if (map.get(key) != oldValue) {
-                return false;
-            }
-            KeyFMap newMap = newValue == null ? map.minus(key) : map.plus(key, newValue);
-            if (newMap == map || updater.compareAndSet(this, map, newMap)) {
-                return true;
-            }
+        if (newValue == null) {
+            return userData.remove(key, oldValue);
         }
+        return userData.replace(key, oldValue, newValue);
     }
 
     protected File getPathSetting(String key) {
@@ -142,8 +127,6 @@ public class ModuleImpl implements Module {
         ModuleImpl project = (ModuleImpl) o;
         return mRoot.equals(project.mRoot);
     }
-
-    private static final AtomicFieldUpdater<ModuleImpl, KeyFMap> updater = AtomicFieldUpdater.forFieldOfType(ModuleImpl.class, KeyFMap.class);
 
     private final Map<CacheKey<?, ?>, Cache<?, ?>> mCacheMap = new HashMap<>();
 

@@ -14,6 +14,7 @@ import com.tyron.builder.project.Project;
 import com.tyron.builder.project.api.AndroidContentRoot;
 import com.tyron.builder.project.api.AndroidModule;
 import com.tyron.builder.project.api.ContentRoot;
+import com.tyron.builder.project.util.ReflectionUtils;
 import com.tyron.builder.project.util.PackageTrie;
 import com.tyron.common.util.StringSearch;
 
@@ -21,8 +22,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.kotlin.com.intellij.util.ReflectionUtil;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -226,7 +225,7 @@ public class AndroidModuleImpl extends JavaModuleImpl implements AndroidModule {
 
         try {
             Class<?> clazz = Class.forName("com.tyron.builder.compiler.symbol.MergeSymbolsTask");
-            removeCache(ReflectionUtil.getStaticFieldValue(clazz, CacheKey.class, "CACHE_KEY"));
+            removeCache(ReflectionUtils.getStaticFieldValue(clazz, CacheKey.class, "CACHE_KEY"));
         } catch (Throwable e) {
             throw new Error(e);
         }

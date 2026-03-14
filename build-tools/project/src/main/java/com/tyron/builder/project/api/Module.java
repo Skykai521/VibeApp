@@ -3,8 +3,7 @@ package com.tyron.builder.project.api;
 import com.tyron.builder.model.ModuleSettings;
 import com.tyron.builder.project.Project;
 import com.tyron.builder.project.cache.CacheHolder;
-
-import org.jetbrains.kotlin.com.intellij.openapi.util.UserDataHolderEx;
+import com.tyron.builder.project.util.UserDataHolderEx;
 
 import java.io.File;
 import java.io.IOException;

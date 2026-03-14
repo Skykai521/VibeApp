@@ -7,14 +7,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.tyron.builder.model.CodeAssistLibrary;
 import com.tyron.builder.project.api.JavaModule;
+import com.tyron.builder.project.util.ReflectionUtils;
 import com.tyron.builder.project.util.PackageTrie;
 import com.tyron.common.util.StringSearch;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.io.filefilter.TrueFileFilter;
-import org.jetbrains.kotlin.com.intellij.util.ReflectionUtil;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -195,8 +194,10 @@ public class JavaModuleImpl extends ModuleImpl implements JavaModule {
     @Override
     public File getLambdaStubsJarFile() {
         try {
-            Method getLambdaStubs = ReflectionUtil.getDeclaredMethod(Class.forName("com.tyron.builder.BuildModule"),
-                                                                     "getLambdaStubs");
+            Method getLambdaStubs = ReflectionUtils.getDeclaredMethod(
+                    Class.forName("com.tyron.builder.BuildModule"),
+                    "getLambdaStubs"
+            );
             return (File) getLambdaStubs.invoke(null);
         } catch (Throwable e) {
             throw new Error(e);
@@ -206,8 +207,10 @@ public class JavaModuleImpl extends ModuleImpl implements JavaModule {
     @Override
     public File getBootstrapJarFile() {
         try {
-            Method getLambdaStubs = ReflectionUtil.getDeclaredMethod(Class.forName("com.tyron.builder.BuildModule"),
-                                                                     "getAndroidJar");
+            Method getLambdaStubs = ReflectionUtils.getDeclaredMethod(
+                    Class.forName("com.tyron.builder.BuildModule"),
+                    "getAndroidJar"
+            );
             return (File) getLambdaStubs.invoke(null);
         } catch (Throwable e) {
             throw new Error(e);
