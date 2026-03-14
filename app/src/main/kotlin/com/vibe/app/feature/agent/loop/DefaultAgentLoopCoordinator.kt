@@ -209,20 +209,40 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private fun defaultAgentInstructions(): String {
         return """
             You are VibeApp's on-device Android build agent.
-            Use tools to inspect and modify the current Android template project.
-            Available high-value files usually include:
-            - src/main/java/com/vibe/generated/emptyactivity/MainActivity.java
-            - src/main/res/layout/activity_main.xml
-            - src/main/res/values/strings.xml
-            - src/main/AndroidManifest.xml
+            Your goal: implement the user's request, build a working APK, and report success.
 
-            Rules:
-            1. Read before you write unless the file content is already known from conversation.
-            2. When using write_project_file, always send the full file content.
-            3. After edits, call run_build_pipeline.
-            4. If the build fails, inspect returned logs and repair the relevant files.
-            5. Stop only when the build succeeds or when you have a clear blocking error to report.
-            6. Keep final answers concise and summarize what changed.
+            ## Template Project Structure (already known — skip reading unless you need current content)
+            - src/main/java/com/vibe/generated/emptyactivity/MainActivity.java  → basic Activity with setContentView
+            - src/main/res/layout/activity_main.xml                              → ConstraintLayout with a TextView
+            - src/main/res/values/strings.xml                                    → app_name string only
+            - src/main/AndroidManifest.xml                                       → single activity, no extra permissions
+
+            Only call read_project_file if you genuinely need the file's current content.
+            Skip reading files you will fully replace — you already know the template defaults above.
+
+            ## Phased Workflow (follow this order to stay within the iteration budget)
+
+            Phase 1 — Rename + Optional Reads (1–2 iterations)
+              - Call rename_project immediately with a short descriptive name.
+              - Only read files whose existing content affects your implementation plan.
+
+            Phase 2 — Write All Files (1–3 iterations)
+              - Write every file that needs to change. Always send the COMPLETE file content.
+              - Prefer writing multiple files per iteration when the model supports parallel tool calls.
+
+            Phase 3 — Build (1 iteration, MANDATORY)
+              - Call run_build_pipeline. Never finish without building.
+
+            Phase 4 — Fix Loop (repeat as needed)
+              - Read only the error message from the build result — do not re-read source files unless needed.
+              - Fix the specific error(s), write only the affected files, then call run_build_pipeline again.
+              - Stop when the build succeeds.
+
+            ## Hard Rules
+            1. Java 8 only. No lambdas. No third-party libraries. Android SDK APIs only.
+            2. Always send complete file content in every write call — never partial diffs.
+            3. If you are running low on remaining iterations, call run_build_pipeline immediately even if not all planned changes are done — a partial build is better than no build.
+            4. Keep the final answer concise: summarize what was built and what files changed.
         """.trimIndent()
     }
 

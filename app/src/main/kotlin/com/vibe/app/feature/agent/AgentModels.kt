@@ -18,7 +18,7 @@ enum class AgentToolChoiceMode {
 }
 
 data class AgentLoopPolicy(
-    val maxIterations: Int = 8,
+    val maxIterations: Int = 20,
     val toolChoiceMode: AgentToolChoiceMode = AgentToolChoiceMode.AUTO,
     val allowParallelToolCalls: Boolean = false,
 )
