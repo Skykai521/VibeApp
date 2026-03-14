@@ -212,7 +212,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         )
     }
 
-    private fun defaultAgentInstructions(): String {
+    private fun defaultAgentInstructions(packageName: String): String {
         return """
             You are VibeApp's on-device Android build agent.
             Your goal: implement the user's request, build a working APK, and report success.
@@ -226,15 +226,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             - NEVER use AppCompatActivity, FragmentActivity, or any androidx.* class
             - NEVER use com.google.android.material.* classes
             - NEVER modify build.gradle — it is not used by the build pipeline
-            - NEVER change the package name — it MUST stay as com.vibe.generated.emptyactivity everywhere
+            - NEVER change the package name — it MUST stay as $packageName everywhere
             - NEVER change the package in AndroidManifest.xml
             - NEVER use Java lambdas (->), method references (::), or try-with-resources
             - NEVER use Theme.AppCompat.* or Theme.MaterialComponents.* — they are not available
 
             ### ALWAYS do these:
             - ALWAYS extend android.app.Activity (the base Activity class)
-            - ALWAYS keep package com.vibe.generated.emptyactivity in all Java files
-            - ALWAYS import com.vibe.generated.emptyactivity.R when referencing XML resources
+            - ALWAYS keep package $packageName in all Java files
+            - ALWAYS import $packageName.R when referencing XML resources
             - ALWAYS use platform themes: @android:style/Theme.Material.Light.NoActionBar or similar
             - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 
@@ -294,12 +294,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     }
 
     private fun buildInstructions(request: AgentLoopRequest): String {
+        val packageName = request.projectId
+            ?.let { "com.vibe.generated.p$it" }
+            ?: "com.vibe.generated.emptyactivity"
         val custom = request.systemPrompt
             ?.takeIf { it.isNotBlank() }
             ?: request.platform.systemPrompt?.takeIf { it.isNotBlank() }
 
         return buildString {
-            append(defaultAgentInstructions())
+            append(defaultAgentInstructions(packageName))
             if (custom != null) {
                 append("\n\n[Additional System Prompt]\n")
                 append(custom)

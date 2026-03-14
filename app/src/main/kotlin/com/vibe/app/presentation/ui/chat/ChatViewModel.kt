@@ -63,6 +63,9 @@ class ChatViewModel @Inject constructor(
     private val _currentProjectId = MutableStateFlow<String?>(null)
     val currentProjectId: StateFlow<String?> = _currentProjectId.asStateFlow()
 
+    private val _projectName = MutableStateFlow<String?>(null)
+    val projectName: StateFlow<String?> = _projectName.asStateFlow()
+
     private val _isBuildRunning = MutableStateFlow(false)
     val isBuildRunning = _isBuildRunning.asStateFlow()
 
@@ -137,7 +140,9 @@ class ChatViewModel @Inject constructor(
         observeStateChanges()
         viewModelScope.launch {
             if (chatRoomId != 0) {
-                _currentProjectId.update { projectRepository.fetchProjectByChatId(chatRoomId)?.projectId }
+                val project = projectRepository.fetchProjectByChatId(chatRoomId)
+                _currentProjectId.update { project?.projectId }
+                _projectName.update { project?.name }
             }
         }
     }
@@ -615,6 +620,8 @@ class ChatViewModel @Inject constructor(
                 else -> Unit
             }
         }
+        // Refresh project name in case the agent called rename_project during this turn.
+        _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
     }
 
     private fun appendAssistantThought(

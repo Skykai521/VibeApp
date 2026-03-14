@@ -39,7 +39,7 @@ class DefaultProjectManager @Inject constructor(
         name: String?,
     ): Project = withContext(Dispatchers.IO) {
         val projectId = generateProjectId()
-        val displayName = name ?: projectId
+        val displayName = name ?: "Demo"
         val workspacePath = workspaceDirFor(projectId).absolutePath
 
         // Create ChatRoomV2 first (so we have the FK)
@@ -63,7 +63,7 @@ class DefaultProjectManager @Inject constructor(
         // Background: copy template files to project workspace
         scope.launch {
             try {
-                projectInitializer.prepareProjectWorkspace(projectId)
+                projectInitializer.prepareProjectWorkspace(projectId, displayName)
                 projectRepository.updateBuildStatus(projectId, ProjectBuildStatus.READY)
                 Log.d(tag, "Workspace ready for project $projectId")
             } catch (e: Exception) {

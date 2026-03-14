@@ -69,7 +69,17 @@ class ProjectInitializer @Inject constructor(
      *
      * Callers should call this from a background coroutine.
      */
-    suspend fun prepareProjectWorkspace(projectId: String): TemplateProject = withContext(Dispatchers.IO) {
+    /**
+     * Returns the Android package name for a given projectId.
+     * e.g. projectId="20260314" → "com.vibe.generated.p20260314"
+     * The "p" prefix ensures the last segment is a valid Java identifier.
+     */
+    fun projectPackageName(projectId: String): String = "com.vibe.generated.p$projectId"
+
+    suspend fun prepareProjectWorkspace(
+        projectId: String,
+        projectName: String = "Demo",
+    ): TemplateProject = withContext(Dispatchers.IO) {
         // Ensure the shared template is extracted first
         val template = ensureTemplateProject()
 
@@ -81,13 +91,14 @@ class ProjectInitializer @Inject constructor(
             targetAppDir.parentFile?.mkdirs()
             template.appModuleDir.copyRecursively(targetAppDir, overwrite = true)
             deleteIgnoredFiles(targetAppDir)
-            Log.d(tag, "Workspace copy done for $projectId")
+            customizeProjectWorkspace(targetAppDir, projectId, projectName)
+            Log.d(tag, "Workspace ready for $projectId (pkg=${projectPackageName(projectId)}, name=$projectName)")
         }
 
         TemplateProject(
             projectId = projectId,
-            projectName = TEMPLATE_PROJECT_NAME,
-            packageName = TEMPLATE_PACKAGE_NAME,
+            projectName = projectName,
+            packageName = projectPackageName(projectId),
             appModuleDir = targetAppDir,
             minSdk = TEMPLATE_MIN_SDK,
             targetSdk = TEMPLATE_TARGET_SDK,
@@ -106,7 +117,7 @@ class ProjectInitializer @Inject constructor(
         TemplateProject(
             projectId = projectId,
             projectName = TEMPLATE_PROJECT_NAME,
-            packageName = TEMPLATE_PACKAGE_NAME,
+            packageName = projectPackageName(projectId),
             appModuleDir = appModuleDir,
             minSdk = TEMPLATE_MIN_SDK,
             targetSdk = TEMPLATE_TARGET_SDK,
@@ -218,6 +229,37 @@ class ProjectInitializer @Inject constructor(
 
         val mainActivityFile = File(targetPackageDir, "MainActivity.java")
         replacePlaceholders(mainActivityFile)
+    }
+
+    /**
+     * After copying the shared template workspace to a project-specific directory:
+     * 1. Renames the package directory from [TEMPLATE_PACKAGE_NAME] to [projectPackageName].
+     * 2. Replaces all occurrences of [TEMPLATE_PACKAGE_NAME] with [projectPackageName] in text files.
+     * 3. Replaces the `$appname` placeholder in strings.xml with [projectName].
+     */
+    private fun customizeProjectWorkspace(appModuleDir: File, projectId: String, projectName: String) {
+        val newPackageName = projectPackageName(projectId)
+        val oldPackageDir = File(appModuleDir, "src/main/java/${TEMPLATE_PACKAGE_NAME.replace('.', '/')}")
+        val newPackageDir = File(appModuleDir, "src/main/java/${newPackageName.replace('.', '/')}")
+
+        if (oldPackageDir.exists()) {
+            newPackageDir.parentFile?.mkdirs()
+            oldPackageDir.copyRecursively(newPackageDir, overwrite = true)
+            oldPackageDir.deleteRecursively()
+        }
+
+        val textExtensions = setOf("xml", "java", "gradle", "kt", "properties")
+        appModuleDir.walkTopDown()
+            .filter { it.isFile && it.extension in textExtensions }
+            .forEach { file ->
+                runCatching {
+                    val original = file.readText(StandardCharsets.UTF_8)
+                    val updated = original
+                        .replace(TEMPLATE_PACKAGE_NAME, newPackageName)
+                        .replace("\$appname", projectName)
+                    if (updated != original) file.writeText(updated, StandardCharsets.UTF_8)
+                }
+            }
     }
 
     private fun deleteIgnoredFiles(root: File) {

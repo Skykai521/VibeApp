@@ -118,6 +118,7 @@ fun ChatScreen(
     val isChatTitleDialogOpen by chatViewModel.isChatTitleDialogOpen.collectAsStateWithLifecycle()
     val isEditQuestionDialogOpen by chatViewModel.isEditQuestionDialogOpen.collectAsStateWithLifecycle()
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
+    val projectName by chatViewModel.projectName.collectAsStateWithLifecycle()
     val isBuildRunning by chatViewModel.isBuildRunning.collectAsStateWithLifecycle()
     val isSelectTextSheetOpen by chatViewModel.isSelectTextSheetOpen.collectAsStateWithLifecycle()
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
@@ -168,7 +169,7 @@ fun ChatScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             ChatTopBar(
-                chatRoom.title,
+                projectName ?: chatRoom.title,
                 chatRoom.id > 0,
                 runButtonEnabled,
                 isProjectMenuEnabled,
