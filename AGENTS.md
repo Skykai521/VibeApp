@@ -66,11 +66,6 @@ docs/             # Project documentation
 3. Register in `AiProviderFactory`
 4. Test with standard prompt templates
 
-### Adding a new SDK API to whitelist
-1. Add to `assets/prompts/whitelist.json`
-2. Update system prompt in `assets/prompts/codegen.md`
-3. Write a test case that uses the API and verify compilation
-
 ### Modifying build pipeline
 1. All build components are in `build-engine/` module
 2. Each step implements a clean interface

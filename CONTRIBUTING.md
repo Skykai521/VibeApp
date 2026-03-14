@@ -82,11 +82,6 @@ git push origin feature/your-feature-name
 
 ## 重点贡献方向
 
-### 🤖 Prompt 工程（最欢迎！）
-
-AI 代码生成的质量直接决定产品体验。Prompt 模板位于 `app/src/main/assets/prompts/`。
-
-改进方向：
 - 提高生成代码的编译成功率
 - 支持更复杂的 UI 布局
 - 优化错误修复 Prompt 的准确性

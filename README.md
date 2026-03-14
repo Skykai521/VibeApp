@@ -66,7 +66,7 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 AI 生成代码的稳定性是产品的核心，VibeApp 采用三重保障机制：
 
 1. **模板约束** — AI 不从零生成，而是在预定义骨架内填空，最大程度降低结构性错误
-2. **严格 System Prompt** — 明确白名单（允许使用的标准 SDK 类）和黑名单（禁止第三方库），编译前预检过滤
+2. **严格 System Prompt** — 明确白名单（允许使用的标准 SDK 类）
 3. **自动修复循环** — 编译失败时，将错误日志清洗后喂给 AI 自动修复，覆盖绝大多数常见错误场景
 
 ---
@@ -112,9 +112,6 @@ AI 生成代码的稳定性是产品的核心，VibeApp 采用三重保障机制
      ↓
 AI 生成 Java 源码 + XML 布局（System Prompt 严格约束）
      ↓
-预检（黑白名单扫描）
-  ├─ 不通过 → AI 修复 → 重新预检
-  └─ 通过 ↓
 AAPT2（编译 `res/` + 链接 Manifest + 生成 `R.java` + `generated.apk.res`）
   ├─ 失败 → 错误清洗 → AI 修复 → 最多重试 3 次
   └─ 成功 ↓
@@ -196,13 +193,9 @@ VibeApp/
 │       │   │   └── preferences/      # DataStore 配置
 │       │   └── di/                   # Hilt 依赖注入
 │       ├── assets/
-│       │   ├── templates/            # 代码生成模板
-│       │   │   ├── single_activity/  # 单 Activity 模板
-│       │   │   └── manifest/         # AndroidManifest 模板
-│       │   └── prompts/             # System Prompt 文件
-│       │       ├── codegen.md        # 代码生成 Prompt
-│       │       ├── fixloop.md        # 错误修复 Prompt
-│       │       └── whitelist.json    # SDK API 白名单
+│       │   └── templates/            # 代码生成模板
+│       │      ├── activity/          # 单 Activity 模板
+│       │      └── manifest/          # AndroidManifest 模板
 │       └── res/
 ├── build-engine/                     # 编译引擎模块（独立 module）
 │   └── src/main/
@@ -242,14 +235,13 @@ VibeApp/
 
 > 目标：用户输入一句话 → 得到一个可安装的 APK
 
-- [ ] 接入 Claude / OpenAI / Qwen API，实现基础代码生成
-- [ ] 集成编译模块（JavacTool + D8 + AAPT2）
-- [ ] 实现单 Activity + View 体系的应用生成
-- [ ] 代码预检机制（黑白名单）
-- [ ] 自动修复循环（最多 3 次重试）
-- [ ] APK 签名 + PackageInstaller 引导安装
+- [x] 接入 Claude / OpenAI / Qwen API，实现基础代码生成
+- [x] 集成编译模块（JavacTool + D8 + AAPT2）
+- [x] 实现单 Activity + View 体系的应用生成
+- [x] 自动修复循环
+- [x] APK 签名 + PackageInstaller 引导安装
 - [ ] 支持生成 Image
-- [ ] 基础 UI：对话界面 + 编译进度
+- [x] 基础 UI：对话界面 + 编译进度
 
 ### Phase 2 — 体验优化 🎨
 

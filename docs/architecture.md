@@ -153,7 +153,6 @@ class OllamaProvider : AiProvider { ... }
 ```
 
 Prompt 管理：
-- System Prompt 存储在 `assets/prompts/` 目录
 - 支持模板变量替换（项目名称、已有代码上下文等）
 - 白名单 JSON 定义允许使用的 Android SDK API
 
