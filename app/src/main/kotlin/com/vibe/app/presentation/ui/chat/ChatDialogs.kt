@@ -95,49 +95,47 @@ fun ChatModelDialog(
 }
 
 @Composable
-fun ChatTitleDialog(
-    initialTitle: String,
-    onDefaultTitleMode: () -> String?,
-    onConfirmRequest: (title: String) -> Unit,
+fun ProjectNameDialog(
+    initialProjectName: String,
+    onConfirmRequest: (projectName: String) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     val configuration = LocalWindowInfo.current
     val screenWidth = with(LocalDensity.current) { configuration.containerSize.width.toDp() }
     val screenHeight = with(LocalDensity.current) { configuration.containerSize.height.toDp() }
-    var title by rememberSaveable { mutableStateOf(initialTitle) }
-    val untitledChat = stringResource(R.string.untitled_chat)
+    var projectName by rememberSaveable(initialProjectName) { mutableStateOf(initialProjectName) }
 
     AlertDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier
             .widthIn(max = screenWidth - 40.dp)
             .heightIn(max = screenHeight - 80.dp),
-        title = { Text(text = stringResource(R.string.chat_title)) },
+        title = { Text(text = stringResource(R.string.project_name)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 16.dp),
-                    value = title,
+                    value = projectName,
                     singleLine = true,
-                    isError = title.length > 50,
+                    isError = projectName.length > 50,
                     supportingText = {
-                        if (title.length > 50) {
-                            Text(stringResource(R.string.title_length_limit, title.length))
+                        if (projectName.length > 50) {
+                            Text(stringResource(R.string.project_name_length_limit, projectName.length))
                         }
                     },
-                    onValueChange = { title = it },
-                    label = { Text(stringResource(R.string.chat_title)) }
+                    onValueChange = { projectName = it },
+                    label = { Text(stringResource(R.string.project_name)) }
                 )
             }
         },
         onDismissRequest = onDismissRequest,
         confirmButton = {
             TextButton(
-                enabled = title.isNotBlank() && title != initialTitle,
+                enabled = projectName.isNotBlank() && projectName != initialProjectName,
                 onClick = {
-                    onConfirmRequest(title)
+                    onConfirmRequest(projectName)
                     onDismissRequest()
                 }
             ) {
@@ -145,11 +143,6 @@ fun ChatTitleDialog(
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = { title = onDefaultTitleMode.invoke() ?: untitledChat }
-            ) {
-                Text(text = stringResource(R.string.default_mode))
-            }
             TextButton(
                 onClick = onDismissRequest
             ) {

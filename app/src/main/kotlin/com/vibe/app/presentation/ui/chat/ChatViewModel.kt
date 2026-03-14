@@ -78,8 +78,8 @@ class ChatViewModel @Inject constructor(
     private val _chatRoom = MutableStateFlow(ChatRoomV2(id = -1, title = "", enabledPlatform = enabledPlatformsInChat))
     val chatRoom = _chatRoom.asStateFlow()
 
-    private val _isChatTitleDialogOpen = MutableStateFlow(false)
-    val isChatTitleDialogOpen = _isChatTitleDialogOpen.asStateFlow()
+    private val _isProjectNameDialogOpen = MutableStateFlow(false)
+    val isProjectNameDialogOpen = _isProjectNameDialogOpen.asStateFlow()
 
     private val _isEditQuestionDialogOpen = MutableStateFlow(false)
     val isEditQuestionDialogOpen = _isEditQuestionDialogOpen.asStateFlow()
@@ -173,7 +173,7 @@ class ChatViewModel @Inject constructor(
         completeChat()
     }
 
-    fun closeChatTitleDialog() = _isChatTitleDialogOpen.update { false }
+    fun closeProjectNameDialog() = _isProjectNameDialogOpen.update { false }
 
     fun closeEditQuestionDialog() {
         _editedQuestion.update { MessageV2(chatId = chatRoomId, content = "", platformType = null) }
@@ -185,7 +185,7 @@ class ChatViewModel @Inject constructor(
         _selectedText.update { "" }
     }
 
-    fun openChatTitleDialog() = _isChatTitleDialogOpen.update { true }
+    fun openProjectNameDialog() = _isProjectNameDialogOpen.update { true }
 
     fun getSignedApkPath(): String? {
         val projectId = _currentProjectId.value ?: return null
@@ -252,8 +252,6 @@ class ChatViewModel @Inject constructor(
         _isSelectTextSheetOpen.update { true }
     }
 
-    fun generateDefaultChatTitle(): String? = chatRepository.generateDefaultChatTitle(_groupedMessages.value.userMessages)
-
     fun updateChatPlatformModels(models: Map<String, String>) {
         val sanitizedModels = models
             .filterKeys { it in enabledPlatformsInChat }
@@ -300,13 +298,16 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun updateChatTitle(title: String) {
-        // Should be only used for changing chat title after the chatroom is created.
-        if (_chatRoom.value.id > 0) {
-            _chatRoom.update { it.copy(title = title) }
-            viewModelScope.launch {
-                chatRepository.updateChatTitle(_chatRoom.value, title)
-            }
+    fun updateProjectName(name: String) {
+        val projectId = _currentProjectId.value ?: return
+        val normalizedName = name.trim()
+        if (normalizedName.isBlank()) return
+
+        _projectName.update { normalizedName }
+        _chatRoom.update { it.copy(title = normalizedName) }
+
+        viewModelScope.launch {
+            projectRepository.renameProject(projectId, normalizedName)
         }
     }
 

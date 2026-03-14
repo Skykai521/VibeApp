@@ -115,7 +115,7 @@ fun ChatScreen(
     val groupedMessages by chatViewModel.groupedMessages.collectAsStateWithLifecycle()
     val indexStates by chatViewModel.indexStates.collectAsStateWithLifecycle()
     val loadingStates by chatViewModel.loadingStates.collectAsStateWithLifecycle()
-    val isChatTitleDialogOpen by chatViewModel.isChatTitleDialogOpen.collectAsStateWithLifecycle()
+    val isProjectNameDialogOpen by chatViewModel.isProjectNameDialogOpen.collectAsStateWithLifecycle()
     val isEditQuestionDialogOpen by chatViewModel.isEditQuestionDialogOpen.collectAsStateWithLifecycle()
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
     val projectName by chatViewModel.projectName.collectAsStateWithLifecycle()
@@ -128,6 +128,7 @@ fun ChatScreen(
     val canUseChat = (chatViewModel.enabledPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
+    val isChatMenuEnabled = chatRoom.id > 0
     val isProjectMenuEnabled = currentProjectId != null
     val context = LocalContext.current
 
@@ -170,12 +171,12 @@ fun ChatScreen(
         topBar = {
             ChatTopBar(
                 projectName ?: chatRoom.title,
-                chatRoom.id > 0,
+                isChatMenuEnabled,
                 runButtonEnabled,
                 isProjectMenuEnabled,
                 onBackAction,
                 scrollBehavior,
-                chatViewModel::openChatTitleDialog,
+                chatViewModel::openProjectNameDialog,
                 chatViewModel::runBuild,
                 onExportChatItemClick = { exportChat(context, chatViewModel) },
                 onExportSourceCodeItemClick = {
@@ -326,12 +327,11 @@ fun ChatScreen(
             }
         }
 
-        if (isChatTitleDialogOpen) {
-            ChatTitleDialog(
-                initialTitle = chatRoom.title,
-                onDefaultTitleMode = chatViewModel::generateDefaultChatTitle,
-                onConfirmRequest = { title -> chatViewModel.updateChatTitle(title) },
-                onDismissRequest = chatViewModel::closeChatTitleDialog
+        if (isProjectNameDialogOpen) {
+            ProjectNameDialog(
+                initialProjectName = projectName ?: chatRoom.title,
+                onConfirmRequest = { name -> chatViewModel.updateProjectName(name) },
+                onDismissRequest = chatViewModel::closeProjectNameDialog
             )
         }
 
@@ -367,12 +367,12 @@ fun ChatScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun ChatTopBar(
     title: String,
-    isMenuItemEnabled: Boolean,
+    isChatMenuEnabled: Boolean,
     isRunEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
-    onChatTitleItemClick: () -> Unit,
+    onUpdateProjectNameClick: () -> Unit,
     onRunClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
@@ -407,11 +407,11 @@ private fun ChatTopBar(
 
             ChatDropdownMenu(
                 isDropdownMenuExpanded = isDropDownMenuExpanded,
-                isMenuItemEnabled = isMenuItemEnabled,
+                isChatMenuEnabled = isChatMenuEnabled,
                 isProjectMenuEnabled = isProjectMenuEnabled,
                 onDismissRequest = { isDropDownMenuExpanded = false },
-                onChatTitleItemClick = {
-                    onChatTitleItemClick.invoke()
+                onUpdateProjectNameClick = {
+                    onUpdateProjectNameClick.invoke()
                     isDropDownMenuExpanded = false
                 },
                 onExportChatItemClick = onExportChatItemClick,
@@ -432,10 +432,10 @@ private fun ChatTopBar(
 @Composable
 fun ChatDropdownMenu(
     isDropdownMenuExpanded: Boolean,
-    isMenuItemEnabled: Boolean,
+    isChatMenuEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     onDismissRequest: () -> Unit,
-    onChatTitleItemClick: () -> Unit,
+    onUpdateProjectNameClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit
@@ -446,12 +446,12 @@ fun ChatDropdownMenu(
         onDismissRequest = onDismissRequest
     ) {
         DropdownMenuItem(
-            enabled = isMenuItemEnabled,
-            text = { Text(text = stringResource(R.string.update_chat_title)) },
-            onClick = onChatTitleItemClick
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.update_project_name)) },
+            onClick = onUpdateProjectNameClick
         )
         DropdownMenuItem(
-            enabled = isMenuItemEnabled,
+            enabled = isChatMenuEnabled,
             text = { Text(text = stringResource(R.string.export_chat)) },
             onClick = {
                 onExportChatItemClick()
