@@ -136,7 +136,7 @@ fun AddPlatformScreen(
                     expanded = clientTypeExpanded,
                     onDismissRequest = { clientTypeExpanded = false }
                 ) {
-                    ClientType.entries.forEach { clientType ->
+                    ClientType.entries.filter { it in listOf(ClientType.OPENAI, ClientType.ANTHROPIC, ClientType.QWEN) }.forEach { clientType ->
                         DropdownMenuItem(
                             text = {
                                 Column {
@@ -285,11 +285,11 @@ fun AddPlatformScreen(
 private fun getClientTypeName(clientType: ClientType): String = when (clientType) {
     ClientType.OPENAI -> "OpenAI"
     ClientType.ANTHROPIC -> "Anthropic"
+    ClientType.QWEN -> "Qwen"
     ClientType.GOOGLE -> "Google"
     ClientType.GROQ -> "Groq"
     ClientType.OLLAMA -> "Ollama"
     ClientType.OPENROUTER -> "OpenRouter"
-    ClientType.QWEN -> "Qwen"
     ClientType.CUSTOM -> stringResource(R.string.custom)
 }
 

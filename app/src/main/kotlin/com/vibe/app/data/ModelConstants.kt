@@ -17,7 +17,7 @@ object ModelConstants {
     const val OPENROUTER_API_URL = "https://openrouter.ai/api/"
     const val OLLAMA_API_URL = "http://localhost:11434"
 
-    const val QWEN_API_URL = "https://dashscope.aliyuncs.com/api/v2/apps/protocols/compatible-mode/"
+    const val QWEN_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/"
 
     fun getDefaultAPIUrl(apiType: ApiType) = when (apiType) {
         ApiType.OPENAI -> OPENAI_API_URL

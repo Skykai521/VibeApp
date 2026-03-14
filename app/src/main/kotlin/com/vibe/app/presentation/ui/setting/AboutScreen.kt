@@ -47,8 +47,6 @@ fun AboutScreen(
     val clipboardManager = LocalClipboard.current
     val uriHandler = LocalUriHandler.current
     val githubLink = stringResource(R.string.github_link)
-    val fdroidLink = stringResource(R.string.f_droid_link)
-    val googlePlayLink = stringResource(R.string.play_store_link)
     val bugReportLink = stringResource(R.string.bug_report_link)
     val feedbackLink = stringResource(R.string.feedback_link)
     val scope = rememberCoroutineScope()
@@ -106,32 +104,6 @@ fun AboutScreen(
                     Icon(
                         ImageVector.vectorResource(id = R.drawable.ic_github),
                         contentDescription = stringResource(R.string.github_icon)
-                    )
-                }
-            )
-            SettingItem(
-                modifier = Modifier.height(64.dp),
-                title = stringResource(R.string.f_droid),
-                onItemClick = { uriHandler.openUri(fdroidLink) },
-                showTrailingIcon = false,
-                showLeadingIcon = true,
-                leadingIcon = {
-                    Icon(
-                        ImageVector.vectorResource(id = R.drawable.ic_f_droid),
-                        contentDescription = stringResource(R.string.f_droid_icon)
-                    )
-                }
-            )
-            SettingItem(
-                modifier = Modifier.height(64.dp),
-                title = stringResource(R.string.play_store),
-                onItemClick = { uriHandler.openUri(googlePlayLink) },
-                showTrailingIcon = false,
-                showLeadingIcon = true,
-                leadingIcon = {
-                    Icon(
-                        ImageVector.vectorResource(id = R.drawable.ic_play_store),
-                        contentDescription = stringResource(R.string.play_store_icon)
                     )
                 }
             )

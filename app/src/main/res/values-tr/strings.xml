@@ -130,11 +130,9 @@
     <string name="github_icon">GitHub Simgesi</string>
     <string name="f_droid_icon">F-Droid Simgesi</string>
     <string name="play_store_icon">Play Store Simgesi</string>
-    <string name="github_link" translatable="false">https://github.com/Taewan-P/gpt_mobile</string>
-    <string name="f_droid_link" translatable="false">https://f-droid.org/packages/app/</string>
-    <string name="play_store_link" translatable="false">https://play.google.com/store/apps/details?id=app</string>
-    <string name="bug_report_link" translatable="false">https://github.com/Taewan-P/gpt_mobile/issues/new/choose</string>
-    <string name="feedback_link" translatable="false">https://github.com/Taewan-P/gpt_mobile/discussions/new/choose</string>
+    <string name="github_link" translatable="false">https://github.com/Skykai521/VibeApp</string>
+    <string name="bug_report_link" translatable="false">https://github.com/Skykai521/VibeApp/issues/new/choose</string>
+    <string name="feedback_link" translatable="false">https://github.com/Skykai521/VibeApp/discussions/new/choose</string>
     <string name="api_url">API URL’si</string>
     <string name="url_icon">URL Simgesi</string>
     <string name="invalid_api_url">Lütfen geçerli bir URL girin.</string>
