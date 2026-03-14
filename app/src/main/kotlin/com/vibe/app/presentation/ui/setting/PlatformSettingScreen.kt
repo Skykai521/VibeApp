@@ -199,7 +199,7 @@ fun PlatformSettingScreen(
                     modifier = Modifier.height(64.dp),
                     title = stringResource(R.string.system_prompt),
                     description = platformData.systemPrompt,
-                    enabled = platformData.enabled,
+                    enabled = false,
                     onItemClick = settingViewModel::openSystemPromptDialog,
                     showTrailingIcon = false,
                     showLeadingIcon = true,
@@ -212,7 +212,7 @@ fun PlatformSettingScreen(
                 )
                 ExtendedThinkingSwitch(
                     modifier = Modifier.height(64.dp),
-                    enabled = platformData.enabled,
+                    enabled = false,
                     isChecked = platformData.reasoning,
                     onCheckedChange = { settingViewModel.toggleReasoning() }
                 )
