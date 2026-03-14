@@ -22,6 +22,8 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private const val READ_PROJECT_FILE = "read_project_file"
 private const val WRITE_PROJECT_FILE = "write_project_file"
+private const val DELETE_PROJECT_FILE = "delete_project_file"
+private const val LIST_PROJECT_FILES = "list_project_files"
 private const val RUN_BUILD_PIPELINE = "run_build_pipeline"
 private const val RENAME_PROJECT = "rename_project"
 
@@ -108,6 +110,73 @@ class WriteProjectFileTool @Inject constructor(
 }
 
 @Singleton
+class DeleteProjectFileTool @Inject constructor(
+    private val projectManager: ProjectManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = DELETE_PROJECT_FILE,
+        description = "Delete a file from the project workspace. Use this to remove unwanted or duplicate files.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "path",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("string"))
+                            put("description", JsonPrimitive("Relative file path to delete."))
+                        },
+                    )
+                },
+            )
+            put("required", JsonArray(listOf(JsonPrimitive("path"))))
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val path = call.arguments.requireString("path")
+        val workspace = projectManager.openWorkspace(context.projectId)
+        workspace.deleteFile(path)
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                put("path", JsonPrimitive(path))
+                put("deleted", JsonPrimitive(true))
+            },
+        )
+    }
+}
+
+@Singleton
+class ListProjectFilesTool @Inject constructor(
+    private val projectManager: ProjectManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = LIST_PROJECT_FILES,
+        description = "List all files in the project workspace. Returns relative paths. " +
+            "Use this to understand the current project structure before making changes.",
+        inputSchema = buildJsonObject {},
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val workspace = projectManager.openWorkspace(context.projectId)
+        val files = workspace.listFiles()
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                put("files", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
+                put("count", JsonPrimitive(files.size))
+            },
+        )
+    }
+}
+
+@Singleton
 class RunBuildPipelineTool @Inject constructor(
     private val projectManager: ProjectManager,
 ) : AgentTool {
@@ -185,6 +254,8 @@ class RenameProjectTool @Inject constructor(
 class DefaultAgentToolRegistry @Inject constructor(
     readProjectFileTool: ReadProjectFileTool,
     writeProjectFileTool: WriteProjectFileTool,
+    deleteProjectFileTool: DeleteProjectFileTool,
+    listProjectFilesTool: ListProjectFilesTool,
     runBuildPipelineTool: RunBuildPipelineTool,
     renameProjectTool: RenameProjectTool,
 ) : AgentToolRegistry {
@@ -192,6 +263,8 @@ class DefaultAgentToolRegistry @Inject constructor(
     private val tools = listOf(
         readProjectFileTool,
         writeProjectFileTool,
+        deleteProjectFileTool,
+        listProjectFilesTool,
         runBuildPipelineTool,
         renameProjectTool,
     )

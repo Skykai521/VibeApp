@@ -11,6 +11,8 @@ interface ProjectWorkspace {
 
     suspend fun readTextFile(relativePath: String): String
     suspend fun writeTextFile(relativePath: String, content: String)
+    suspend fun deleteFile(relativePath: String)
+    suspend fun listFiles(): List<String>
     suspend fun buildProject(): BuildResult
     suspend fun resolveFile(relativePath: String): File
 }

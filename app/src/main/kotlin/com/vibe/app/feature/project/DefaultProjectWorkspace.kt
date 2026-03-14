@@ -33,6 +33,21 @@ class DefaultProjectWorkspace(
         Log.d(tag, "Wrote $relativePath in project $projectId")
     }
 
+    override suspend fun deleteFile(relativePath: String): Unit = withContext(Dispatchers.IO) {
+        val file = resolveFile(relativePath)
+        require(file.exists() && file.isFile) { "File not found: $relativePath" }
+        file.delete()
+        Log.d(tag, "Deleted $relativePath in project $projectId")
+    }
+
+    override suspend fun listFiles(): List<String> = withContext(Dispatchers.IO) {
+        rootDir.walkTopDown()
+            .filter { it.isFile }
+            .map { it.toRelativeString(rootDir) }
+            .sorted()
+            .toList()
+    }
+
     override suspend fun buildProject(): BuildResult =
         projectInitializer.buildProject(projectId)
 
