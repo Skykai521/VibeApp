@@ -8,6 +8,7 @@ import com.vibe.app.data.database.entity.ProjectWithChat
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
 import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.feature.projectinit.ProjectInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
@@ -27,6 +28,7 @@ class HomeViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val projectManager: ProjectManager,
     private val settingRepository: SettingRepository,
+    private val projectInitializer: ProjectInitializer,
 ) : ViewModel() {
 
     companion object {
@@ -75,6 +77,9 @@ class HomeViewModel @Inject constructor(
     fun fetchProjects() {
         viewModelScope.launch {
             val projects = projectRepository.fetchProjects()
+            projects.forEach { projectWithChat ->
+                projectInitializer.ensureProjectLauncherResources(projectWithChat.project.projectId)
+            }
             _projectListState.update {
                 it.copy(
                     projects = projects,

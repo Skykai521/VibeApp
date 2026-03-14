@@ -86,12 +86,14 @@ class ProjectInitializer @Inject constructor(
         val targetAppDir = File(context.filesDir, "projects/$projectId/app")
         if (targetAppDir.exists()) {
             Log.d(tag, "Workspace for $projectId already exists, skipping copy")
+            ensureLauncherIconResources(targetAppDir, overwrite = false)
         } else {
             Log.d(tag, "Copying template to projects/$projectId/app")
             targetAppDir.parentFile?.mkdirs()
             template.appModuleDir.copyRecursively(targetAppDir, overwrite = true)
             deleteIgnoredFiles(targetAppDir)
             customizeProjectWorkspace(targetAppDir, projectId, projectName)
+            ensureLauncherIconResources(targetAppDir, overwrite = false)
             Log.d(tag, "Workspace ready for $projectId (pkg=${projectPackageName(projectId)}, name=$projectName)")
         }
 
@@ -114,6 +116,7 @@ class ProjectInitializer @Inject constructor(
         require(appModuleDir.exists()) {
             "Workspace for project $projectId does not exist. Call prepareProjectWorkspace first."
         }
+        ensureLauncherIconResources(appModuleDir, overwrite = false)
         TemplateProject(
             projectId = projectId,
             projectName = TEMPLATE_PROJECT_NAME,
@@ -144,6 +147,12 @@ class ProjectInitializer @Inject constructor(
         buildProject(project)
     }
 
+    suspend fun ensureProjectLauncherResources(projectId: String) = withContext(Dispatchers.IO) {
+        val appModuleDir = File(context.filesDir, "projects/$projectId/app")
+        if (!appModuleDir.exists()) return@withContext
+        ensureLauncherIconResources(appModuleDir, overwrite = false)
+    }
+
     private suspend fun buildProject(project: TemplateProject): BuildResult {
         return buildPipeline.run(project.toCompileInput())
     }
@@ -164,6 +173,7 @@ class ProjectInitializer @Inject constructor(
         require(appModuleDir.exists()) {
             "Template app module was not found after extraction: ${appModuleDir.absolutePath}"
         }
+        ensureLauncherIconResources(appModuleDir, overwrite = true)
 
         val placeholderPackageDir = File(appModuleDir, "src/main/java/\$packagename")
         if (forceReset || extracted || placeholderPackageDir.exists()) {
@@ -291,6 +301,33 @@ class ProjectInitializer @Inject constructor(
         file.writeText(contents, StandardCharsets.UTF_8)
     }
 
+    private fun ensureLauncherIconResources(
+        appModuleDir: File,
+        overwrite: Boolean,
+    ) {
+        TEMPLATE_ICON_FILES.forEach { relativePath ->
+            syncTemplateFileToWorkspace(
+                assetRelativePath = relativePath,
+                targetFile = File(appModuleDir, relativePath),
+                overwrite = overwrite,
+            )
+        }
+    }
+
+    private fun syncTemplateFileToWorkspace(
+        assetRelativePath: String,
+        targetFile: File,
+        overwrite: Boolean,
+    ) {
+        if (!overwrite && targetFile.exists()) return
+        targetFile.parentFile?.mkdirs()
+        context.assets.open("$TEMPLATE_ASSET_DIR/EmptyActivity/app/$assetRelativePath").use { input ->
+            FileOutputStream(targetFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
+
     private companion object {
         const val TEMPLATE_ASSET_DIR = "templates"
         const val TEMPLATE_ROOT_DIR = "templates"
@@ -299,5 +336,13 @@ class ProjectInitializer @Inject constructor(
         const val TEMPLATE_PACKAGE_NAME = "com.vibe.generated.emptyactivity"
         const val TEMPLATE_MIN_SDK = 29
         const val TEMPLATE_TARGET_SDK = 36
+        val TEMPLATE_ICON_FILES = listOf(
+            "src/main/res/drawable/ic_launcher_background.xml",
+            "src/main/res/drawable/ic_launcher_foreground.xml",
+            "src/main/res/mipmap-anydpi/ic_launcher.xml",
+            "src/main/res/mipmap-anydpi/ic_launcher_round.xml",
+            "src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+            "src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+        )
     }
 }
