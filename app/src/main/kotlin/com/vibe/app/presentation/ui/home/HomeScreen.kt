@@ -58,6 +58,10 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -246,7 +250,7 @@ private fun ProjectListItem(
         },
         supportingContent = {
             Text(
-                text = pwc.chat.title,
+                text = formatUpdatedAt(pwc.chat.updatedAt),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
@@ -452,4 +456,35 @@ private fun LazyListState.isScrollingUp(): Boolean {
             }
         }
     }.value
+}
+
+private fun formatUpdatedAt(unixSeconds: Long): String {
+    val date = Date(unixSeconds * 1000)
+    val now = Calendar.getInstance()
+    val target = Calendar.getInstance().apply { time = date }
+
+    return when {
+        isSameDay(now, target) -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+        isYesterday(now, target) -> {
+            val locale = Locale.getDefault()
+            val yesterday = if (locale.language == "zh") "昨天" else "Yesterday"
+            "$yesterday ${SimpleDateFormat("HH:mm", locale).format(date)}"
+        }
+        now.get(Calendar.YEAR) == target.get(Calendar.YEAR) ->
+            SimpleDateFormat("MM/dd", Locale.getDefault()).format(date)
+        else ->
+            SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(date)
+    }
+}
+
+private fun isSameDay(a: Calendar, b: Calendar): Boolean =
+    a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
+        a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
+
+private fun isYesterday(now: Calendar, target: Calendar): Boolean {
+    val yesterday = Calendar.getInstance().apply {
+        timeInMillis = now.timeInMillis
+        add(Calendar.DAY_OF_YEAR, -1)
+    }
+    return isSameDay(yesterday, target)
 }
