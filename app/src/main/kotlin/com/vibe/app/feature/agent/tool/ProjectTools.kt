@@ -27,6 +27,9 @@ private const val LIST_PROJECT_FILES = "list_project_files"
 private const val CLEAN_BUILD_CACHE = "clean_build_cache"
 private const val RUN_BUILD_PIPELINE = "run_build_pipeline"
 private const val RENAME_PROJECT = "rename_project"
+private const val UPDATE_PROJECT_ICON = "update_project_icon"
+private const val ICON_BACKGROUND_PATH = "src/main/res/drawable/ic_launcher_background.xml"
+private const val ICON_FOREGROUND_PATH = "src/main/res/drawable/ic_launcher_foreground.xml"
 
 @Singleton
 class ReadProjectFileTool @Inject constructor(
@@ -277,6 +280,73 @@ class RenameProjectTool @Inject constructor(
 }
 
 @Singleton
+class UpdateProjectIconTool @Inject constructor(
+    private val projectManager: ProjectManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = UPDATE_PROJECT_ICON,
+        description = "Update the current project's Android launcher icon. " +
+            "Writes complete XML files to the fixed launcher icon paths. " +
+            "Use self-contained Android vector drawable XML with literal colors.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "backgroundXml",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("string"))
+                            put(
+                                "description",
+                                JsonPrimitive("Complete XML content for src/main/res/drawable/ic_launcher_background.xml"),
+                            )
+                        },
+                    )
+                    put(
+                        "foregroundXml",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("string"))
+                            put(
+                                "description",
+                                JsonPrimitive("Complete XML content for src/main/res/drawable/ic_launcher_foreground.xml"),
+                            )
+                        },
+                    )
+                },
+            )
+            put(
+                "required",
+                JsonArray(listOf(JsonPrimitive("backgroundXml"), JsonPrimitive("foregroundXml"))),
+            )
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val backgroundXml = call.arguments.requireString("backgroundXml")
+        val foregroundXml = call.arguments.requireString("foregroundXml")
+        val workspace = projectManager.openWorkspace(context.projectId)
+        workspace.writeTextFile(ICON_BACKGROUND_PATH, backgroundXml)
+        workspace.writeTextFile(ICON_FOREGROUND_PATH, foregroundXml)
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                put("updated", JsonPrimitive(true))
+                put(
+                    "paths",
+                    buildJsonArray {
+                        add(JsonPrimitive(ICON_BACKGROUND_PATH))
+                        add(JsonPrimitive(ICON_FOREGROUND_PATH))
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Singleton
 class DefaultAgentToolRegistry @Inject constructor(
     readProjectFileTool: ReadProjectFileTool,
     writeProjectFileTool: WriteProjectFileTool,
@@ -285,6 +355,7 @@ class DefaultAgentToolRegistry @Inject constructor(
     cleanBuildCacheTool: CleanBuildCacheTool,
     runBuildPipelineTool: RunBuildPipelineTool,
     renameProjectTool: RenameProjectTool,
+    updateProjectIconTool: UpdateProjectIconTool,
 ) : AgentToolRegistry {
 
     private val tools = listOf(
@@ -295,6 +366,7 @@ class DefaultAgentToolRegistry @Inject constructor(
         cleanBuildCacheTool,
         runBuildPipelineTool,
         renameProjectTool,
+        updateProjectIconTool,
     )
 
     override fun listDefinitions(): List<AgentToolDefinition> = tools.map { it.definition }

@@ -258,6 +258,16 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             - src/main/res/layout/activity_main.xml
             - src/main/res/values/strings.xml
             - src/main/AndroidManifest.xml
+            - src/main/res/drawable/ic_launcher_background.xml
+            - src/main/res/drawable/ic_launcher_foreground.xml
+
+            ## App Icon Requests
+            - If the user asks to create or change the app icon, update the launcher icon files.
+            - If the user mentions app icon, logo, launcher icon, icon image, or icon design, use update_project_icon first instead of write_project_file.
+            - Prefer the update_project_icon tool for icon changes.
+            - Write self-contained Android vector drawable XML, not SVG.
+            - Use literal hex colors inside the icon XML. Avoid @color/... references so previews stay reliable.
+            - Keep the icon artwork inside a 108x108 viewport and provide both background and foreground files.
 
             ## Phased Workflow
 

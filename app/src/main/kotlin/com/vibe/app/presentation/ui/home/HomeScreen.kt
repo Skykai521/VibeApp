@@ -4,11 +4,15 @@ import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -44,15 +48,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +77,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibe.app.R
 import com.vibe.app.data.database.entity.ProjectBuildStatus
 import com.vibe.app.data.database.entity.ProjectWithChat
+import com.vibe.app.feature.projecticon.ProjectIconRenderer
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -239,10 +249,7 @@ private fun ProjectListItem(
             if (isSelectionMode) {
                 Checkbox(checked = isSelected, onCheckedChange = { onClick() })
             } else {
-                Icon(
-                    ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
-                    contentDescription = null,
-                )
+                ProjectListItemIcon(workspacePath = pwc.project.workspacePath)
             }
         },
         trailingContent = {
@@ -258,6 +265,44 @@ private fun ProjectListItem(
             )
         },
     )
+}
+
+@Composable
+private fun ProjectListItemIcon(workspacePath: String) {
+    val context = LocalContext.current
+    val iconSize = 40.dp
+    val iconSizePx = with(LocalDensity.current) { iconSize.roundToPx() }
+    val iconSignature = ProjectIconRenderer.iconSignature(workspacePath)
+    val iconBitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(
+        initialValue = null,
+        workspacePath,
+        iconSignature,
+        iconSizePx,
+    ) {
+        value = ProjectIconRenderer.loadProjectIcon(context, workspacePath, iconSizePx)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(iconSize)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (iconBitmap != null) {
+            Image(
+                bitmap = iconBitmap!!,
+                contentDescription = null,
+                modifier = Modifier.size(iconSize),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Icon(
+                imageVector = ImageVector.vectorResource(id = R.drawable.ic_rounded_chat),
+                contentDescription = null,
+            )
+        }
+    }
 }
 
 @Composable
