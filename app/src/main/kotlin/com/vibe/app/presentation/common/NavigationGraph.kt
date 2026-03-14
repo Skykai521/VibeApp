@@ -66,7 +66,7 @@ fun NavGraphBuilder.startScreenNavigation(navController: NavHostController) {
         val startViewModel: StartViewModel = hiltViewModel()
         val uiState by startViewModel.uiState.collectAsState()
         StartScreen(
-            onStartClick = { startViewModel.initProject(navController) },
+            onStartClick = { navController.navigate(Route.SETUP_ROUTE) },
             isInitializing = uiState.isInitializing,
             statusMessage = uiState.statusMessage,
         )

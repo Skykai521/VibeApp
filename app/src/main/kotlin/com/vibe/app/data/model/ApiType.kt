@@ -5,5 +5,6 @@ enum class ApiType {
     ANTHROPIC,
     GOOGLE,
     GROQ,
-    OLLAMA
+    OLLAMA,
+    QWEN,
 }

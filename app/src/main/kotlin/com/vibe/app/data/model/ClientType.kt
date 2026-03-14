@@ -7,5 +7,6 @@ enum class ClientType {
     GROQ,
     OPENROUTER,
     OLLAMA,
-    CUSTOM
+    CUSTOM,
+    QWEN,
 }

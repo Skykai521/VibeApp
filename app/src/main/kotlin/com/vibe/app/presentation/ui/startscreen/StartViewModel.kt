@@ -54,7 +54,6 @@ class StartViewModel @Inject constructor(
                     isInitializing = false,
                     statusMessage = if (result.status == BuildStatus.SUCCESS) {
                         val signedApk = result.artifacts.lastOrNull()?.path
-                        navController.navigate(Route.SETUP_ROUTE)
                         if (signedApk.isNullOrBlank()) {
                             "Project initialized and build completed."
                         } else {

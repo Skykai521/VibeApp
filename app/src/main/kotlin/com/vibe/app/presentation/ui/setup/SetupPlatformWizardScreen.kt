@@ -531,5 +531,6 @@ private fun getApiHelpUrl(clientType: ClientType): String? = when (clientType) {
     ClientType.GROQ -> "https://console.groq.com/keys"
     ClientType.OLLAMA -> "https://ollama.com/blog/openai-compatibility"
     ClientType.OPENROUTER -> "https://openrouter.ai/keys"
+    ClientType.QWEN -> "https://bailian.console.aliyun.com/?tab=model#/api-key"
     ClientType.CUSTOM -> null
 }

@@ -172,6 +172,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.GROQ -> "Groq"
         ClientType.OLLAMA -> "Ollama"
         ClientType.OPENROUTER -> "OpenRouter"
+        ClientType.QWEN -> "Qwen"
         ClientType.CUSTOM -> ""
     }
 
@@ -182,6 +183,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.GROQ -> ModelConstants.GROQ_API_URL
         ClientType.OLLAMA -> "http://localhost:11434/"
         ClientType.OPENROUTER -> ModelConstants.OPENROUTER_API_URL
+        ClientType.QWEN -> ModelConstants.QWEN_API_URL
         ClientType.CUSTOM -> ""
     }
 

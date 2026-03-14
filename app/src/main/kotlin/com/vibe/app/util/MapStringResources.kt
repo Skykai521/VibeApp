@@ -94,24 +94,6 @@ fun generateGroqModelList(models: LinkedHashSet<String>) = models.mapIndexed { i
 }
 
 @Composable
-fun getAPIModelSelectTitle(apiType: ApiType) = when (apiType) {
-    ApiType.OPENAI -> stringResource(R.string.select_openai_model)
-    ApiType.ANTHROPIC -> stringResource(R.string.select_anthropic_model)
-    ApiType.GOOGLE -> stringResource(R.string.select_google_model)
-    ApiType.GROQ -> stringResource(R.string.select_groq_model)
-    ApiType.OLLAMA -> stringResource(R.string.select_ollama_model)
-}
-
-@Composable
-fun getAPIModelSelectDescription(apiType: ApiType) = when (apiType) {
-    ApiType.OPENAI -> stringResource(R.string.select_openai_model_description)
-    ApiType.ANTHROPIC -> stringResource(R.string.select_anthropic_model_description)
-    ApiType.GOOGLE -> stringResource(R.string.select_google_model_description)
-    ApiType.GROQ -> stringResource(R.string.select_groq_model_description)
-    ApiType.OLLAMA -> stringResource(id = R.string.select_ollama_model_description)
-}
-
-@Composable
 fun getDynamicThemeTitle(theme: DynamicTheme) = when (theme) {
     DynamicTheme.ON -> stringResource(R.string.on)
     DynamicTheme.OFF -> stringResource(R.string.off)
@@ -124,33 +106,6 @@ fun getThemeModeTitle(theme: ThemeMode) = when (theme) {
     ThemeMode.LIGHT -> stringResource(R.string.off)
 }
 
-@Composable
-fun getPlatformSettingTitle(apiType: ApiType) = when (apiType) {
-    ApiType.OPENAI -> stringResource(R.string.openai_setting)
-    ApiType.ANTHROPIC -> stringResource(R.string.anthropic_setting)
-    ApiType.GOOGLE -> stringResource(R.string.google_setting)
-    ApiType.GROQ -> stringResource(R.string.groq_setting)
-    ApiType.OLLAMA -> stringResource(R.string.ollama_setting)
-}
-
-@Composable
-fun getPlatformSettingDescription(apiType: ApiType) = when (apiType) {
-    ApiType.OPENAI -> stringResource(R.string.platform_setting_description)
-    ApiType.ANTHROPIC -> stringResource(R.string.platform_setting_description)
-    ApiType.GOOGLE -> stringResource(R.string.platform_setting_description)
-    ApiType.GROQ -> stringResource(R.string.platform_setting_description)
-    ApiType.OLLAMA -> stringResource(R.string.platform_setting_description)
-}
-
-@Composable
-fun getPlatformAPIBrandText(apiType: ApiType) = when (apiType) {
-    ApiType.OPENAI -> stringResource(R.string.openai_brand_text)
-    ApiType.ANTHROPIC -> stringResource(R.string.anthropic_brand_text)
-    ApiType.GOOGLE -> stringResource(R.string.google_brand_text)
-    ApiType.GROQ -> stringResource(R.string.groq_brand_text)
-    ApiType.OLLAMA -> stringResource(R.string.ollama_brand_text)
-}
-
 fun getClientTypeDisplayName(clientType: ClientType): String = when (clientType) {
     ClientType.OPENAI -> "OpenAI"
     ClientType.ANTHROPIC -> "Anthropic"
@@ -158,5 +113,6 @@ fun getClientTypeDisplayName(clientType: ClientType): String = when (clientType)
     ClientType.GROQ -> "Groq"
     ClientType.OPENROUTER -> "OpenRouter"
     ClientType.OLLAMA -> "Ollama"
+    ClientType.QWEN -> "Qwen"
     ClientType.CUSTOM -> "Custom"
 }

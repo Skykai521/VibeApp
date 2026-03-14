@@ -22,49 +22,56 @@ class SettingDataSourceImpl @Inject constructor(
         ApiType.ANTHROPIC to booleanPreferencesKey("anthropic_status"),
         ApiType.GOOGLE to booleanPreferencesKey("google_status"),
         ApiType.GROQ to booleanPreferencesKey("groq_status"),
-        ApiType.OLLAMA to booleanPreferencesKey("ollama_status")
+        ApiType.OLLAMA to booleanPreferencesKey("ollama_status"),
+        ApiType.QWEN to booleanPreferencesKey("qwen_status")
     )
     private val apiUrlMap = mapOf(
         ApiType.OPENAI to stringPreferencesKey("openai_url"),
         ApiType.ANTHROPIC to stringPreferencesKey("anthropic_url"),
         ApiType.GOOGLE to stringPreferencesKey("google_url"),
         ApiType.GROQ to stringPreferencesKey("groq_url"),
-        ApiType.OLLAMA to stringPreferencesKey("ollama_url")
+        ApiType.OLLAMA to stringPreferencesKey("ollama_url"),
+        ApiType.QWEN to stringPreferencesKey("qwen_url")
     )
     private val apiTokenMap = mapOf(
         ApiType.OPENAI to stringPreferencesKey("openai_token"),
         ApiType.ANTHROPIC to stringPreferencesKey("anthropic_token"),
         ApiType.GOOGLE to stringPreferencesKey("google_token"),
         ApiType.GROQ to stringPreferencesKey("groq_token"),
-        ApiType.OLLAMA to stringPreferencesKey("ollama_token")
+        ApiType.OLLAMA to stringPreferencesKey("ollama_token"),
+        ApiType.QWEN to stringPreferencesKey("qwen_token")
     )
     private val apiModelMap = mapOf(
         ApiType.OPENAI to stringPreferencesKey("openai_model"),
         ApiType.ANTHROPIC to stringPreferencesKey("anthropic_model"),
         ApiType.GOOGLE to stringPreferencesKey("google_model"),
         ApiType.GROQ to stringPreferencesKey("groq_model"),
-        ApiType.OLLAMA to stringPreferencesKey("ollama_model")
+        ApiType.OLLAMA to stringPreferencesKey("ollama_model"),
+        ApiType.QWEN to stringPreferencesKey("qwen_model")
     )
     private val apiTemperatureMap = mapOf(
         ApiType.OPENAI to floatPreferencesKey("openai_temperature"),
         ApiType.ANTHROPIC to floatPreferencesKey("anthropic_temperature"),
         ApiType.GOOGLE to floatPreferencesKey("google_temperature"),
         ApiType.GROQ to floatPreferencesKey("groq_temperature"),
-        ApiType.OLLAMA to floatPreferencesKey("ollama_temperature")
+        ApiType.OLLAMA to floatPreferencesKey("ollama_temperature"),
+        ApiType.QWEN to floatPreferencesKey("qwen_temperature")
     )
     private val apiTopPMap = mapOf(
         ApiType.OPENAI to floatPreferencesKey("openai_top_p"),
         ApiType.ANTHROPIC to floatPreferencesKey("anthropic_top_p"),
         ApiType.GOOGLE to floatPreferencesKey("google_top_p"),
         ApiType.GROQ to floatPreferencesKey("groq_top_p"),
-        ApiType.OLLAMA to floatPreferencesKey("ollama_top_p")
+        ApiType.OLLAMA to floatPreferencesKey("ollama_top_p"),
+        ApiType.QWEN to floatPreferencesKey("qwen_top_p"),
     )
     private val apiSystemPromptMap = mapOf(
         ApiType.OPENAI to stringPreferencesKey("openai_system_prompt"),
         ApiType.ANTHROPIC to stringPreferencesKey("anthropic_system_prompt"),
         ApiType.GOOGLE to stringPreferencesKey("google_system_prompt"),
         ApiType.GROQ to stringPreferencesKey("groq_system_prompt"),
-        ApiType.OLLAMA to stringPreferencesKey("ollama_system_prompt")
+        ApiType.OLLAMA to stringPreferencesKey("ollama_system_prompt"),
+        ApiType.QWEN to stringPreferencesKey("qwen_system_prompt")
     )
     private val dynamicThemeKey = intPreferencesKey("dynamic_mode")
     private val themeModeKey = intPreferencesKey("theme_mode")

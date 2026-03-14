@@ -26,6 +26,7 @@ class SettingRepositoryImpl @Inject constructor(
             ApiType.ANTHROPIC -> settingDataSource.getAPIUrl(apiType) ?: ModelConstants.ANTHROPIC_API_URL
             ApiType.GOOGLE -> settingDataSource.getAPIUrl(apiType) ?: ModelConstants.GOOGLE_API_URL
             ApiType.GROQ -> settingDataSource.getAPIUrl(apiType) ?: ModelConstants.GROQ_API_URL
+            ApiType.QWEN -> settingDataSource.getAPIUrl(apiType) ?: ModelConstants.QWEN_API_URL
             ApiType.OLLAMA -> settingDataSource.getAPIUrl(apiType) ?: ""
         }
         val token = settingDataSource.getToken(apiType)
@@ -37,6 +38,7 @@ class SettingRepositoryImpl @Inject constructor(
             ApiType.ANTHROPIC -> settingDataSource.getSystemPrompt(ApiType.ANTHROPIC) ?: ModelConstants.DEFAULT_PROMPT
             ApiType.GOOGLE -> settingDataSource.getSystemPrompt(ApiType.GOOGLE) ?: ModelConstants.DEFAULT_PROMPT
             ApiType.GROQ -> settingDataSource.getSystemPrompt(ApiType.GROQ) ?: ModelConstants.DEFAULT_PROMPT
+            ApiType.QWEN -> settingDataSource.getSystemPrompt(ApiType.QWEN) ?: ModelConstants.DEFAULT_PROMPT
             ApiType.OLLAMA -> settingDataSource.getSystemPrompt(ApiType.OLLAMA) ?: ModelConstants.DEFAULT_PROMPT
         }
 
@@ -74,6 +76,7 @@ class SettingRepositoryImpl @Inject constructor(
                         ApiType.GOOGLE -> "Google"
                         ApiType.GROQ -> "Groq"
                         ApiType.OLLAMA -> "Ollama"
+                        ApiType.QWEN -> "Qwen"
                     },
                     compatibleType = when (platform.name) {
                         ApiType.OPENAI -> ClientType.OPENAI
@@ -81,6 +84,7 @@ class SettingRepositoryImpl @Inject constructor(
                         ApiType.GOOGLE -> ClientType.GOOGLE
                         ApiType.GROQ -> ClientType.GROQ
                         ApiType.OLLAMA -> ClientType.OLLAMA
+                        ApiType.QWEN -> ClientType.QWEN
                     },
                     enabled = platform.enabled,
                     apiUrl = if (
