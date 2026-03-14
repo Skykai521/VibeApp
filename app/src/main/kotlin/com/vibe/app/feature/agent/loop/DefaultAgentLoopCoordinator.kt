@@ -9,6 +9,7 @@ import com.vibe.app.feature.agent.AgentMessageRole
 import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
+import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
 import javax.inject.Inject
@@ -47,6 +48,14 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             val outputBuilder = StringBuilder()
             var failureMessage: String? = null
 
+            // Force tool use on the first iteration so the model cannot skip directly to
+            // a text-only answer (which happens on turn 3+ when it has seen prior exchanges).
+            val effectivePolicy = if (iteration == 1 && request.tools.isNotEmpty()) {
+                request.policy.copy(toolChoiceMode = AgentToolChoiceMode.REQUIRED)
+            } else {
+                request.policy
+            }
+
             agentModelGateway.streamTurn(
                 AgentModelRequest(
                     platform = request.platform,
@@ -54,7 +63,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     fullConversation = fullConversation.toList(),
                     instructions = buildInstructions(request),
                     tools = request.tools,
-                    policy = request.policy,
+                    policy = effectivePolicy,
                     previousResponseId = previousResponseId,
                 ),
             ).collect { event ->
@@ -191,12 +200,9 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private fun MessageV2.toAgentConversationItem(): AgentConversationItem {
         return AgentConversationItem(
             role = if (platformType == null) AgentMessageRole.USER else AgentMessageRole.ASSISTANT,
+            // Exclude `thoughts` (extended thinking tokens + tool-call summaries) from the
+            // history to keep context lean and avoid confusing the model on turn 3+.
             text = buildString {
-                if (thoughts.isNotBlank()) {
-                    append("[Thoughts]\n")
-                    append(thoughts.trim())
-                    append("\n\n")
-                }
                 append(content)
                 if (files.isNotEmpty()) {
                     append("\n\n[Files]\n")
