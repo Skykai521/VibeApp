@@ -283,4 +283,6 @@
     <string name="project_initializing">Initializing project…</string>
     <string name="project_ready">Ready</string>
     <string name="no_projects_yet">No projects yet</string>
+
+    <string name="run">Run</string>
 </resources>

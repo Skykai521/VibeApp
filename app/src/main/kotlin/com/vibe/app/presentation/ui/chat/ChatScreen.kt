@@ -377,8 +377,8 @@ private fun ChatTopBar(
                 onClick = onChatModelItemClick
             ) {
                 Icon(
-                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_model),
-                    contentDescription = stringResource(R.string.chat_models)
+                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_run),
+                    contentDescription = stringResource(R.string.run)
                 )
             }
             IconButton(
