@@ -9,9 +9,7 @@ import com.vibe.build.engine.pipeline.BuildPipeline
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.nio.charset.StandardCharsets
-import java.util.zip.ZipInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -147,7 +145,7 @@ class ProjectInitializer @Inject constructor(
             templatesRootDir.deleteRecursively()
         }
         if (!templatesRootDir.exists()) {
-            unzipTemplateArchive(File(context.filesDir, TEMPLATE_ROOT_DIR))
+            copyTemplateFromAssets(File(context.filesDir, TEMPLATE_ROOT_DIR))
             extracted = true
         }
 
@@ -171,32 +169,26 @@ class ProjectInitializer @Inject constructor(
         )
     }
 
-    private fun unzipTemplateArchive(destinationRoot: File) {
-        destinationRoot.parentFile?.mkdirs()
-        Log.d(tag, "Unzipping $TEMPLATE_ARCHIVE_NAME into ${destinationRoot.absolutePath}")
-        context.assets.open(TEMPLATE_ARCHIVE_NAME).use { input ->
-            ZipInputStream(input).use { zipInput ->
-                var entry = zipInput.getNextEntry()
-                while (entry != null) {
-                    val entryName = entry.name
-                    if (shouldSkipEntry(entryName)) {
-                        zipInput.closeEntry()
-                        entry = zipInput.getNextEntry()
-                        continue
-                    }
+    private fun copyTemplateFromAssets(destRoot: File) {
+        Log.d(tag, "Copying assets/$TEMPLATE_ASSET_DIR into ${destRoot.absolutePath}")
+        copyAssetDir(TEMPLATE_ASSET_DIR, destRoot)
+    }
 
-                    val outputFile = File(context.filesDir, entryName)
-                    if (entry.isDirectory) {
-                        outputFile.mkdirs()
-                    } else {
-                        Log.d(tag, "Extracting template entry $entryName")
-                        outputFile.parentFile?.mkdirs()
-                        FileOutputStream(outputFile).use { output ->
-                            zipInput.copyTo(output)
-                        }
+    private fun copyAssetDir(assetPath: String, destDir: File) {
+        destDir.mkdirs()
+        val children = context.assets.list(assetPath) ?: emptyArray()
+        for (child in children) {
+            val childAssetPath = "$assetPath/$child"
+            val childDest = File(destDir, child)
+            val subChildren = context.assets.list(childAssetPath)
+            if (!subChildren.isNullOrEmpty()) {
+                copyAssetDir(childAssetPath, childDest)
+            } else {
+                childDest.parentFile?.mkdirs()
+                context.assets.open(childAssetPath).use { input ->
+                    FileOutputStream(childDest).use { output ->
+                        input.copyTo(output)
                     }
-                    zipInput.closeEntry()
-                    entry = zipInput.getNextEntry()
                 }
             }
         }
@@ -257,12 +249,8 @@ class ProjectInitializer @Inject constructor(
         file.writeText(contents, StandardCharsets.UTF_8)
     }
 
-    private fun shouldSkipEntry(entryName: String): Boolean {
-        return entryName.contains("__MACOSX") || entryName.endsWith(".DS_Store")
-    }
-
     private companion object {
-        const val TEMPLATE_ARCHIVE_NAME = "templates.zip"
+        const val TEMPLATE_ASSET_DIR = "templates"
         const val TEMPLATE_ROOT_DIR = "templates"
         const val TEMPLATE_PROJECT_ID = "empty_activity"
         const val TEMPLATE_PROJECT_NAME = "EmptyActivity"
