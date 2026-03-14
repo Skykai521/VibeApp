@@ -48,6 +48,14 @@ class DefaultProjectWorkspace(
             .toList()
     }
 
+    override suspend fun cleanBuildCache(): Unit = withContext(Dispatchers.IO) {
+        val buildDir = File(rootDir, "build")
+        if (buildDir.exists()) {
+            buildDir.deleteRecursively()
+            Log.d(tag, "Cleaned build cache for project $projectId")
+        }
+    }
+
     override suspend fun buildProject(): BuildResult =
         projectInitializer.buildProject(projectId)
 

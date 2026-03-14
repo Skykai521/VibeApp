@@ -24,6 +24,7 @@ private const val READ_PROJECT_FILE = "read_project_file"
 private const val WRITE_PROJECT_FILE = "write_project_file"
 private const val DELETE_PROJECT_FILE = "delete_project_file"
 private const val LIST_PROJECT_FILES = "list_project_files"
+private const val CLEAN_BUILD_CACHE = "clean_build_cache"
 private const val RUN_BUILD_PIPELINE = "run_build_pipeline"
 private const val RENAME_PROJECT = "rename_project"
 
@@ -177,6 +178,31 @@ class ListProjectFilesTool @Inject constructor(
 }
 
 @Singleton
+class CleanBuildCacheTool @Inject constructor(
+    private val projectManager: ProjectManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = CLEAN_BUILD_CACHE,
+        description = "Delete all compiled build artifacts (build/ directory) for the current project. " +
+            "Call this before run_build_pipeline to ensure a clean build from scratch.",
+        inputSchema = buildJsonObject {},
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val workspace = projectManager.openWorkspace(context.projectId)
+        workspace.cleanBuildCache()
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                put("cleaned", JsonPrimitive(true))
+            },
+        )
+    }
+}
+
+@Singleton
 class RunBuildPipelineTool @Inject constructor(
     private val projectManager: ProjectManager,
 ) : AgentTool {
@@ -256,6 +282,7 @@ class DefaultAgentToolRegistry @Inject constructor(
     writeProjectFileTool: WriteProjectFileTool,
     deleteProjectFileTool: DeleteProjectFileTool,
     listProjectFilesTool: ListProjectFilesTool,
+    cleanBuildCacheTool: CleanBuildCacheTool,
     runBuildPipelineTool: RunBuildPipelineTool,
     renameProjectTool: RenameProjectTool,
 ) : AgentToolRegistry {
@@ -265,6 +292,7 @@ class DefaultAgentToolRegistry @Inject constructor(
         writeProjectFileTool,
         deleteProjectFileTool,
         listProjectFilesTool,
+        cleanBuildCacheTool,
         runBuildPipelineTool,
         renameProjectTool,
     )

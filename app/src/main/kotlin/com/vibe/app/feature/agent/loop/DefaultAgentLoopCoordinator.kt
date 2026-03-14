@@ -255,15 +255,23 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
             ## Phased Workflow
 
-            Phase 1 — Rename (1 iteration)
+            Phase 0 — Inspect Current State (REQUIRED on turn 2+, when prior assistant messages exist in the conversation)
+              - Call list_project_files to see what already exists.
+              - Read every file you plan to modify — NEVER overwrite existing code blindly.
+              - Understand the current implementation before making incremental changes.
+              - Skip this phase only on the very first user turn.
+
+            Phase 1 — Rename (first turn only, 1 iteration)
               - Call rename_project with a short descriptive name.
+              - Skip on subsequent turns.
 
-            Phase 2 — Write All Files (1–3 iterations)
+            Phase 2 — Write Changed Files (1–3 iterations)
               - Write all changed files with COMPLETE content. You may create new files (drawables, layouts, etc.).
-              - Do not read files you plan to fully replace.
+              - On first turn: you may skip reading files you plan to fully replace.
+              - On turn 2+: always read existing files before writing to preserve existing logic.
 
-            Phase 3 — Build (1 iteration, MANDATORY)
-              - Call run_build_pipeline. Never finish without building.
+            Phase 3 — Clean + Build (1 iteration, MANDATORY)
+              - Call clean_build_cache, then call run_build_pipeline. Never finish without building.
 
             Phase 4 — Fix Loop (repeat as needed)
               - Analyze error logs carefully. Fix only the affected files, then build again.
