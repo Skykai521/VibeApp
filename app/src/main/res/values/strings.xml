@@ -269,8 +269,8 @@
     <string name="openrouter_description">Access multiple AI models through one API</string>
     <string name="custom_provider">Custom Provider</string>
     <string name="custom_provider_description">Connect to any OpenAI-compatible API</string>
-    <string name="qwen" translatable="false">Qwen</string>
-    <string name="qwen_description">Language model developed by Alibaba</string>
+    <string name="alibaba" translatable="false">Alibaba</string>
+    <string name="qwen_description">Creator of Qwen.</string>
     <string name="client_type_qwen_desc">Qwen chat completions API</string>
     <string name="platform_added_successfully">Platform added successfully</string>
     <string name="at_least_one_platform_required">Add at least one platform to continue</string>

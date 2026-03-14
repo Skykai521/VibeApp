@@ -52,7 +52,7 @@ private val platformTypes = listOf(
     ),
     PlatformTypeInfo(
         clientType = ClientType.QWEN,
-        titleResId = R.string.qwen,
+        titleResId = R.string.alibaba,
         descriptionResId = R.string.qwen_description
     )
 )
