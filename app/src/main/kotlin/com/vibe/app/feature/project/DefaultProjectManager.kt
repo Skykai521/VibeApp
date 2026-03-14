@@ -102,7 +102,7 @@ class DefaultProjectManager @Inject constructor(
         if (!projectRepository.projectExists(base)) return@withContext base
         var suffix = 2
         while (true) {
-            val candidate = "${base}_$suffix"
+            val candidate = "${base}$suffix"
             if (!projectRepository.projectExists(candidate)) return@withContext candidate
             suffix++
         }
