@@ -4,6 +4,8 @@ import com.vibe.app.data.dto.openai.request.ChatCompletionRequest
 import com.vibe.app.data.dto.openai.request.ResponsesRequest
 import com.vibe.app.data.dto.openai.response.ChatCompletionChunk
 import com.vibe.app.data.dto.openai.response.ResponsesStreamEvent
+import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
+import com.vibe.app.data.dto.qwen.response.QwenChatCompletionResponse
 import kotlinx.coroutines.flow.Flow
 
 interface OpenAIAPI {
@@ -11,4 +13,5 @@ interface OpenAIAPI {
     fun setAPIUrl(url: String)
     fun streamChatCompletion(request: ChatCompletionRequest): Flow<ChatCompletionChunk>
     fun streamResponses(request: ResponsesRequest): Flow<ResponsesStreamEvent>
+    suspend fun completeQwenChatCompletion(request: QwenChatCompletionRequest): QwenChatCompletionResponse
 }

@@ -48,7 +48,6 @@ class ReadProjectFileTool @Inject constructor(
                 },
             )
             put("required", JsonArray(listOf(JsonPrimitive("path"))))
-            put("additionalProperties", JsonPrimitive(false))
         },
     )
 
@@ -88,7 +87,6 @@ class WriteProjectFileTool @Inject constructor(
                 "required",
                 JsonArray(listOf(JsonPrimitive("path"), JsonPrimitive("content"))),
             )
-            put("additionalProperties", JsonPrimitive(false))
         },
     )
 
@@ -117,11 +115,7 @@ class RunBuildPipelineTool @Inject constructor(
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = RUN_BUILD_PIPELINE,
         description = "Run the on-device Android build pipeline for the current template project and return structured logs.",
-        inputSchema = buildJsonObject {
-            put("type", JsonPrimitive("object"))
-            put("properties", buildJsonObject {})
-            put("additionalProperties", JsonPrimitive(false))
-        },
+        inputSchema = buildJsonObject {},
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
@@ -162,7 +156,6 @@ class RenameProjectTool @Inject constructor(
                 },
             )
             put("required", JsonArray(listOf(JsonPrimitive("name"))))
-            put("additionalProperties", JsonPrimitive(false))
         },
     )
 

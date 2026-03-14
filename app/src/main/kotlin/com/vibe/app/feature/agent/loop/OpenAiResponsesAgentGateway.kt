@@ -5,13 +5,12 @@ import com.vibe.app.data.dto.openai.request.ResponseInputItem
 import com.vibe.app.data.dto.openai.request.ResponseTool
 import com.vibe.app.data.dto.openai.request.ResponsesRequest
 import com.vibe.app.data.dto.openai.response.OutputItemDoneEvent
+import com.vibe.app.data.dto.openai.response.OutputTextDeltaEvent
 import com.vibe.app.data.dto.openai.response.ReasoningSummaryTextDeltaEvent
 import com.vibe.app.data.dto.openai.response.ResponseCompletedEvent
 import com.vibe.app.data.dto.openai.response.ResponseCreatedEvent
 import com.vibe.app.data.dto.openai.response.ResponseErrorEvent
 import com.vibe.app.data.dto.openai.response.ResponseFailedEvent
-import com.vibe.app.data.dto.openai.response.ResponsesStreamEvent
-import com.vibe.app.data.dto.openai.response.OutputTextDeltaEvent
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.feature.agent.AgentConversationItem
 import com.vibe.app.feature.agent.AgentMessageRole
@@ -53,7 +52,8 @@ class OpenAiResponsesAgentGateway @Inject constructor(
                 ResponseTool(
                     name = tool.name,
                     description = tool.description,
-                    parameters = tool.inputSchema,
+                    parameters = tool.inputSchema.takeUnless { it.isEmptyJsonObject() },
+                    strict = null,
                 )
             },
             toolChoice = request.policy.toolChoiceMode.name.lowercase(),

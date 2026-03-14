@@ -8,6 +8,8 @@ import com.vibe.app.data.dto.openai.response.ErrorDetail
 import com.vibe.app.data.dto.openai.response.ResponseErrorEvent
 import com.vibe.app.data.dto.openai.response.ResponsesStreamEvent
 import com.vibe.app.data.dto.openai.response.UnknownEvent
+import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
+import com.vibe.app.data.dto.qwen.response.QwenChatCompletionResponse
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
@@ -38,6 +40,108 @@ class OpenAIAPIImpl @Inject constructor(
 
     override fun setAPIUrl(url: String) {
         this.apiUrl = url
+    }
+
+    override suspend fun completeQwenChatCompletion(request: QwenChatCompletionRequest): QwenChatCompletionResponse {
+        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
+
+        NetworkLogcatLogger.logRequest(
+            method = "POST",
+            url = endpoint,
+            commonHeaders = buildMap {
+                put("Accept", ContentType.Application.Json.toString())
+                if (token != null) {
+                    put(HttpHeaders.Authorization, "Bearer $token")
+                }
+            },
+            bodyContentType = ContentType.Application.Json.toString(),
+            body = requestBody,
+        )
+
+        return try {
+            val startTime = System.currentTimeMillis()
+            networkClient().preparePost(endpoint) {
+                contentType(ContentType.Application.Json)
+                accept(ContentType.Application.Json)
+                setBody(requestBody)
+                token?.let { bearerAuth(it) }
+            }.execute { response ->
+                val rawBody = response.body<String>()
+                NetworkLogcatLogger.logResponse(
+                    method = "POST",
+                    url = endpoint,
+                    statusCode = response.status.value,
+                    statusText = response.status.description,
+                    headers = response.headers.entries().associate { it.key to it.value },
+                    bodyContentType = response.headers[HttpHeaders.ContentType],
+                    body = rawBody,
+                    durationMillis = System.currentTimeMillis() - startTime,
+                )
+
+                if (!response.status.isSuccess()) {
+                    return@execute QwenChatCompletionResponse(
+                        error = com.vibe.app.data.dto.qwen.response.QwenErrorDetail(
+                            message = rawBody,
+                            code = response.status.value.toString(),
+                        ),
+                    )
+                }
+
+                return@execute try {
+                    NetworkClient.json.decodeFromString<QwenChatCompletionResponse>(rawBody)
+                } catch (e: Exception) {
+                    QwenChatCompletionResponse(
+                        error = com.vibe.app.data.dto.qwen.response.QwenErrorDetail(
+                            message = "Failed to decode Qwen chat completion: ${e.message}\n$rawBody",
+                            code = "decode_error",
+                        ),
+                    )
+                }
+            }
+        } catch (e: io.ktor.client.plugins.ClientRequestException) {
+            val errorBody = e.response.body<String>()
+            NetworkLogcatLogger.logResponse(
+                method = "POST",
+                url = endpoint,
+                statusCode = e.response.status.value,
+                statusText = e.response.status.description,
+                headers = e.response.headers.entries().associate { it.key to it.value },
+                bodyContentType = e.response.headers[HttpHeaders.ContentType],
+                body = errorBody,
+            )
+            QwenChatCompletionResponse(
+                error = com.vibe.app.data.dto.qwen.response.QwenErrorDetail(
+                    message = errorBody,
+                    code = e.response.status.value.toString(),
+                ),
+            )
+        } catch (e: io.ktor.client.plugins.ServerResponseException) {
+            val errorBody = e.response.body<String>()
+            NetworkLogcatLogger.logResponse(
+                method = "POST",
+                url = endpoint,
+                statusCode = e.response.status.value,
+                statusText = e.response.status.description,
+                headers = e.response.headers.entries().associate { it.key to it.value },
+                bodyContentType = e.response.headers[HttpHeaders.ContentType],
+                body = errorBody,
+            )
+            QwenChatCompletionResponse(
+                error = com.vibe.app.data.dto.qwen.response.QwenErrorDetail(
+                    message = errorBody,
+                    code = e.response.status.value.toString(),
+                ),
+            )
+        } catch (e: Exception) {
+            NetworkLogcatLogger.logNetworkError("POST", endpoint, e)
+            QwenChatCompletionResponse(
+                error = com.vibe.app.data.dto.qwen.response.QwenErrorDetail(
+                    message = e.message ?: "Unknown network error",
+                    code = "network_error",
+                ),
+            )
+        }
     }
 
     override fun streamChatCompletion(request: ChatCompletionRequest): Flow<ChatCompletionChunk> = flow {

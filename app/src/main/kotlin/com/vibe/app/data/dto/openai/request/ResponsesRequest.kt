@@ -66,6 +66,21 @@ data class ResponsesRequest(
     @SerialName("tool_choice")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val toolChoice: String? = null,
+
+    @SerialName("response_format")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val responseFormat: ResponseFormat? = null,
+)
+
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ResponseFormat(
+    @SerialName("type")
+    val type: String,
+
+    @SerialName("json_schema")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val jsonSchema: JsonElement? = null,
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -95,11 +110,12 @@ data class ResponseTool(
     val description: String? = null,
 
     @SerialName("parameters")
-    val parameters: JsonElement,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val parameters: JsonElement? = null,
 
     @SerialName("strict")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val strict: Boolean? = true,
+    val strict: Boolean? = null,
 )
 
 @Serializable(with = ResponseInputItemSerializer::class)

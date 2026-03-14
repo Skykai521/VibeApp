@@ -37,6 +37,7 @@ import com.vibe.app.data.dto.openai.request.ChatCompletionRequest
 import com.vibe.app.data.dto.openai.request.ChatMessage
 import com.vibe.app.data.dto.openai.request.ReasoningConfig
 import com.vibe.app.data.dto.openai.request.ResponseContentPart
+import com.vibe.app.data.dto.openai.request.ResponseFormat
 import com.vibe.app.data.dto.openai.request.ResponseInputContent
 import com.vibe.app.data.dto.openai.request.ResponseInputItem
 import com.vibe.app.data.dto.openai.request.ResponsesRequest
@@ -172,7 +173,8 @@ class ChatRepositoryImpl @Inject constructor(
                 )
             } else {
                 null
-            }
+            },
+            responseFormat = platform.qwenResponseFormatOrNull(),
         )
 
         // Stream response
@@ -731,5 +733,13 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun deleteChatsV2(chatRooms: List<ChatRoomV2>) {
         chatRoomV2Dao.deleteChatRooms(*chatRooms.toTypedArray())
+    }
+}
+
+private fun PlatformV2.qwenResponseFormatOrNull(): ResponseFormat? {
+    return if (compatibleType == ClientType.QWEN) {
+        ResponseFormat(type = "json_object")
+    } else {
+        null
     }
 }
