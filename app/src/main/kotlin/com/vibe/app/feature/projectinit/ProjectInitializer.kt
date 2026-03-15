@@ -244,8 +244,11 @@ class ProjectInitializer @Inject constructor(
         replacePlaceholders(File(appModuleDir, "src/main/AndroidManifest.xml"))
         replacePlaceholders(File(appModuleDir, "build.gradle"))
 
-        val mainActivityFile = File(targetPackageDir, "MainActivity.java")
-        replacePlaceholders(mainActivityFile)
+        targetPackageDir.listFiles()?.forEach { file ->
+            if (file.isFile && file.name.endsWith(".java")) {
+                replacePlaceholders(file)
+            }
+        }
     }
 
     /**
