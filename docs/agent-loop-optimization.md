@@ -340,7 +340,96 @@ Phase 4: Fix Loop (每轮 fix 独立计数，上限 fixMaxIterations=10)
 
 ---
 
-## 6. 预期效果
+## 6. 上下文窗口管理（已实现）
+
+### 6.1 问题
+
+长对话场景下，AI 模型逐渐不再调用 tools，退化为只输出文字描述。根因：
+
+1. **历史消息无截断**：`buildInitialConversation()` 将所有历史消息原封不动塞进 API 请求。10+ 轮对话后，每轮包含完整 Java 源码（`write_project_file` 的内容），上下文膨胀到接近窗口限制。
+2. **工具调用记录丢失**：`MessageV2.toAgentConversationItem()` 只取 `content` 文本，丢弃了 `thoughts` 中的 tool call 摘要。模型在 turn 3+ 看不到历史 tool 调用示例，失去 tool calling 的"惯性"。
+3. **无 token 预算控制**：没有任何 token 估算或动态裁剪机制。
+
+### 6.2 方案：滑动窗口 + 摘要 + 工具记录保留
+
+#### ConversationContextManager
+
+新增 `ConversationContextManager`（位于 `feature/agent/loop/`），负责将完整对话历史裁剪到 token 预算内：
+
+```text
+输入：[Turn1, Turn2, Turn3, ..., Turn10]  （完整历史）
+                    ↓
+分割为 turns：每个 turn = user消息 + assistant回复 + tool结果
+                    ↓
+最近 4 轮：保留完整内容（用户原文 + 完整代码 + tool calls）
+更早的轮次：压缩为摘要（用户请求 + 使用的工具名 + 结果概要）
+                    ↓
+Token 估算：若仍超预算，从最早的摘要开始丢弃
+                    ↓
+输出：[Summary1, Summary2, ..., Turn7_full, Turn8_full, Turn9_full, Turn10_full]
+```
+
+**关键参数：**
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `maxContextTokens` | 24,000 | 上下文 token 预算（不含 system prompt 和 tools） |
+| `recentTurnsToKeepFull` | 4 | 保留完整内容的最近轮次数 |
+
+**Token 估算策略：** 基于字符数的启发式估算，拉丁字符 ~4 chars/token，CJK 字符 ~2 chars/token。不需要精确，只需防止溢出。
+
+#### 工具调用记录保留
+
+修改 `MessageV2.toAgentConversationItem()`，从 `thoughts` 字段中提取 `[Tool]` 和 `[Tool Result]` 行，追加到 assistant 消息文本中：
+
+```text
+原始 assistant content：
+  "我已经成功修复了游戏..."
+
+增强后：
+  "我已经成功修复了游戏...
+
+  [Tool Usage]
+  [Tool] read_project_file
+  [Tool Result] read_project_file: ok
+  [Tool] write_project_file
+  [Tool Result] write_project_file: ok
+  [Tool] run_build_pipeline
+  [Tool Result] run_build_pipeline: ok"
+```
+
+这让模型在后续 turn 中能看到"上一轮我调用了哪些 tool"，保持 tool calling 的行为惯性。
+
+#### 摘要格式
+
+被压缩的早期 turn 变为一条 USER 角色的概要消息：
+
+```text
+[Previous Turn Summary]
+User: 帮我生成一个贪吃蛇小游戏
+Tools used: rename_project, write_project_file, run_build_pipeline
+Result: 成功创建了贪吃蛇游戏应用...
+```
+
+使用 USER 角色避免构造不完整的 assistant 消息结构（缺少 tool call ID 等），对所有 provider 都安全。
+
+### 6.3 代码位置
+
+| 文件 | 改动 |
+|------|------|
+| `feature/agent/loop/ConversationContextManager.kt` | 新增：滑动窗口、摘要、token 估算 |
+| `feature/agent/loop/DefaultAgentLoopCoordinator.kt` | 修改：`buildInitialConversation()` 调用 `contextManager.trimConversation()`；`toAgentConversationItem()` 从 thoughts 提取 tool 记录 |
+
+### 6.4 设计约束
+
+- **不改变 gateway 层**：裁剪在 coordinator 层完成，Anthropic / OpenAI / Qwen gateway 无感知。
+- **不改变数据模型**：`MessageV2`、`AgentConversationItem` 数据类不变。
+- **只影响跨 turn 历史**：单次 agent loop 内的 `fullConversation` 累积（iteration 间的 tool 结果回灌）不受影响。
+- **渐进降级**：若对话不超过 4 轮，行为与优化前完全一致。
+
+---
+
+## 7. 预期效果
 
 以番茄时钟 App 为例，优化前后对比：
 

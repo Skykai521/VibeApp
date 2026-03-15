@@ -25,6 +25,8 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private val agentToolRegistry: AgentToolRegistry,
 ) : AgentLoopCoordinator {
 
+    private val contextManager = ConversationContextManager()
+
     override suspend fun run(request: AgentLoopRequest): Flow<AgentLoopEvent> = flow {
         emit(
             AgentLoopEvent.LoopStarted(
@@ -194,19 +196,30 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             }
         }
 
-        return items
+        return contextManager.trimConversation(items)
     }
 
     private fun MessageV2.toAgentConversationItem(): AgentConversationItem {
+        val isAssistant = platformType != null
         return AgentConversationItem(
-            role = if (platformType == null) AgentMessageRole.USER else AgentMessageRole.ASSISTANT,
-            // Exclude `thoughts` (extended thinking tokens + tool-call summaries) from the
-            // history to keep context lean and avoid confusing the model on turn 3+.
+            role = if (isAssistant) AgentMessageRole.ASSISTANT else AgentMessageRole.USER,
             text = buildString {
                 append(content)
                 if (files.isNotEmpty()) {
                     append("\n\n[Files]\n")
                     append(files.joinToString(separator = "\n"))
+                }
+                // For assistant messages, extract tool usage lines from thoughts
+                // so the model can see what tools were used in prior turns.
+                if (isAssistant && thoughts.isNotBlank()) {
+                    val toolLines = thoughts.lines().filter { line ->
+                        val trimmed = line.trimStart()
+                        trimmed.startsWith("[Tool]") || trimmed.startsWith("[Tool Result]")
+                    }
+                    if (toolLines.isNotEmpty()) {
+                        append("\n\n[Tool Usage]\n")
+                        append(toolLines.joinToString(separator = "\n") { it.trim() })
+                    }
                 }
             }.trim(),
         )

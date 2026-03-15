@@ -88,6 +88,7 @@ Local state            signed.apk
 - 组织多轮 agent loop
 - 执行工具调用
 - 把工具结果回灌给模型继续生成
+- 上下文窗口管理：通过 `ConversationContextManager` 对长对话做滑动窗口 + 摘要，防止上下文溢出导致模型退化
 
 当前工具主要位于 `feature/agent/tool/ProjectTools.kt`，包括：
 
