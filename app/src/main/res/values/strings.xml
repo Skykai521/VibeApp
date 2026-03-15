@@ -284,7 +284,6 @@
     <string name="delete_selected_projects">Delete selected projects?</string>
     <string name="deleted_projects">Deleted %d projects.</string>
     <string name="project_initializing">Initializing project…</string>
-    <string name="project_ready">Ready</string>
     <string name="no_projects_yet">No projects yet</string>
 
     <string name="run">Run</string>

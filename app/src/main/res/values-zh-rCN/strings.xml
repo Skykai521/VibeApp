@@ -230,4 +230,14 @@
     <string name="at_least_one_platform_required">请至少启用一个提供商</string>
     <string name="remove">移除</string>
     <string name="qwen_description">Qwen 创造者（推荐选择）</string>
+    <string name="export_source_code">导出源码</string>
+    <string name="export_apk">导出安装包</string>
+    <string name="projects">项目</string>
+    <string name="new_project">新建项目</string>
+    <string name="search_projects">搜索项目</string>
+    <string name="projects_selected">%d 已选择</string>
+    <string name="delete_selected_projects">删除所选项目？</string>
+    <string name="deleted_projects">已删除 %d 个项目.</string>
+    <string name="project_initializing">初始化项目中</string>
+    <string name="no_projects_yet">还没有项目</string>
 </resources>
