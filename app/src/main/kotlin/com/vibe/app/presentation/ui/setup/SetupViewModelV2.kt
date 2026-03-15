@@ -68,8 +68,8 @@ class SetupViewModelV2 @Inject constructor(
         _platformName.value = getDefaultPlatformName(clientType)
         _apiUrl.value = getDefaultApiUrl(clientType)
         _apiKey.value = ""
-        _model.value = ""
-        _wizardStep.value = 0
+        _model.value = getDefaultModel(clientType)
+        _wizardStep.value = 2
     }
 
     fun updatePlatformName(name: String) {
@@ -155,10 +155,10 @@ class SetupViewModelV2 @Inject constructor(
     fun canProceedFromStep(step: Int): Boolean = when (step) {
         0 -> _platformName.value.isNotBlank() && _apiUrl.value.isNotBlank()
 
-        1 -> true
-
         // API key is optional for some providers (e.g., Ollama)
-        2 -> _model.value.isNotBlank()
+        1 -> _model.value.isNotBlank()
+
+        2 -> true
 
         else -> false
     }
@@ -187,11 +187,18 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.CUSTOM -> ""
     }
 
+    private fun getDefaultModel(clientType: ClientType): String = when (clientType) {
+        ClientType.OPENAI -> "gpt-4o"
+        ClientType.ANTHROPIC -> "claude-3-5-sonnet-20240620"
+        ClientType.QWEN -> "qwen3-coder-plus"
+        else -> ""
+    }
+
     companion object {
         private const val TAG = "SetupViewModelV2"
         const val WIZARD_STEP_BASICS = 0
-        const val WIZARD_STEP_API_KEY = 1
-        const val WIZARD_STEP_MODEL = 2
+        const val WIZARD_STEP_MODEL = 1
+        const val WIZARD_STEP_API_KEY = 2
         const val WIZARD_TOTAL_STEPS = 3
     }
 }
