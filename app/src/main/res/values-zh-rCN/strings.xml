@@ -15,7 +15,7 @@
     <string name="enter_api_key">API 密钥</string>
     <string name="token_input_description">输入所选提供商的密钥，我们不会收集这些数据，密钥和会话只会存储在您的设备上，不会发送到API服务器之外的任何地方</string>
     <string name="clear_token">清空Token</string>
-    <string name="need_help">需要帮助？</string>
+    <string name="need_help">如何获取密钥？</string>
     <string name="openai_api_key">OpenAI 的 API 密钥</string>
     <string name="anthropic_api_key">Anthropic 的 API 密钥</string>
     <string name="google_api_key">Google 的 API 密钥</string>
