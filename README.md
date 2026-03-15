@@ -74,34 +74,40 @@ AI 生成代码的稳定性是产品的核心，VibeApp 采用三重保障机制
 ## 🏗️ 架构设计 | Architecture
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                      UI Layer (Compose)                    │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │ ChatBot  │  │ Function     │  │ Project Manager      │  │
-│  │ Dialog   │  │ Calling      │  │                      │  │
-│  └────┬─────┘  └──────┬───────┘  └──────────┬───────────┘  │
-├───────┼───────────────┼─────────────────────┼──────────────┤
-│       │          Feature API Layer          │              │
-│  ┌────▼────┐  ┌───────▼──────┐  ┌───────────▼──────────┐   │
-│  │ CodeGen │  │ File         │  │ Dependency Manager   │   │
-│  │         │  │ Operations   │  │                      │   │
-│  └────┬────┘  └──────────────┘  └──────────────────────┘   │
-│       │                                                    │
-│  ┌────▼─────────────────────────────────────────────────┐  │
-│  │                   Build Pipeline                     │  │
-│  │  PreCheck → AAPT2 → JavacTool → D8 → Package → Sign  │  │
-│  └────┬─────────────────────────────────────────────────┘  │
-│       │                                                    │
-│  ┌────▼─────────────────────────────────────────────────┐  │
-│  │                    AI Agent Layer                    │  │
-│  │   Claude / GPT-4o / DeepSeek / Ollama                │  │
-│  │   Proactive: Generate → Fix → Optimization Advice    │  │
-│  │              → Issue Discovery                       │  │
-│  └──────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ Presentation Layer                                           │
+│ Compose Screens + ViewModels                                 │
+│ chat / home / setup / settings / start                       │
+├──────────────────────────────────────────────────────────────┤
+│ Feature Layer                                                │
+│ Agent Loop Coordinator + Project Manager + Project Init      │
+│ Agent Tools (read/write/list files, run build, rename, icon) │
+├──────────────────────────────────────────────────────────────┤
+│ Data Layer                                                   │
+│ Room + DataStore + Repository + Network API clients          │
+│ OpenAI / Anthropic / Google / Qwen                           │
+├──────────────────────────────────────────────────────────────┤
+│ Build Engine Module (`build-engine`)                         │
+│ RESOURCE → COMPILE → DEX → PACKAGE → SIGN                   │
+│ AAPT2     JavacTool   D8    ApkBuilder   ApkSigner           │
+├──────────────────────────────────────────────────────────────┤
+│ Device Filesystem                                             │
+│ /files/projects/{projectId}/app + generated source + APK     │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-> 完整架构图见 [docs/architecture.md](docs/architecture.md)
+当前主链路：
+
+```
+ChatScreen
+  → ChatViewModel
+  → AgentLoopCoordinator / ProjectInitializer / ProjectManager
+  → Repository + API Client / Workspace FS
+  → BuildPipeline.run()
+  → signed.apk → PackageInstaller
+```
+
+> 完整分层说明、模块职责和核心时序见 [docs/architecture.md](docs/architecture.md)
 
 ---
 
@@ -167,62 +173,66 @@ cd VibeApp
 
 ```
 VibeApp/
-├── app/                              # 主应用模块
-│   └── src/main/
-│       ├── java/vibe/app/
-│       │   ├── presentation/         # UI 层（Jetpack Compose）
-│       │   │   ├── common/           # 对话界面
-│       │   │   ├── ui/               # 项目管理界面
-│       │   │   └── icons/            # 设置界面
-│       │   ├── feature/              # Feature API 层
-│       │   │   ├── codegen/          # AI 代码生成
-│       │   │   ├── fileops/          # 文件操作
-│       │   │   ├── dependency/       # 依赖管理
-│       │   │   └── fixloop/          # 自动修复循环
-│       │   ├── ai/                   # AI Agent 层
-│       │   │   ├── provider/         # 多模型适配（Claude/GPT/DeepSeek/Ollama）
-│       │   │   ├── prompt/           # Prompt 模板管理
-│       │   │   ├── precheck/         # 代码预检（黑白名单）
-│       │   │   └── agent/            # 主动式 AI Agent
-│       │   ├── project/              # 项目管理
-│       │   │   ├── model/            # 项目数据模型
-│       │   │   ├── storage/          # 项目持久化
-│       │   │   └── snapshot/         # 版本快照
-│       │   ├── data/                 # 数据层
-│       │   │   ├── db/               # Room 数据库
-│       │   │   └── preferences/      # DataStore 配置
-│       │   └── di/                   # Hilt 依赖注入
-│       ├── assets/
-│       │   └── templates/            # 代码生成模板
-│       │      ├── activity/          # 单 Activity 模板
-│       │      └── manifest/          # AndroidManifest 模板
-│       └── res/
-├── build-engine/                     # 编译引擎模块（独立 module）
-│   └── src/main/
-│       ├── java/com/vibe/build/engine/
-│       │   ├── compiler/             # JavacCompiler（兼容保留 EcjCompiler 名称包装）
-│       │   ├── resource/             # Aapt2ResourceCompiler
-│       │   ├── dex/                  # D8DexConverter
-│       │   ├── apk/                  # AndroidApkBuilder
-│       │   ├── sign/                 # DebugApkSigner
-│       │   ├── pipeline/             # DefaultBuildPipeline
-│       │   └── model/                # CompileInput / BuildResult
-│       ├── assets/                   # rt.zip / lambda-stubs / debug signing key
-│       └── jniLibs/                  # AAPT2 native binaries
-├── docs/                             # 项目文档
-│   ├── architecture.md               # 架构设计详解
-│   ├── build-chain.md                # 编译链原理
-│   ├── ai-strategy.md                # AI 代码生成策略
-│   ├── prompt-guide.md               # Prompt 工程指南
-│   └── assets/                       # 文档图片资源
-├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── bug_report.md
-│   │   └── feature_request.md
-│   └── workflows/
-│       └── ci.yml
-├── CONTRIBUTING.md
-├── CHANGELOG.md
+├── app/                                 # Android app module
+│   ├── src/main/kotlin/com/vibe/app/
+│   │   ├── presentation/                # Compose UI、导航、ViewModel、主题
+│   │   │   ├── common/
+│   │   │   ├── icons/
+│   │   │   ├── theme/
+│   │   │   └── ui/
+│   │   │       ├── chat/
+│   │   │       ├── home/
+│   │   │       ├── main/
+│   │   │       ├── migrate/
+│   │   │       ├── setting/
+│   │   │       ├── setup/
+│   │   │       └── startscreen/
+│   │   ├── feature/                     # 核心业务编排
+│   │   │   ├── agent/                   # Agent loop、gateway、tool registry
+│   │   │   │   ├── loop/
+│   │   │   │   └── tool/
+│   │   │   ├── project/                 # ProjectManager / Workspace abstraction
+│   │   │   ├── projecticon/             # 启动图标生成
+│   │   │   └── projectinit/             # 模板工程初始化、构建入口
+│   │   ├── data/                        # 持久化、网络、DTO、repository
+│   │   │   ├── database/
+│   │   │   │   ├── dao/
+│   │   │   │   └── entity/
+│   │   │   ├── datastore/
+│   │   │   ├── dto/
+│   │   │   ├── model/
+│   │   │   ├── network/
+│   │   │   └── repository/
+│   │   ├── di/                          # Hilt modules
+│   │   └── util/                        # 通用工具与扩展
+│   ├── src/main/res/                    # UI 资源、多语言文案
+│   ├── src/main/assets/                 # android.jar、模板与静态资源
+│   └── schemas/                         # Room schema snapshots
+├── build-engine/                        # 设备端构建引擎
+│   └── src/main/java/com/vibe/build/engine/
+│       ├── apk/                         # APK 打包
+│       ├── compiler/                    # JavacCompiler / Ecj compatibility shim
+│       ├── dex/                         # D8 转 dex
+│       ├── internal/                    # workspace、logger、binary resolver
+│       ├── model/                       # BuildResult / BuildStage / CompileInput
+│       ├── pipeline/                    # BuildPipeline / DefaultBuildPipeline
+│       ├── resource/                    # AAPT2 资源编译与链接
+│       └── sign/                        # Debug 签名
+├── build-tools/                         # 打包进应用的编译工具链依赖
+│   ├── android-stubs/
+│   ├── common/
+│   ├── eclipse-standalone/
+│   ├── javac/
+│   ├── jaxp/
+│   ├── kotlinc/
+│   ├── logging/
+│   ├── manifmerger/
+│   └── project/
+├── docs/                                # 文档
+│   ├── architecture.md                  # 完整架构说明
+│   └── assets/
+├── .github/                             # Issue template / CI
+├── CONTRIBUTING.md                      # 贡献指南与分支策略
 ├── LICENSE
 └── README.md
 ```
