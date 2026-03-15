@@ -269,7 +269,6 @@ private fun ProjectListItem(
 
 @Composable
 private fun ProjectListItemIcon(workspacePath: String) {
-    val context = LocalContext.current
     val iconSize = 40.dp
     val iconSizePx = with(LocalDensity.current) { iconSize.roundToPx() }
     val iconSignature = ProjectIconRenderer.iconSignature(workspacePath)
@@ -279,7 +278,7 @@ private fun ProjectListItemIcon(workspacePath: String) {
         iconSignature,
         iconSizePx,
     ) {
-        value = ProjectIconRenderer.loadProjectIcon(context, workspacePath, iconSizePx)
+        value = ProjectIconRenderer.loadProjectIcon(workspacePath, iconSizePx)
     }
 
     Box(
