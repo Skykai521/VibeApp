@@ -6,6 +6,7 @@ import com.vibe.build.engine.model.BuildResult
 import com.vibe.build.engine.model.CompileInput
 import com.vibe.build.engine.model.EngineBuildType
 import com.vibe.build.engine.pipeline.BuildPipeline
+import com.vibe.build.engine.pipeline.BuildProgressListener
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
@@ -142,9 +143,12 @@ class ProjectInitializer @Inject constructor(
     /**
      * Builds the project-specific workspace.
      */
-    suspend fun buildProject(projectId: String): BuildResult = withContext(Dispatchers.IO) {
+    suspend fun buildProject(
+        projectId: String,
+        progressListener: BuildProgressListener? = null,
+    ): BuildResult = withContext(Dispatchers.IO) {
         val project = ensureProject(projectId)
-        buildProject(project)
+        buildProject(project, progressListener)
     }
 
     suspend fun ensureProjectLauncherResources(projectId: String) = withContext(Dispatchers.IO) {
@@ -153,8 +157,11 @@ class ProjectInitializer @Inject constructor(
         ensureLauncherIconResources(appModuleDir, overwrite = false)
     }
 
-    private suspend fun buildProject(project: TemplateProject): BuildResult {
-        return buildPipeline.run(project.toCompileInput())
+    private suspend fun buildProject(
+        project: TemplateProject,
+        progressListener: BuildProgressListener? = null,
+    ): BuildResult {
+        return buildPipeline.run(project.toCompileInput(), progressListener)
     }
 
     private fun prepareTemplateProject(forceReset: Boolean): TemplateProject {

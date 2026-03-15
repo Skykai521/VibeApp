@@ -48,6 +48,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -120,6 +121,7 @@ fun ChatScreen(
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
     val projectName by chatViewModel.projectName.collectAsStateWithLifecycle()
     val isBuildRunning by chatViewModel.isBuildRunning.collectAsStateWithLifecycle()
+    val buildProgress by chatViewModel.buildProgress.collectAsStateWithLifecycle()
     val isSelectTextSheetOpen by chatViewModel.isSelectTextSheetOpen.collectAsStateWithLifecycle()
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
     val question by chatViewModel.question.collectAsStateWithLifecycle()
@@ -174,6 +176,8 @@ fun ChatScreen(
                 isChatMenuEnabled,
                 runButtonEnabled,
                 isProjectMenuEnabled,
+                buildProgress = buildProgress.progress,
+                isBuildProgressVisible = buildProgress.isVisible,
                 onBackAction,
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
@@ -370,6 +374,8 @@ private fun ChatTopBar(
     isChatMenuEnabled: Boolean,
     isRunEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
+    buildProgress: Float,
+    isBuildProgressVisible: Boolean,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     onUpdateProjectNameClick: () -> Unit,
@@ -380,53 +386,65 @@ private fun ChatTopBar(
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
-    TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        navigationIcon = {
-            IconButton(
-                onClick = onBackAction
-            ) {
-                Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.go_back))
-            }
-        },
-        actions = {
-            IconButton(
-                enabled = isRunEnabled,
-                onClick = onRunClick
-            ) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(id = R.drawable.ic_run),
-                    contentDescription = stringResource(R.string.run)
-                )
-            }
-            IconButton(
-                onClick = { isDropDownMenuExpanded = isDropDownMenuExpanded.not() }
-            ) {
-                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.options))
-            }
-
-            ChatDropdownMenu(
-                isDropdownMenuExpanded = isDropDownMenuExpanded,
-                isChatMenuEnabled = isChatMenuEnabled,
-                isProjectMenuEnabled = isProjectMenuEnabled,
-                onDismissRequest = { isDropDownMenuExpanded = false },
-                onUpdateProjectNameClick = {
-                    onUpdateProjectNameClick.invoke()
-                    isDropDownMenuExpanded = false
-                },
-                onExportChatItemClick = onExportChatItemClick,
-                onExportSourceCodeItemClick = {
-                    onExportSourceCodeItemClick()
-                    isDropDownMenuExpanded = false
-                },
-                onExportApkItemClick = {
-                    onExportApkItemClick()
-                    isDropDownMenuExpanded = false
+    Column {
+        TopAppBar(
+            title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            navigationIcon = {
+                IconButton(
+                    onClick = onBackAction
+                ) {
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.go_back))
                 }
-            )
-        },
-        scrollBehavior = scrollBehavior
-    )
+            },
+            actions = {
+                IconButton(
+                    enabled = isRunEnabled,
+                    onClick = onRunClick
+                ) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = R.drawable.ic_run),
+                        contentDescription = stringResource(R.string.run)
+                    )
+                }
+                IconButton(
+                    onClick = { isDropDownMenuExpanded = isDropDownMenuExpanded.not() }
+                ) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.options))
+                }
+
+                ChatDropdownMenu(
+                    isDropdownMenuExpanded = isDropDownMenuExpanded,
+                    isChatMenuEnabled = isChatMenuEnabled,
+                    isProjectMenuEnabled = isProjectMenuEnabled,
+                    onDismissRequest = { isDropDownMenuExpanded = false },
+                    onUpdateProjectNameClick = {
+                        onUpdateProjectNameClick.invoke()
+                        isDropDownMenuExpanded = false
+                    },
+                    onExportChatItemClick = onExportChatItemClick,
+                    onExportSourceCodeItemClick = {
+                        onExportSourceCodeItemClick()
+                        isDropDownMenuExpanded = false
+                    },
+                    onExportApkItemClick = {
+                        onExportApkItemClick()
+                        isDropDownMenuExpanded = false
+                    }
+                )
+            },
+            scrollBehavior = scrollBehavior
+        )
+
+        LinearProgressIndicator(
+            progress = { buildProgress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .alpha(if (isBuildProgressVisible) 1f else 0f),
+            gapSize = 0.dp,
+            drawStopIndicator = {},
+        )
+    }
 }
 
 @Composable

@@ -5,6 +5,7 @@ import android.util.Log
 import com.vibe.build.engine.internal.BuildWorkspace
 import com.vibe.build.engine.internal.BuildWorkspacePreparer
 import com.vibe.build.engine.model.BuildResult
+import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.BuildStatus
 import com.vibe.build.engine.model.CompileInput
 
@@ -19,7 +20,10 @@ class DefaultBuildPipeline(
 
     private val tag = "BuildEngine-Pipeline"
 
-    override suspend fun run(input: CompileInput): BuildResult {
+    override suspend fun run(
+        input: CompileInput,
+        progressListener: BuildProgressListener?,
+    ): BuildResult {
         Log.d(tag, "Pipeline start for ${input.projectId} at ${input.workingDirectory}")
         val workspace = BuildWorkspacePreparer.prepare(context, input)
         if (input.cleanOutput) {
@@ -27,21 +31,30 @@ class DefaultBuildPipeline(
             workspace.buildDir.deleteRecursively()
         }
 
-        val stepRunners = listOf<suspend () -> BuildResult>(
-            { resourceCompiler.compile(input) },
-            { compiler.compile(input) },
-            { dexConverter.convert(input) },
-            { apkBuilder.build(input) },
-            { apkSigner.sign(input) },
+        val stepRunners = listOf(
+            BuildStage.RESOURCE to suspend { resourceCompiler.compile(input) },
+            BuildStage.COMPILE to suspend { compiler.compile(input) },
+            BuildStage.DEX to suspend { dexConverter.convert(input) },
+            BuildStage.PACKAGE to suspend { apkBuilder.build(input) },
+            BuildStage.SIGN to suspend { apkSigner.sign(input) },
         )
         val stepResults = mutableListOf<BuildResult>()
+        val totalSteps = stepRunners.size
 
-        stepRunners.forEachIndexed { index, step ->
+        stepRunners.forEachIndexed { index, (stage, step) ->
+            progressListener?.onProgress(
+                BuildProgressUpdate(
+                    stage = stage,
+                    completedSteps = index,
+                    totalSteps = totalSteps,
+                    state = BuildProgressState.STARTED,
+                ),
+            )
             val result = step()
             stepResults += result
             Log.d(
                 tag,
-                "Step ${index + 1}/${stepRunners.size} finished with status=${result.status}, error=${result.errorMessage}",
+                "Step ${index + 1}/$totalSteps finished with status=${result.status}, error=${result.errorMessage}",
             )
             if (result.status == BuildStatus.FAILED) {
                 Log.e(tag, "Pipeline failed: ${result.errorMessage}")
@@ -52,6 +65,14 @@ class DefaultBuildPipeline(
                     errorMessage = result.errorMessage,
                 )
             }
+            progressListener?.onProgress(
+                BuildProgressUpdate(
+                    stage = stage,
+                    completedSteps = index + 1,
+                    totalSteps = totalSteps,
+                    state = BuildProgressState.COMPLETED,
+                ),
+            )
         }
 
         Log.d(tag, "Pipeline succeeded")

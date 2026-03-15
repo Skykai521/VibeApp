@@ -22,6 +22,7 @@ import com.vibe.app.util.handleStates
 import com.vibe.build.engine.model.BuildLogLevel
 import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.BuildStatus
+import com.vibe.build.engine.pipeline.BuildProgressListener
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +57,12 @@ class ChatViewModel @Inject constructor(
         val assistantMessages: List<List<MessageV2>> = listOf()
     )
 
+    data class BuildProgressUiState(
+        val isVisible: Boolean = false,
+        val progress: Float = 0f,
+        val currentStage: BuildStage? = null,
+    )
+
     private val chatRoomId: Int = checkNotNull(savedStateHandle["chatRoomId"])
     private val enabledPlatformString: String = checkNotNull(savedStateHandle["enabledPlatforms"])
     val enabledPlatformsInChat = enabledPlatformString.split(',')
@@ -68,6 +75,9 @@ class ChatViewModel @Inject constructor(
 
     private val _isBuildRunning = MutableStateFlow(false)
     val isBuildRunning = _isBuildRunning.asStateFlow()
+
+    private val _buildProgress = MutableStateFlow(BuildProgressUiState())
+    val buildProgress = _buildProgress.asStateFlow()
 
     private val _buildEvent = MutableSharedFlow<BuildEvent>()
     val buildEvent: SharedFlow<BuildEvent> = _buildEvent.asSharedFlow()
@@ -200,25 +210,46 @@ class ChatViewModel @Inject constructor(
             return
         }
         _isBuildRunning.update { true }
+        _buildProgress.update { BuildProgressUiState(isVisible = true) }
         viewModelScope.launch {
-            Log.d("RunBuild", "Starting buildProject for projectId=$projectId")
-            val result = projectInitializer.buildProject(projectId)
-            Log.d("RunBuild", "buildProject finished: status=${result.status}, artifacts=${result.artifacts.map { "${it.stage}=${it.path}" }}, errorMessage=${result.errorMessage}")
-            _isBuildRunning.update { false }
-            if (result.status == BuildStatus.SUCCESS) {
-                val signedApkPath = result.artifacts
-                    .firstOrNull { it.stage == BuildStage.SIGN }?.path
-                Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
-                if (signedApkPath != null) {
-                    Log.d("RunBuild", "Emitting InstallApk event")
-                    _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
+            try {
+                Log.d("RunBuild", "Starting buildProject for projectId=$projectId")
+                val result = projectInitializer.buildProject(
+                    projectId = projectId,
+                    progressListener = BuildProgressListener { update ->
+                        val progress = if (update.totalSteps == 0) {
+                            0f
+                        } else {
+                            update.completedSteps.toFloat() / update.totalSteps
+                        }
+                        _buildProgress.update {
+                            it.copy(
+                                isVisible = true,
+                                progress = progress.coerceIn(0f, 1f),
+                                currentStage = update.stage,
+                            )
+                        }
+                    },
+                )
+                Log.d("RunBuild", "buildProject finished: status=${result.status}, artifacts=${result.artifacts.map { "${it.stage}=${it.path}" }}, errorMessage=${result.errorMessage}")
+                if (result.status == BuildStatus.SUCCESS) {
+                    val signedApkPath = result.artifacts
+                        .firstOrNull { it.stage == BuildStage.SIGN }?.path
+                    Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
+                    if (signedApkPath != null) {
+                        Log.d("RunBuild", "Emitting InstallApk event")
+                        _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
+                    } else {
+                        Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
+                    }
                 } else {
-                    Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
+                    val errorMsg = buildBuildErrorMessage(result)
+                    Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
+                    sendBuildErrorToChat(errorMsg)
                 }
-            } else {
-                val errorMsg = buildBuildErrorMessage(result)
-                Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
-                sendBuildErrorToChat(errorMsg)
+            } finally {
+                _isBuildRunning.update { false }
+                _buildProgress.update { BuildProgressUiState() }
             }
         }
     }
