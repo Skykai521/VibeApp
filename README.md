@@ -8,6 +8,8 @@
 [![Min SDK](https://img.shields.io/badge/minSdk-29-brightgreen.svg)]()
 [![Status](https://img.shields.io/badge/status-In%20Development-orange.svg)]()
 
+[**English**](README_EN.md) | 中文
+
 <p align="center">
   <img src="docs/assets/banner.png" alt="VibeApp Banner" width="1850"/>
 </p>
