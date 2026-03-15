@@ -439,7 +439,7 @@ private fun ChatTopBar(
             progress = { buildProgress },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(1.dp)
+                .height(2.dp)
                 .alpha(if (isBuildProgressVisible) 1f else 0f),
             gapSize = 0.dp,
             drawStopIndicator = {},
