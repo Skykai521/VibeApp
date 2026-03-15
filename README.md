@@ -250,7 +250,7 @@ VibeApp/
 - [x] 实现单 Activity + View 体系的应用生成
 - [x] 自动修复循环
 - [x] APK 签名 + PackageInstaller 引导安装
-- [ ] 支持生成 Image
+- [x] 支持生成应用图标
 - [x] 基础 UI：对话界面 + 编译进度
 
 ### Phase 2 — 体验优化 🎨
