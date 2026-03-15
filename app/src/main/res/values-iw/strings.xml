@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="clear_token">נקה אסימון</string>
-    <string name="welcome_description">השתמש במודל שהכי מתאים לך.\nתשאל כל מה שאתה רוצה!</string>
+    <string name="welcome_description">תארו מה אתם רוצים ליצור,\nוהאפליקציה תייצר קוד, תבנה APK ותתקין במכשיר.</string>
     <string name="app_name">VibeApp</string>
-    <string name="welcome_title">עוזר הבינה המלאכותית הטוב ביותר\nשאתה יכול לקבל\nבסמארטפון שלך.</string>
+    <string name="welcome_title">בנו אפליקציות Android מקוריות\nעם בינה מלאכותית\nישר מהטלפון.</string>
     <string name="get_started">התחל</string>
     <string name="sample_item_title">פריט 1</string>
     <string name="sample_item_description">תיאור הפריט</string>

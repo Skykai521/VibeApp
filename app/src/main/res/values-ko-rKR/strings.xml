@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">VibeApp 시작 로고</string>
-    <string name="welcome_title">휴대폰에서 사용할 수 있는 최고의 AI 챗봇.</string>
-    <string name="welcome_description">가장 적합한 모델을 사용해 무엇이든 질문해보세요!</string>
+    <string name="welcome_title">AI로 휴대폰에서\n네이티브 Android 앱을\n생성하고 빌드하고 설치하세요.</string>
+    <string name="welcome_description">원하는 앱을 설명하면\n코드 생성부터 APK 빌드와 기기 설치까지 진행합니다.</string>
     <string name="get_started">시작하기</string>
     <string name="platform_select_description">사용할 플랫폼을 선택하세요. 나중에 설정에서 변경할 수 있습니다. 추후 다른 플랫폼도 지원 예정입니다.</string>
     <string name="sample_item_title">아이템 1</string>

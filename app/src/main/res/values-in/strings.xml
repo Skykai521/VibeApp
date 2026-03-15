@@ -13,7 +13,7 @@
     <string name="google_setting">Pengaturan Google</string>
     <string name="google_description">Gemini sedang dalam perjalanan.</string>
     <string name="gpt_mobile_introduction_logo">VibeApp Logo Pendahuluan</string>
-    <string name="welcome_description">Gunakan model yang paliling cocok untuk Anda.\nTanyakan apapun yang Anda inginkan!</string>
+    <string name="welcome_description">Jelaskan apa yang ingin Anda buat,\nlalu hasilkan kode, build APK, dan pasang langsung di perangkat.</string>
     <string name="sample_item_title">Item 1</string>
     <string name="sample_item_description">Deskripsi item</string>
     <string name="openai_description">Pencipta ChatGPT.</string>
@@ -60,7 +60,7 @@
     <string name="dynamic_theme">Tema Dinamis</string>
     <string name="dark_mode">Mode gelap</string>
     <string name="app_name">VibeApp</string>
-    <string name="welcome_title">Asisten AI Terbaik\nyang ada\ndi ponsel.</string>
+    <string name="welcome_title">Buat aplikasi Android native\ndengan AI langsung\ndi ponsel Anda.</string>
     <string name="get_started">Mulai Sekarang</string>
     <string name="platform_select_description">Pilih platform yang ingin Anda gunakan. Anda dapat mengubah ini nanti di pengaturan. Platform-platform lain akan didukung.</string>
     <string name="anthropic_description">Claude lahir di sini.</string>

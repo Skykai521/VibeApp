@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="welcome_title">Najlepszy \nasystent AI \nna Twój smartfon.</string>
-    <string name="welcome_description">Użyj modelu, który odpowiada Ci najbardziej. \nPytaj, o co zechcesz!</string>
+    <string name="welcome_title">Twórz natywne aplikacje Android\nz AI bezpośrednio\nna telefonie.</string>
+    <string name="welcome_description">Opisz, co chcesz zbudować, a aplikacja\nwygeneruje kod, zbuduje APK i zainstaluje je na urządzeniu.</string>
     <string name="get_started">Rozpocznij</string>
     <string name="gpt_4o_description">Najszybszy i najbardziej przystępny cenowo model flagowy.</string>
     <string name="gpt_4o_mini_description">Przystępny cenowo, inteligentny, szybki model do lekkich, krótkich zadań</string>

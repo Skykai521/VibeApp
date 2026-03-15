@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">VibeApp紹介ロゴ</string>
-    <string name="welcome_title">あなたのスマートフォンで\n使える最高の\nAIアシスタント。</string>
-    <string name="welcome_description">あなたにピッタリのモデルを使えます。\n何でも聞きましょう！</string>
+    <string name="welcome_title">AIでスマホ上から\nネイティブAndroidアプリを\n生成・ビルド・インストール。</string>
+    <string name="welcome_description">作りたいものを伝えるだけで、\nコード生成からAPKビルド、端末内インストールまで行えます。</string>
     <string name="get_started">始める</string>
     <string name="platform_select_description">ご利用になりたいプラットフォームを選択してください。後で設定画面から変更できます。今後さらに多くのプラットフォームへ対応予定です。</string>
     <string name="sample_item_title">項目1</string>

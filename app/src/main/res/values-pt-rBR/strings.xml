@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="gpt_mobile_introduction_logo">Logotipo de introdução do VibeApp</string>
-    <string name="welcome_description">Use o modelo que mais combina com você\nmais. Pergunte o que quiser!</string>
+    <string name="welcome_description">Descreva o que você quer criar,\ngere código, compile APKs e instale tudo no próprio dispositivo.</string>
     <string name="get_started">Começar</string>
     <string name="sample_item_title">Item 1</string>
     <string name="sample_item_description">Descrição do item</string>
@@ -100,7 +100,7 @@
     <string name="groq_description">Inferência rápida de IA para modelos disponíveis abertamente.</string>
     <string name="groq_api_key">Chave API Groq</string>
     <string name="app_name">VibeApp</string>
-    <string name="welcome_title">O melhor assistente de IA\nque você pode ter no seu\nsmartphone.</string>
+    <string name="welcome_title">Crie apps Android nativos\ncom IA, direto\nno seu celular.</string>
     <string name="openai_description">Criador do ChatGPT.</string>
     <string name="next">Próximo</string>
     <string name="anthropic_description">Claude nasceu aqui.</string>

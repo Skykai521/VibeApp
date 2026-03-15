@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">意造</string>
     <string name="gpt_mobile_introduction_logo">意造的介绍图标</string>
-    <string name="welcome_title">卓越的 AI 助理：\n 文明之智，尽收股掌。</string>
-    <string name="welcome_description">选择最适合你的模型，畅所欲问！</string>
+    <string name="welcome_title">用 AI 在手机上\n生成、构建并安装\n原生 Android 应用</string>
+    <string name="welcome_description">描述你的想法，\n即可生成代码、构建 APK 并在本机安装。</string>
     <string name="get_started">开始使用</string>
     <string name="platform_select_description">选择您要使用的提供商，也可以稍后在设置中更改。我们未来将支持更多提供商。</string>
     <string name="sample_item_title">项目 1</string>

@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">VibeApp Einführung Logo</string>
-    <string name="welcome_title">Der beste KI-Assistent,\nden du auf deinem\nSmartphone haben kannst.</string>
-    <string name="welcome_description">Verwende das Modell, das am besten zu dir passt.\nFrag einfach, was du möchtest!</string>
+    <string name="welcome_title">Erstelle native Android-Apps\nmit KI, direkt auf\ndeinem Smartphone.</string>
+    <string name="welcome_description">Beschreibe deine Idee und lass Code erzeugen,\nAPKs bauen und die App direkt auf dem Gerät installieren.</string>
     <string name="get_started">Loslegen</string>
     <string name="platform_select_description">Wähle die Plattform, die du verwenden möchtest. Du kannst das später in den Einstellungen ändern. Weitere Plattformen werden unterstützt.</string>
     <string name="sample_item_title">Element 1</string>

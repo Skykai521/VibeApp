@@ -2,5 +2,6 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">لوگوی معرفی VibeApp</string>
-    <string name="welcome_title">بهترین دستیار هوش‌مصنوعی\nشما میتونید ان را در\nتفلن همراه خود داشته باشید</string>
+    <string name="welcome_title">اپ‌های اندروید بومی را\nبا هوش مصنوعی\nمستقیم روی گوشی بسازید.</string>
+    <string name="welcome_description">فقط چیزی را که می‌خواهید بسازید توضیح دهید؛\nکد تولید می‌شود، APK ساخته می‌شود و روی دستگاه نصب می‌شود.</string>
 </resources>

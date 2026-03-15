@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">Логотип приветствия VibeApp</string>
-    <string name="welcome_title">Лучший ИИ помощник,\nкоторый вы можете получить\nна свой смартфон.</string>
-    <string name="welcome_description">Используйте модель, которая вам больше всего подходит.\nЗадавайте любые вопросы!</string>
+    <string name="welcome_title">Создавайте нативные Android-приложения\nс помощью ИИ прямо\nна телефоне.</string>
+    <string name="welcome_description">Опишите, что хотите сделать, и приложение\nсгенерирует код, соберёт APK и установит его на устройство.</string>
     <string name="get_started">Начать</string>
     <string name="platform_select_description">Выберите платформу, которую хотите использовать. Вы сможете изменить это позже в настройках. В будущем будет поддерживаться больше платформ.</string>
     <string name="sample_item_title">Элемент 1</string>

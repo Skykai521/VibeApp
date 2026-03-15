@@ -2,8 +2,8 @@
 <resources>
     <string name="system_default">النظام الافتراضي</string>
     <string name="app_name">VibeApp</string>
-    <string name="welcome_title">أفضل مساعد ذكاء اصطناعي\nيمكنك الحصول عليه في هاتفك\nالذكي.</string>
-    <string name="welcome_description">استخدم النموذج الذي يناسبك\nأكثر. اسأل أي شيء تريده!</string>
+    <string name="welcome_title">أنشئ تطبيقات Android أصلية\nبالذكاء الاصطناعي\nمباشرة على هاتفك.</string>
+    <string name="welcome_description">صف ما تريد، وسيتم توليد الكود\nوبناء APK وتثبيته على الجهاز.</string>
     <string name="get_started">البدء</string>
     <string name="platform_select_description">اختر النظام الأساسي الذي تريد استخدامه. يمكنك تغيير هذا لاحقًا في الإعدادات. سيتم دعم المزيد من المنصات.</string>
     <string name="sample_item_title">العنصر 1</string>

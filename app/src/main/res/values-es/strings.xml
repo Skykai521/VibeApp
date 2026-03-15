@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">Logo de introducción de VibeApp</string>
-    <string name="welcome_title">El mejor asistente de IA\nque puedes tener en\ntu móvil.</string>
-    <string name="welcome_description">Usa el modelo que te convenga\nmás. ¡Pregunta lo que quieras!</string>
+    <string name="welcome_title">Crea apps Android nativas\ncon IA, directamente\nen tu móvil.</string>
+    <string name="welcome_description">Describe lo que quieres crear,\ngenera código, compila APK e instala la app en el dispositivo.</string>
     <string name="get_started">Comenzar</string>
     <string name="platform_select_description">Elige la plataforma que quieres usar. Puedes cambiarlo después en ajustes. Se añadirán más plataformas.</string>
     <string name="sample_item_title">Elemento 1</string>

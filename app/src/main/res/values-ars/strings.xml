@@ -7,8 +7,8 @@
     <string name="openai_description">مُنشئ ChatGPT.</string>
     <string name="anthropic_description">وُلد Claude هنا.</string>
     <string name="google_description">Gemini في طريقه.</string>
-    <string name="welcome_title">أفضل مساعد ذكاء اصطناعي\nيمكنك الحصول عليه في هاتفك\nالذكي.</string>
-    <string name="welcome_description">استخدم النموذج الذي يناسبك\nأكثر. اسأل أي شيء تريده!</string>
+    <string name="welcome_title">أنشئ تطبيقات Android أصلية\nبالذكاء الاصطناعي\nمباشرة على هاتفك.</string>
+    <string name="welcome_description">صف ما تريد، وسيتم توليد الكود\nوبناء APK وتثبيته على الجهاز.</string>
     <string name="sample_item_title">العنصر 1</string>
     <string name="sample_item_description">وصف العنصر</string>
     <string name="next">التالي</string>

@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">VibeApp</string>
     <string name="gpt_mobile_introduction_logo">VibeApp Tanıtım Logosu</string>
-    <string name="welcome_title">Akıllı telefonunuzda\nalabileceğiniz en iyi\nyapay zeka asistanı.</string>
-    <string name="welcome_description">Size en uygun modeli\nkullanın. İstediğiniz her şeyi sorun!</string>
+    <string name="welcome_title">Yapay zeka ile telefonda\nyerli Android uygulamaları\noluşturun, derleyin ve kurun.</string>
+    <string name="welcome_description">Ne yapmak istediğinizi anlatın;\nkod üretimi, APK derleme ve cihaza kurulum burada yapılsın.</string>
     <string name="get_started">Başla</string>
     <string name="platform_select_description">Kullanmak istediğiniz platformu seçin. Bunu daha sonra ayarlardan değiştirebilirsiniz. Daha fazla platform desteklenecek.</string>
     <string name="sample_item_title">Öğe 1</string>
