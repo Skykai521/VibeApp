@@ -33,6 +33,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.halilibo.richtext.commonmark.CommonmarkAstNodeParser
 import com.halilibo.richtext.markdown.BasicMarkdown
+import com.halilibo.richtext.ui.CodeBlockStyle
+import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.material3.RichText
 import com.vibe.app.R
 import com.vibe.app.presentation.theme.GPTMobileTheme
@@ -111,7 +113,10 @@ fun ThinkingBlock(
             RichText(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                style = RichTextStyle(
+                    codeBlockStyle = CodeBlockStyle(wordWrap = false),
+                ),
             ) {
                 BasicMarkdown(astNode = astNode)
             }

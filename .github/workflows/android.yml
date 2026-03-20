@@ -2,25 +2,99 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "dev", "main" ]
+    paths-ignore:
+      - ".gitignore"
+      - "**.md"
+      - "LICENSE"
+      - ".idea/**"
+      - ".editorconfig"
+      - "images/**"
+      - "metadata/**"
   pull_request:
-    branches: [ "main" ]
+    branches: [ "dev", "main" ]
+    paths-ignore:
+      - ".gitignore"
+      - "**.md"
+      - "LICENSE"
+      - ".idea/**"
+      - ".editorconfig"
+      - "images/**"
+      - "metadata/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-
+  assemble-debug:
+    name: Assemble Debug
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v4
-    - name: set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+      - uses: actions/checkout@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon app:assembleDebug
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Run app unit tests
+        run: ./gradlew --no-daemon app:testDebugUnitTest
+
+  build-engine-tests:
+    name: Build Engine Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Run build-engine tests
+        run: ./gradlew --no-daemon :build-engine:test
+
+  android-lint:
+    name: Android Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Run Android lint
+        run: ./gradlew --no-daemon app:lintDebug

@@ -57,7 +57,7 @@ We believe that in the AI era, apps won't disappear — instead, more people wil
 - **On-Device Full Build Pipeline** — AAPT2 + JavacTool + D8 + packaging/signing, the complete build chain runs on your phone
 - **Automatic Error Fix Loop** — Compilation failures are automatically fed back to AI for repair
 - **Multi-Project Management** — Manage multiple app projects simultaneously with version snapshots and build cache
-- **Multi-Model Support** — Claude, GPT-4o, Qwen, with local Ollama support planned
+- **Multi-Model Support** — Claude, GPT, Gemini, Qwen, and OpenAI-compatible local Ollama
 - **Flexible Export** — Install APK directly or export complete source code
 
 ### Code Generation Strategy (Triple Guarantee)
@@ -146,7 +146,7 @@ PackageInstaller guides user to install
 
 ### Requirements
 
-- Android 10.0 (API 30) or above
+- Android 10.0 (API 29) or above
 - An AI API Key (Claude / GPT-4o / Qwen — pick one) or a local Ollama service
 
 ### Install

@@ -135,13 +135,14 @@ fun ChatScreen(
     val context = LocalContext.current
 
     val scope = rememberCoroutineScope()
+    val latestMessageIndex = (groupedMessages.userMessages.size * 2 - 1).coerceAtLeast(0)
 
     LaunchedEffect(isIdle) {
-        listState.animateScrollToItem(groupedMessages.userMessages.size * 2)
+        listState.scrollToItem(latestMessageIndex)
     }
 
     LaunchedEffect(isLoaded) {
-        listState.animateScrollToItem(groupedMessages.userMessages.size * 2)
+        listState.scrollToItem(latestMessageIndex)
     }
 
     // Auto-scroll to bottom when keyboard opens
@@ -149,7 +150,7 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.animateScrollToItem(groupedMessages.userMessages.size * 2)
+            listState.scrollToItem(latestMessageIndex)
         }
     }
 
@@ -310,7 +311,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(groupedMessages.userMessages.size * 2)
+                                listState.animateScrollToItem(latestMessageIndex)
                             }
                         }
                     }
