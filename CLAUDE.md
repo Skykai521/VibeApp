@@ -1,92 +1,121 @@
 # CLAUDE.md
 
-> This file provides context for AI coding assistants (Claude, Cursor, Copilot, etc.) working on this project.
+> This file provides current, high-signal context for AI coding assistants working on this repository.
+
+## Source of Truth
+
+If this summary conflicts with the codebase, follow these files first:
+
+- `app/build.gradle.kts` and `build-engine/build.gradle.kts` for SDK / Java config
+- `docs/architecture.md` for module boundaries and runtime flow
+- `docs/build-engine.md` and `docs/build-chain.md` for the real on-device build pipeline
+- `CONTRIBUTING.md` for branch and review workflow
 
 ## Project Overview
 
-VibeApp (意造) is an Android app that lets users generate, compile, and install native Android APKs directly on their phone using natural language. The entire build pipeline runs on-device without any cloud services.
+VibeApp (意造) is an Android app that lets users generate, compile, sign, and install native Android APKs directly on their phone from natural-language prompts. The build runs on-device inside the app workspace; model inference may use cloud APIs or a local OpenAI-compatible endpoint such as Ollama.
 
-## Tech Stack
+## Current Tech Stack
 
-- **Language**: Kotlin (app code), Java (generated user code)
+- **Language**: Kotlin for the app, Java + XML for generated projects
 - **UI**: Jetpack Compose + Material 3
-- **Architecture**: MVVM + UDF (Unidirectional Data Flow)
+- **Architecture**: MVVM + UDF
 - **DI**: Hilt
-- **Database**: Room
-- **Preferences**: DataStore
-- **Async**: Kotlin Coroutines + Flow
-- **Build Chain**: ECJ (Java compiler) + D8 (DEX) + AAPT2 (resources) + ApkSigner
-- **Min SDK**: 26 (Android 8.0)
-- **Target SDK**: 35
+- **Persistence**: Room + DataStore
+- **Async**: Coroutines + Flow
+- **Network providers**: OpenAI, Anthropic, Google, Qwen, Ollama/OpenAI-compatible endpoints
+- **Build chain**: AAPT2 + `JavacCompiler`/`JavacTool` + D8 + `AndroidApkBuilder` + `DebugApkSigner`
+- **App SDK**: `minSdk = 29`, `targetSdk = 36`, `compileSdk = 36`
+- **Build-engine defaults**: `CompileInput` now defaults to `minSdk = 29`, `targetSdk = 36`
+- **Java levels**: app/build-engine code targets Java 11; generated template apps stay on a conservative Java 8 source level
 
-## Project Structure
+## Current Project Structure
 
+```text
+app/src/main/kotlin/com/vibe/app/
+├── presentation/   # Compose UI, navigation, ViewModel, theme
+│   ├── common/
+│   ├── icons/
+│   ├── theme/
+│   └── ui/
+│       ├── chat/
+│       ├── home/
+│       ├── main/
+│       ├── migrate/
+│       ├── setting/
+│       ├── setup/
+│       └── startscreen/
+├── feature/        # Agent loop, project workspace/init, icon generation
+│   ├── agent/
+│   │   ├── loop/
+│   │   └── tool/
+│   ├── project/
+│   ├── projecticon/
+│   └── projectinit/
+├── data/           # Room, DataStore, DTO, repository, network clients
+│   ├── database/
+│   ├── datastore/
+│   ├── dto/
+│   ├── model/
+│   ├── network/
+│   └── repository/
+├── di/
+└── util/
+
+build-engine/src/main/java/com/vibe/build/engine/
+├── apk/
+├── compiler/
+├── dex/
+├── internal/
+├── model/
+├── pipeline/
+├── resource/
+└── sign/
 ```
-app/src/main/java/.../vibeapp/
-├── ui/           # Compose UI screens (chat, preview, project list, settings)
-├── feature/      # Business logic (codegen, fileops, dependency, fixloop)
-├── build/        # Build pipeline (compiler, dex, resource, sign, pipeline)
-├── ai/           # AI provider abstraction (Claude, GPT, DeepSeek, Ollama)
-├── project/      # Project management (model, storage, snapshot)
-├── data/         # Data layer (Room DB, DataStore)
-└── di/           # Hilt modules
 
-build-engine/     # Standalone build engine module
-docs/             # Project documentation
-```
+## Key Implementation Facts
 
-## Key Design Decisions
-
-1. **AI generates Java (not Kotlin)** — ECJ is a pure-Java compiler that runs on Android. Kotlin compilation requires kotlinc which is harder to embed on-device.
-
-2. **Template-based generation** — AI fills in predefined skeletons rather than generating from scratch. This dramatically improves compilation success rate.
-
-3. **No third-party libraries (Phase 1)** — Generated code can only use standard Android SDK APIs (defined in whitelist.json). This avoids dependency resolution complexity.
-
-4. **AAPT2 as native binary** — Unlike ECJ and D8 (pure Java), AAPT2 is a C++ binary. We ship prebuilt binaries for arm64-v8a, armeabi-v7a, and x86_64.
-
-5. **Error log sanitization** — Before feeding compilation errors to AI for fixing, we strip absolute paths, aggregate duplicate errors, and limit total length to save tokens.
-
-## Coding Conventions
-
-- Kotlin code follows official Kotlin Coding Conventions
-- Use `ktlint` for formatting
-- Compose functions: PascalCase (e.g., `ChatScreen`, `ProjectListItem`)
-- ViewModels: suffix with `ViewModel` (e.g., `ChatViewModel`)
-- Repositories: suffix with `Repository` (e.g., `ProjectRepository`)
-- Use interfaces for all build pipeline components (for testability)
-- Coroutines: use structured concurrency, avoid GlobalScope
-- Error handling: use sealed classes for Result types, not exceptions
+1. **Generated apps are Java + XML, not Kotlin + Compose.** The current production path is optimized for Java/XML generation and on-device compilation success.
+2. **The real compiler path is Javac-based.** `EcjCompiler` still exists only as a deprecated compatibility wrapper; do not describe ECJ as the primary compiler.
+3. **AAPT2 runs before Java compilation.** The pipeline is `RESOURCE -> COMPILE -> DEX -> PACKAGE -> SIGN`.
+4. **Project workspaces live under app-private storage.** The typical runtime workspace is `files/projects/{projectId}/app`.
+5. **Agent tooling is workspace-centric.** Tools read/write/list project files, run the build pipeline, rename projects, and update launcher icons.
+6. **Provider support is not uniform.** Platform settings support multiple providers, but agent-loop gateway behavior is implemented in `feature/agent/loop` and should be checked before assuming identical tool-calling capability across providers.
 
 ## Common Tasks
 
-### Adding a new AI provider
-1. Implement `AiProvider` interface in `ai/provider/`
-2. Add configuration UI in `ui/settings/`
-3. Register in `AiProviderFactory`
-4. Test with standard prompt templates
+### Adding or changing model/provider support
 
-### Modifying build pipeline
-1. All build components are in `build-engine/` module
-2. Each step implements a clean interface
-3. Test each step independently before integration
+1. Update the relevant types under `app/src/main/kotlin/com/vibe/app/data/model/`.
+2. Add or update API clients in `app/src/main/kotlin/com/vibe/app/data/network/`.
+3. Wire defaults and persistence through repository / DataStore layers.
+4. Update setup and settings UI under `presentation/ui/setup` and `presentation/ui/setting`.
+5. If the provider participates in the agent loop, update `feature/agent/loop`.
 
-## Files to Never Modify Directly
+### Modifying the build pipeline
 
-- `build-engine/libs/*.jar` — Pre-built ECJ and D8 JARs
-- `build-engine/src/main/jniLibs/` — Pre-built AAPT2 binaries
-- `app/src/main/assets/android.jar` — Android SDK stub
+1. Treat `build-engine` as the source of truth for compile/package/sign behavior.
+2. Keep `docs/build-engine.md` and `docs/build-chain.md` aligned with any pipeline changes.
+3. Check template defaults in `ProjectInitializer` when SDK or generated project assumptions change.
+
+## Files To Treat As Prebuilt Inputs
+
+- `build-tools/**/libs/*.jar`
+- `build-engine/src/main/assets/*.zip`
+- Template assets under `app/src/main/assets/templates/`
+
+Do not rewrite or replace these casually unless the task is explicitly about updating bundled toolchain artifacts or template assets.
 
 ## Testing
 
 - Unit tests: `./gradlew test`
-- Build pipeline tests: `./gradlew :build-engine:test`
-- UI tests: `./gradlew connectedAndroidTest`
-- Prompt quality: Manual testing with 10+ diverse user inputs
+- Build engine tests: `./gradlew :build-engine:test`
+- App build sanity check: `./gradlew assembleDebug`
+- UI/device validation when flows change: manual verification on an Android 10+ device or emulator
 
-## Known Limitations
+## Known Product Limits
 
-- No Kotlin/Compose support in generated code (Phase 1)
-- No third-party library support (Phase 1)
-- Single Activity apps only (Phase 1)
-- Java 8 syntax only (no lambdas for max compatibility)
+- Generated apps are still Java/XML-first
+- No general third-party dependency resolution pipeline yet
+- Single-project workspace/build flow is the primary path
+- Prompts and templates intentionally stay conservative to maximize device-side build success

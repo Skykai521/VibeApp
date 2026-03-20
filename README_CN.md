@@ -60,7 +60,7 @@ VibeApp：生成代码 → 编译 → 签名 → 安装
 - **📱 设备端全链路编译** — AAPT2 + JavacTool + D8 + 打包/签名，完整编译链跑在你的手机上
 - **🔁 自动错误修复** — 编译失败自动将错误喂给 AI 修复。
 - **📂 多项目管理** — 同时管理多个 App 项目，带版本快照和编译缓存
-- **🧠 多模型支持** — Claude、GPT-4o、Qwen、未来支持本地 Ollama 接入
+- **🧠 多模型支持** — Claude、GPT、Gemini、Qwen，以及 OpenAI 兼容的本地 Ollama
 - **📤 灵活导出** — 直接安装 APK、导出完整源码
 
 ### 代码生成策略（三重保障）
@@ -149,7 +149,7 @@ PackageInstaller 引导用户安装 ✅
 
 ### 环境要求
 
-- Android 10.0 (API 30) 及以上
+- Android 10.0 (API 29) 及以上
 - AI API Key（Claude / GPT-4o / Qwen 任选其一）或本地 Ollama 服务
 
 ### 安装

@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
 1. 只使用白名单中的 Android SDK API
 2. 不使用任何第三方库
 3. 不使用反射、JNI、或 native 代码
-4. Java 8 语法，不使用 lambda（ECJ 兼容性）
+4. Java 8 语法，不使用 lambda（保守兼容当前设备端编译链）
 5. XML 布局使用基础 View 组件
 
 [白名单] (附 whitelist.json 内容)
@@ -91,7 +91,7 @@ public class MainActivity extends Activity {
 ### 关键约束细节
 
 **为什么不用 lambda？**
-ECJ 支持 Java 8 lambda，但 D8 的 desugaring 在设备端可能有边界 case。Phase 1 保守策略，优先保证编译成功率。
+当前主编译链已经是 `JavacTool + D8`。理论上可以支持部分 Java 8 语法，但设备端 desugaring 仍可能出现边界 case。Phase 1 保守策略，优先保证编译成功率。
 
 **为什么不用 AppCompat？**
 AppCompatActivity 等 Jetpack 库需要额外的依赖解析和预编译 DEX，Phase 1 直接使用 `android.app.Activity`。
