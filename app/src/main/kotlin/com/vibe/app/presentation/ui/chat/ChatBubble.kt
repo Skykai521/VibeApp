@@ -62,10 +62,10 @@ fun UserChatBubble(
     onLongPress: () -> Unit
 ) {
     val cardColor = CardColors(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        disabledContentColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f),
-        disabledContainerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.38f)
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
     )
     val parser = remember { CommonmarkAstNodeParser() }
     val astNode = remember(text) { parser.parse(text.trimIndent()) }

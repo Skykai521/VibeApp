@@ -702,7 +702,7 @@ fun ChatInputBox(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .fillMaxWidth()
                         .height(IntrinsicSize.Min)
-                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 24.dp))
+                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 12.dp))
                         .padding(all = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
