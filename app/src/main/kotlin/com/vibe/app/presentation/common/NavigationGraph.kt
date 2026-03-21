@@ -26,7 +26,6 @@ import com.vibe.app.presentation.ui.setting.PlatformSettingScreen
 import com.vibe.app.presentation.ui.setting.SettingScreen
 import com.vibe.app.presentation.ui.setting.SettingViewModelV2
 import com.vibe.app.presentation.ui.setup.SetupCompleteScreen
-import com.vibe.app.presentation.ui.setup.SetupPlatformListScreen
 import com.vibe.app.presentation.ui.setup.SetupPlatformTypeScreen
 import com.vibe.app.presentation.ui.setup.SetupPlatformWizardScreen
 import com.vibe.app.presentation.ui.setup.SetupViewModelV2
@@ -76,19 +75,7 @@ fun NavGraphBuilder.startScreenNavigation(navController: NavHostController) {
 fun NavGraphBuilder.setupNavigation(
     navController: NavHostController
 ) {
-    navigation(startDestination = Route.SETUP_PLATFORM_LIST, route = Route.SETUP_ROUTE) {
-        composable(route = Route.SETUP_PLATFORM_LIST) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.SETUP_ROUTE)
-            }
-            val setupViewModel: SetupViewModelV2 = hiltViewModel(parentEntry)
-            SetupPlatformListScreen(
-                setupViewModel = setupViewModel,
-                onAddPlatform = { navController.navigate(Route.SETUP_PLATFORM_TYPE) },
-                onComplete = { navController.navigate(Route.SETUP_COMPLETE) },
-                onBackAction = { navController.navigateUp() }
-            )
-        }
+    navigation(startDestination = Route.SETUP_PLATFORM_TYPE, route = Route.SETUP_ROUTE) {
         composable(route = Route.SETUP_PLATFORM_TYPE) {
             val parentEntry = remember(it) {
                 navController.getBackStackEntry(Route.SETUP_ROUTE)
@@ -108,8 +95,9 @@ fun NavGraphBuilder.setupNavigation(
             SetupPlatformWizardScreen(
                 setupViewModel = setupViewModel,
                 onComplete = {
-                    // Go back to platform list after adding a platform
-                    navController.popBackStack(Route.SETUP_PLATFORM_LIST, inclusive = false)
+                    navController.navigate(Route.SETUP_COMPLETE) {
+                        popUpTo(Route.SETUP_ROUTE) { inclusive = false }
+                    }
                 },
                 onBackAction = { navController.navigateUp() }
             )
