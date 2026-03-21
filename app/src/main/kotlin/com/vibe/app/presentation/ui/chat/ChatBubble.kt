@@ -86,7 +86,7 @@ fun UserChatBubble(
         ) {
             RichText(
                 modifier = Modifier.padding(16.dp),
-                style = ScrollableCodeBlockStyle,
+                style = scrollableCodeBlockStyle(),
             ) {
                 BasicMarkdown(astNode = astNode)
             }
@@ -140,7 +140,7 @@ fun OpponentChatBubble(
                     modifier = Modifier
                         .padding(16.dp)
                         .then(if (isLoading) Modifier.animateContentSize() else Modifier),
-                    style = ScrollableCodeBlockStyle,
+                    style = scrollableCodeBlockStyle(),
                 ) {
                     BasicMarkdown(astNode = astNode)
                 }
@@ -373,9 +373,18 @@ private fun UserFileThumbnail(filePath: String) {
     }
 }
 
-private val ScrollableCodeBlockStyle = RichTextStyle(
-    codeBlockStyle = CodeBlockStyle(wordWrap = false),
-)
+@Composable
+private fun scrollableCodeBlockStyle(): RichTextStyle {
+    val bgColor = MaterialTheme.colorScheme.background
+    return RichTextStyle(
+        codeBlockStyle = CodeBlockStyle(
+            wordWrap = false,
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(bgColor),
+        ),
+    )
+}
 
 private fun isImageFile(extension: String?): Boolean {
     val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")

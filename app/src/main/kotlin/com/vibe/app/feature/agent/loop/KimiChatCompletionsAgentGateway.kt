@@ -12,6 +12,7 @@ import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
+import com.vibe.app.feature.agent.AgentToolChoiceMode
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -86,15 +87,22 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
 
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {
         val messages = mutableListOf<QwenChatMessage>()
+        val toolRequired = request.policy.toolChoiceMode == AgentToolChoiceMode.REQUIRED
 
-        request.instructions
-            ?.takeIf { it.isNotBlank() }
-            ?.let { instructions ->
-                messages += QwenChatMessage(
-                    role = "system",
-                    content = instructions,
-                )
+        val systemContent = buildString {
+            request.instructions?.takeIf { it.isNotBlank() }?.let { append(it) }
+            if (toolRequired && request.tools.isNotEmpty()) {
+                append("\n\n")
+                append(TOOL_REQUIRED_INSTRUCTION)
             }
+        }.trim()
+
+        if (systemContent.isNotBlank()) {
+            messages += QwenChatMessage(
+                role = "system",
+                content = systemContent,
+            )
+        }
 
         request.fullConversation.forEach { item ->
             when (item.role) {
@@ -131,6 +139,14 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
         }
 
         return messages
+    }
+
+    companion object {
+        private const val TOOL_REQUIRED_INSTRUCTION =
+            """## MANDATORY TOOL USE
+You MUST call at least one tool in your response. Do NOT reply with only text.
+Analyze the user's request and use the appropriate tools to fulfill it.
+Every response MUST include one or more tool calls — a text-only answer is NOT acceptable."""
     }
 }
 
