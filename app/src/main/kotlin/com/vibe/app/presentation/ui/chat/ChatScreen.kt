@@ -127,7 +127,7 @@ fun ChatScreen(
     val question by chatViewModel.question.collectAsStateWithLifecycle()
     val selectedFiles by chatViewModel.selectedFiles.collectAsStateWithLifecycle()
     val appEnabledPlatforms by chatViewModel.enabledPlatformsInApp.collectAsStateWithLifecycle()
-    val canUseChat = (chatViewModel.enabledPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
+    val canUseChat = appEnabledPlatforms.isNotEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -272,25 +272,18 @@ fun ChatScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
-                                    if (chatViewModel.enabledPlatformsInChat.size > 1) {
-                                        Row(
-                                            modifier = Modifier
-                                                .padding(horizontal = 16.dp)
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState())
-                                        ) {
-                                            chatViewModel.enabledPlatformsInChat.forEachIndexed { j, uid ->
-                                                val platform = appEnabledPlatforms.find { it.uid == uid }
-                                                val isLoading = loadingStates[j] == ChatViewModel.LoadingState.Loading
-                                                PlatformButton(
-                                                    isLoading = if (i == groupedMessages.assistantMessages.size - 1) isLoading else false,
-                                                    name = platform?.name ?: stringResource(R.string.unknown),
-                                                    selected = platformIndexState == j,
-                                                    onPlatformClick = { chatViewModel.updateChatPlatformIndex(i, j) }
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                            }
-                                        }
+                                    run {
+                                        val uid = chatViewModel.enabledPlatformsInChat.getOrNull(platformIndexState)
+                                        val platformName = appEnabledPlatforms.find { it.uid == uid }?.name
+                                            ?: stringResource(R.string.unknown)
+                                        Text(
+                                            text = platformName,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(start = 12.dp)
+                                        )
                                     }
                                 }
                                 OpponentChatBubble(

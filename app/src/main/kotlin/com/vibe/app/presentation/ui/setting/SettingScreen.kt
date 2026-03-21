@@ -112,7 +112,7 @@ fun SettingScreen(
                 description = stringResource(R.string.add_platform_description),
                 onItemClick = onNavigateToAddPlatform,
                 showTrailingIcon = false,
-                showLeadingIcon = true,
+                showLeadingIcon = false,
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.Add,
