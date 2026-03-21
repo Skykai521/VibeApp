@@ -63,6 +63,7 @@
     <string name="google_setting">Google</string>
     <string name="platform_setting_description">API密钥、模型、系统提示词</string>
     <string name="enable_api">启用API</string>
+    <string name="switched_platform_hint">已切换到 %1$s，其他平台已关闭</string>
     <string name="api_key">API密钥</string>
     <string name="api_model">模型</string>
     <string name="dynamic_theme">动态取色</string>

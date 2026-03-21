@@ -47,6 +47,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,6 +73,14 @@ fun PlatformSettingScreen(
     val isDeleted by settingViewModel.isDeleted.collectAsStateWithLifecycle()
     val showSystemPrompt = false
     val showExtendedThinking = false
+    val context = LocalContext.current
+    val switchedHint = stringResource(R.string.switched_platform_hint)
+
+    LaunchedEffect(Unit) {
+        settingViewModel.switchedPlatformEvent.collect { name ->
+            Toast.makeText(context, switchedHint.format(name), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     LaunchedEffect(isDeleted) {
         if (isDeleted) {

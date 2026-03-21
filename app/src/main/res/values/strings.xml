@@ -80,6 +80,7 @@
     <string name="google_setting">Google Settings</string>
     <string name="platform_setting_description">API Key, Model, System Prompt</string>
     <string name="enable_api">Enable API</string>
+    <string name="switched_platform_hint">Switched to %1$s, previous platform disabled</string>
     <string name="api_key">API Key</string>
     <string name="api_model">API Model</string>
     <string name="dynamic_theme">Dynamic Theme</string>

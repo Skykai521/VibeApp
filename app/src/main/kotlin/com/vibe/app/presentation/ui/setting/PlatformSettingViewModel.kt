@@ -7,8 +7,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.repository.SettingRepository
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -30,6 +33,10 @@ class PlatformSettingViewModel @Inject constructor(
     private val _isDeleted = MutableStateFlow(false)
     val isDeleted: StateFlow<Boolean> = _isDeleted.asStateFlow()
 
+    /** Emits the name of the newly enabled platform when another was disabled */
+    private val _switchedPlatformEvent = MutableSharedFlow<String>()
+    val switchedPlatformEvent: SharedFlow<String> = _switchedPlatformEvent.asSharedFlow()
+
     init {
         loadPlatform()
     }
@@ -44,7 +51,24 @@ class PlatformSettingViewModel @Inject constructor(
 
     fun toggleEnabled() {
         _platformState.value?.let { platform ->
-            updatePlatform(platform.copy(enabled = !platform.enabled))
+            val willEnable = !platform.enabled
+            if (willEnable) {
+                viewModelScope.launch {
+                    // Disable all other enabled platforms
+                    val allPlatforms = settingRepository.fetchPlatformV2s()
+                    val othersEnabled = allPlatforms.filter { it.enabled && it.id != platform.id }
+                    othersEnabled.forEach { other ->
+                        settingRepository.updatePlatformV2(other.copy(enabled = false))
+                    }
+                    settingRepository.updatePlatformV2(platform.copy(enabled = true))
+                    _platformState.update { platform.copy(enabled = true) }
+                    if (othersEnabled.isNotEmpty()) {
+                        _switchedPlatformEvent.emit(platform.name)
+                    }
+                }
+            } else {
+                updatePlatform(platform.copy(enabled = false))
+            }
         }
     }
 
