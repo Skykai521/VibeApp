@@ -79,6 +79,7 @@ import com.vibe.app.data.database.entity.ProjectBuildStatus
 import com.vibe.app.data.database.entity.ProjectWithChat
 import com.vibe.app.feature.projecticon.ProjectIconRenderer
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -284,8 +285,14 @@ private fun ProjectListItemIcon(workspacePath: String) {
     Box(
         modifier = Modifier
             .size(iconSize)
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(12.dp),
+                ambientColor = Color.Black.copy(alpha = 0.1f),
+                spotColor = Color.Black.copy(alpha = 0.15f),
+            )
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center,
     ) {
         if (iconBitmap != null) {
@@ -452,12 +459,20 @@ private fun NewProjectButton(
         modifier
     }
     ExtendedFloatingActionButton(
-        modifier = fabModifier,
+        modifier = fabModifier
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color.Black.copy(alpha = 0.12f),
+                spotColor = Color.Black.copy(alpha = 0.2f),
+            ),
         onClick = { if (!isCreating) onClick() },
         expanded = expanded,
+        containerColor = Color(0xFF1A1A1A),
+        contentColor = Color.White,
         icon = {
             if (isCreating) {
-                CircularProgressIndicator(strokeWidth = 2.dp)
+                CircularProgressIndicator(strokeWidth = 2.dp, color = Color.White)
             } else {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.new_project))
             }
