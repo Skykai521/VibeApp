@@ -368,7 +368,7 @@ fun PreferenceSwitchWithContainer(
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .clip(MaterialTheme.shapes.extraLarge)
             .background(
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme.surfaceVariant
             )
             .toggleable(
                 value = isChecked,
@@ -386,7 +386,7 @@ fun PreferenceSwitchWithContainer(
                 modifier = Modifier
                     .padding(start = 8.dp, end = 16.dp)
                     .size(24.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Column(
@@ -398,7 +398,7 @@ fun PreferenceSwitchWithContainer(
                 text = title,
                 maxLines = 1,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Switch(
