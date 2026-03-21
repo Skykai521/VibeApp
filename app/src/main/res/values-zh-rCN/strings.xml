@@ -203,6 +203,9 @@
     <string name="thinking_in_progress">推理中……</string>
     <string name="expand">展开</string>
     <string name="collapse">收起</string>
+    <string name="tool_calling">正在调用 %s</string>
+    <string name="tool_result_ok">%s 已完成</string>
+    <string name="tool_result_error">%s 失败</string>
     <string name="extended_thinking">深度推理</string>
     <string name="extended_thinking_description">支持深度推理的模型（例如 o1、o3, Claude 思考模式、Gemini 思考模式）</string>
     <string name="your_platforms">你的提供商</string>

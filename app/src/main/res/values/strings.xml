@@ -243,6 +243,9 @@
     <string name="thinking_in_progress">Thinking…</string>
     <string name="expand">Expand</string>
     <string name="collapse">Collapse</string>
+    <string name="tool_calling">Calling %s</string>
+    <string name="tool_result_ok">%s completed</string>
+    <string name="tool_result_error">%s failed</string>
     <string name="extended_thinking">Extended Thinking</string>
     <string name="extended_thinking_description">Enable for reasoning models (o1, o3, Claude with thinking, Gemini thinking)</string>
 
