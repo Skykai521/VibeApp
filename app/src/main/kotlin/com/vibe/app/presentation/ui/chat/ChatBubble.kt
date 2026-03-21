@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -168,9 +169,15 @@ fun GPTMobileIcon(loading: Boolean) {
     Box(
         modifier = Modifier
             .padding(start = 8.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(40.dp),
+                ambientColor = Color.Black.copy(alpha = 0.1f),
+                spotColor = Color.Black.copy(alpha = 0.15f),
+            )
             .size(40.dp)
             .clip(RoundedCornerShape(40.dp))
-            .background(color = Color(0xFF00A67D)),
+            .background(color = Color(0xFFFFFFFF)),
         contentAlignment = Alignment.Center
     ) {
         if (loading) {
@@ -179,9 +186,9 @@ fun GPTMobileIcon(loading: Boolean) {
             )
         }
         Image(
-            painter = painterResource(R.drawable.ic_gpt_mobile_no_padding),
+            painter = painterResource(R.drawable.ic_vibe),
             contentDescription = null,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(36.dp)
         )
     }
 }

@@ -229,7 +229,7 @@ fun ChatScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    .padding(horizontal = 6.dp, vertical = 12.dp),
                                 horizontalAlignment = Alignment.End
                             ) {
                                 Box {
@@ -254,7 +254,7 @@ fun ChatScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .padding(horizontal = 6.dp, vertical = 12.dp)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -287,7 +287,7 @@ fun ChatScreen(
                                 OpponentChatBubble(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 8.dp)
+                                        .padding(horizontal = 4.dp)
                                         .widthIn(max = maximumOpponentChatBubbleWidth),
                                     canRetry = canUseChat && i == groupedMessages.assistantMessages.size - 1 && !isCurrentPlatformLoading,
                                     isLoading = if (i == groupedMessages.assistantMessages.size - 1) isCurrentPlatformLoading else false,
