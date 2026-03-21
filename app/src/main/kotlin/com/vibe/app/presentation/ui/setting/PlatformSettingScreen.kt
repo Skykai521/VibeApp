@@ -69,6 +69,8 @@ fun PlatformSettingScreen(
     val platform by settingViewModel.platformState.collectAsStateWithLifecycle()
     val dialogState by settingViewModel.dialogState.collectAsStateWithLifecycle()
     val isDeleted by settingViewModel.isDeleted.collectAsStateWithLifecycle()
+    val showSystemPrompt = false
+    val showExtendedThinking = false
 
     LaunchedEffect(isDeleted) {
         if (isDeleted) {
@@ -195,28 +197,32 @@ fun PlatformSettingScreen(
                         )
                     }
                 )
-                SettingItem(
-                    modifier = Modifier.height(64.dp),
-                    title = stringResource(R.string.system_prompt),
-                    description = platformData.systemPrompt,
-                    enabled = false,
-                    onItemClick = settingViewModel::openSystemPromptDialog,
-                    showTrailingIcon = false,
-                    showLeadingIcon = true,
-                    leadingIcon = {
-                        Icon(
-                            ImageVector.vectorResource(id = R.drawable.ic_instructions),
-                            contentDescription = stringResource(R.string.system_prompt_icon)
-                        )
-                    }
-                )
-                ExtendedThinkingSwitch(
-                    modifier = Modifier.height(64.dp),
-                    enabled = false,
-                    isChecked = platformData.reasoning,
-                    onCheckedChange = { settingViewModel.toggleReasoning() }
-                )
+                if (showSystemPrompt) {
+                    SettingItem(
+                        modifier = Modifier.height(64.dp),
+                        title = stringResource(R.string.system_prompt),
+                        description = platformData.systemPrompt,
+                        enabled = false,
+                        onItemClick = settingViewModel::openSystemPromptDialog,
+                        showTrailingIcon = false,
+                        showLeadingIcon = true,
+                        leadingIcon = {
+                            Icon(
+                                ImageVector.vectorResource(id = R.drawable.ic_instructions),
+                                contentDescription = stringResource(R.string.system_prompt_icon)
+                            )
+                        }
+                    )
+                }
 
+                if (showExtendedThinking) {
+                    ExtendedThinkingSwitch(
+                        modifier = Modifier.height(64.dp),
+                        enabled = false,
+                        isChecked = platformData.reasoning,
+                        onCheckedChange = { settingViewModel.toggleReasoning() }
+                    )
+                }
                 PlatformNameDialog(dialogState, platformData.name, settingViewModel)
                 APIUrlDialog(dialogState, platformData.apiUrl, settingViewModel)
                 APIKeyDialog(dialogState, settingViewModel)
