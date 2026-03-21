@@ -77,10 +77,11 @@ fun UserChatBubble(
     Column(horizontalAlignment = Alignment.End) {
         Card(
             modifier = modifier
+                .padding(end = 10.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(onLongPress = { onLongPress.invoke() })
                 },
-            shape = RoundedCornerShape(32.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = cardColor
         ) {
             RichText(

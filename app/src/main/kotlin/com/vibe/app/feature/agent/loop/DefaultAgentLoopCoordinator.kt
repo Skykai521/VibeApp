@@ -49,6 +49,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             val pendingCalls = mutableListOf<com.vibe.app.feature.agent.AgentToolCall>()
             val outputBuilder = StringBuilder()
             var failureMessage: String? = null
+            var turnReasoningContent: String? = null
 
             // Force tool use on the first iteration so the model cannot skip directly to
             // a text-only answer (which happens on turn 3+ when it has seen prior exchanges).
@@ -86,6 +87,9 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
                     is AgentModelEvent.Completed -> {
                         previousResponseId = event.responseId ?: previousResponseId
+                        if (event.reasoningContent != null) {
+                            turnReasoningContent = event.reasoningContent
+                        }
                     }
 
                     is AgentModelEvent.Failed -> {
@@ -115,6 +119,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 role = AgentMessageRole.ASSISTANT,
                 text = outputBuilder.toString().trim().takeIf { it.isNotEmpty() },
                 toolCalls = pendingCalls.toList(),
+                reasoningContent = turnReasoningContent,
             )
 
             pendingCalls.forEach { call ->

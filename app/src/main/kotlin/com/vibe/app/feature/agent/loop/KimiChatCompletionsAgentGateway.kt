@@ -81,7 +81,7 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
             emit(AgentModelEvent.ToolCallReady(toolCall.toAgentToolCall(json)))
         }
 
-        emit(AgentModelEvent.Completed())
+        emit(AgentModelEvent.Completed(reasoningContent = choice.message.reasoningContent))
     }
 
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {
@@ -106,6 +106,7 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
                 AgentMessageRole.ASSISTANT -> messages += QwenChatMessage(
                     role = "assistant",
                     content = item.text,
+                    reasoningContent = item.reasoningContent,
                     toolCalls = item.toolCalls
                         ?.map { toolCall ->
                             QwenToolCall(
