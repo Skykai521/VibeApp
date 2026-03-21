@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.Flow
  *
  * Routing table:
  * - [ClientType.ANTHROPIC] → [AnthropicMessagesAgentGateway]
- * - [ClientType.QWEN]      → [QwenResponsesAgentGateway]
+ * - [ClientType.QWEN]      → [QwenChatCompletionsAgentGateway]
+ * - [ClientType.KIMI]      → [KimiChatCompletionsAgentGateway]
  * - everything else        → [OpenAiResponsesAgentGateway] (OpenAI-compatible APIs)
  *
  * New providers can be added here without touching the coordinator or DI graph.
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.Flow
 class ProviderAgentGatewayRouter @Inject constructor(
     private val openAiGateway: OpenAiResponsesAgentGateway,
     private val qwenGateway: QwenChatCompletionsAgentGateway,
+    private val kimiGateway: KimiChatCompletionsAgentGateway,
     private val anthropicGateway: AnthropicMessagesAgentGateway,
 ) : AgentModelGateway {
 
@@ -30,6 +32,7 @@ class ProviderAgentGatewayRouter @Inject constructor(
         return when (request.platform.compatibleType) {
             ClientType.ANTHROPIC -> anthropicGateway.streamTurn(request)
             ClientType.QWEN -> qwenGateway.streamTurn(request)
+            ClientType.KIMI -> kimiGateway.streamTurn(request)
             else -> openAiGateway.streamTurn(request)
         }
     }

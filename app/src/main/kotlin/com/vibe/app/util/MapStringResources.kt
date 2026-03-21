@@ -114,5 +114,6 @@ fun getClientTypeDisplayName(clientType: ClientType): String = when (clientType)
     ClientType.OPENROUTER -> "OpenRouter"
     ClientType.OLLAMA -> "Ollama"
     ClientType.QWEN -> "Qwen"
+    ClientType.KIMI -> "Kimi"
     ClientType.CUSTOM -> "Custom"
 }

@@ -230,6 +230,8 @@
     <string name="at_least_one_platform_required">请至少启用一个提供商</string>
     <string name="remove">移除</string>
     <string name="qwen_description">Qwen 创造者</string>
+    <string name="kimi_description">月之暗面旗下 Kimi 智能助手</string>
+    <string name="client_type_kimi_desc">Kimi 聊天补全 API（兼容 OpenAI）</string>
     <string name="export_source_code">导出源码</string>
     <string name="export_apk">导出安装包</string>
     <string name="projects">项目</string>

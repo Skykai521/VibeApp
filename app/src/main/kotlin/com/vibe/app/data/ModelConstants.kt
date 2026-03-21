@@ -9,6 +9,7 @@ object ModelConstants {
     val googleModels = linkedSetOf("gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-1.0-pro")
     val groqModels = linkedSetOf("llama-3.2-3b-preview", "llama-3.2-1b-preview", "llama-3.1-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it")
     val ollamaModels = linkedSetOf<String>()
+    val kimiModels = linkedSetOf("kimi-k2.5", "moonshot-v1-auto", "moonshot-v1-128k", "moonshot-v1-32k", "moonshot-v1-8k")
 
     const val OPENAI_API_URL = "https://api.openai.com/"
     const val ANTHROPIC_API_URL = "https://api.anthropic.com/"
@@ -18,6 +19,7 @@ object ModelConstants {
     const val OLLAMA_API_URL = "http://localhost:11434"
 
     const val QWEN_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/"
+    const val KIMI_API_URL = "https://api.moonshot.cn/"
 
     fun getDefaultAPIUrl(apiType: ApiType) = when (apiType) {
         ApiType.OPENAI -> OPENAI_API_URL

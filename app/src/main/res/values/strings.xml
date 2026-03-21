@@ -272,6 +272,9 @@
     <string name="alibaba" translatable="false">Alibaba</string>
     <string name="qwen_description">Creator of Qwen.</string>
     <string name="client_type_qwen_desc">Qwen chat completions API</string>
+    <string name="kimi" translatable="false">Kimi</string>
+    <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
+    <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
     <string name="platform_added_successfully">Platform added successfully</string>
     <string name="at_least_one_platform_required">Add at least one platform to continue</string>
     <string name="remove">Remove</string>

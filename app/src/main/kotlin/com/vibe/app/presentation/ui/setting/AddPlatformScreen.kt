@@ -136,7 +136,7 @@ fun AddPlatformScreen(
                     expanded = clientTypeExpanded,
                     onDismissRequest = { clientTypeExpanded = false }
                 ) {
-                    ClientType.entries.filter { it in listOf(ClientType.OPENAI, ClientType.ANTHROPIC, ClientType.QWEN) }.forEach { clientType ->
+                    ClientType.entries.filter { it in listOf(ClientType.OPENAI, ClientType.ANTHROPIC, ClientType.QWEN, ClientType.KIMI) }.forEach { clientType ->
                         DropdownMenuItem(
                             text = {
                                 Column {
@@ -162,6 +162,7 @@ fun AddPlatformScreen(
                                     ClientType.OLLAMA -> ModelConstants.OLLAMA_API_URL
                                     ClientType.OPENROUTER -> ModelConstants.OPENROUTER_API_URL
                                     ClientType.QWEN -> ModelConstants.QWEN_API_URL
+                                    ClientType.KIMI -> ModelConstants.KIMI_API_URL
                                     ClientType.CUSTOM -> ""
                                 }
                                 clientTypeExpanded = false
@@ -290,6 +291,7 @@ private fun getClientTypeName(clientType: ClientType): String = when (clientType
     ClientType.GROQ -> "Groq"
     ClientType.OLLAMA -> "Ollama"
     ClientType.OPENROUTER -> "OpenRouter"
+    ClientType.KIMI -> "Kimi"
     ClientType.CUSTOM -> stringResource(R.string.custom)
 }
 
@@ -302,6 +304,7 @@ private fun getClientTypeDescription(clientType: ClientType): String = when (cli
     ClientType.OLLAMA -> stringResource(R.string.client_type_ollama_desc)
     ClientType.OPENROUTER -> stringResource(R.string.client_type_openrouter_desc)
     ClientType.QWEN -> stringResource(R.string.client_type_qwen_desc)
+    ClientType.KIMI -> stringResource(R.string.client_type_kimi_desc)
     ClientType.CUSTOM -> stringResource(R.string.client_type_custom_desc)
 }
 
@@ -314,5 +317,6 @@ private fun getModelPlaceholder(clientType: ClientType): String = when (clientTy
     ClientType.OLLAMA -> "gpt-oss"
     ClientType.OPENROUTER -> "openai/gpt-4o"
     ClientType.QWEN -> "qwen3-coder-plus"
+    ClientType.KIMI -> "kimi-k2.5"
     ClientType.CUSTOM -> stringResource(R.string.model_name)
 }

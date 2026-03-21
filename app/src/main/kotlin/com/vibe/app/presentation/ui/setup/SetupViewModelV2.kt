@@ -173,6 +173,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OLLAMA -> "Ollama"
         ClientType.OPENROUTER -> "OpenRouter"
         ClientType.QWEN -> "Qwen"
+        ClientType.KIMI -> "Kimi"
         ClientType.CUSTOM -> ""
     }
 
@@ -184,6 +185,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OLLAMA -> "http://localhost:11434/"
         ClientType.OPENROUTER -> ModelConstants.OPENROUTER_API_URL
         ClientType.QWEN -> ModelConstants.QWEN_API_URL
+        ClientType.KIMI -> ModelConstants.KIMI_API_URL
         ClientType.CUSTOM -> ""
     }
 
@@ -191,6 +193,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OPENAI -> "gpt-4o"
         ClientType.ANTHROPIC -> "claude-3-5-sonnet-20240620"
         ClientType.QWEN -> "qwen3-coder-plus"
+        ClientType.KIMI -> "kimi-k2.5"
         else -> ""
     }
 

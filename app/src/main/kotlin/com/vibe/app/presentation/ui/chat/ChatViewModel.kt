@@ -612,7 +612,7 @@ class ChatViewModel @Inject constructor(
 
     private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
         return enabledPlatformsInChat.size == 1 &&
-            (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN) &&
+            (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN || platform.compatibleType == ClientType.KIMI) &&
             _currentProjectId.value != null
     }
 
