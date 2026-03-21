@@ -135,14 +135,23 @@ fun ChatScreen(
     val context = LocalContext.current
 
     val scope = rememberCoroutineScope()
-    val latestMessageIndex = (groupedMessages.userMessages.size * 2 - 1).coerceAtLeast(0)
+    // +1 for the bottom spacer item appended to LazyColumn
+    val bottomSpacerIndex = groupedMessages.userMessages.size * 2
 
     LaunchedEffect(isIdle) {
-        listState.scrollToItem(latestMessageIndex)
+        listState.scrollToItem(bottomSpacerIndex)
     }
 
     LaunchedEffect(isLoaded) {
-        listState.scrollToItem(latestMessageIndex)
+        listState.scrollToItem(bottomSpacerIndex)
+    }
+
+    // Auto-scroll when a new conversation round starts (new user message added)
+    val messageCount = groupedMessages.userMessages.size
+    LaunchedEffect(messageCount) {
+        if (messageCount > 0) {
+            listState.animateScrollToItem(bottomSpacerIndex)
+        }
     }
 
     // Auto-scroll to bottom when keyboard opens
@@ -150,7 +159,7 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.scrollToItem(latestMessageIndex)
+            listState.scrollToItem(bottomSpacerIndex)
         }
     }
 
@@ -300,6 +309,10 @@ fun ChatScreen(
                             }
                         }
                     }
+                    // Bottom spacer so scrolling to this item reveals the full last message
+                    item {
+                        Spacer(modifier = Modifier.height(1.dp))
+                    }
                 }
 
                 if (listState.canScrollForward) {
@@ -311,7 +324,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(latestMessageIndex)
+                                listState.animateScrollToItem(bottomSpacerIndex)
                             }
                         }
                     }
