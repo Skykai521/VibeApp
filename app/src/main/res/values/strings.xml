@@ -216,6 +216,10 @@
     <string name="no_search_results">No chats found</string>
     <string name="clear">Clear</string>
     <string name="attach_file">Attach File</string>
+    <string name="select_image">Select Image</string>
+    <string name="kimi_image_input_only_supported">Image selection is currently supported only for Kimi chats.</string>
+    <string name="kimi_supported_image_formats">Kimi currently supports png, jpeg, webp, and gif images only.</string>
+    <string name="failed_to_select_image">Failed to select image.</string>
     <string name="add_platform">Add Platform</string>
     <string name="add_platform_description">Configure a new API platform</string>
     <string name="platform_name">Platform Name</string>

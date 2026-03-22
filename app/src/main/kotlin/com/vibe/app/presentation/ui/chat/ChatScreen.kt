@@ -71,6 +71,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
@@ -87,7 +88,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider.getUriForFile
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.vibe.app.R
+import com.vibe.app.data.model.ClientType
+import com.vibe.app.util.FileUtils
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -126,8 +130,17 @@ fun ChatScreen(
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
     val question by chatViewModel.question.collectAsStateWithLifecycle()
     val selectedFiles by chatViewModel.selectedFiles.collectAsStateWithLifecycle()
+    val allPlatforms by chatViewModel.platformsInApp.collectAsStateWithLifecycle()
     val appEnabledPlatforms by chatViewModel.enabledPlatformsInApp.collectAsStateWithLifecycle()
+    val chatPlatforms = remember(allPlatforms, chatViewModel.enabledPlatformsInChat) {
+        chatViewModel.enabledPlatformsInChat.mapNotNull { uid ->
+            allPlatforms.firstOrNull { it.uid == uid }
+        }
+    }
     val canUseChat = appEnabledPlatforms.isNotEmpty()
+    val isKimiImageInputEnabled = chatPlatforms.isNotEmpty() &&
+        chatPlatforms.size == chatViewModel.enabledPlatformsInChat.size &&
+        chatPlatforms.all { it.compatibleType == ClientType.KIMI }
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -193,7 +206,11 @@ fun ChatScreen(
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
                 chatViewModel::runBuild,
-                onExportChatItemClick = { exportChat(context, chatViewModel) },
+                onExportChatItemClick = {
+                    scope.launch {
+                        exportChat(context, chatViewModel)
+                    }
+                },
                 onExportSourceCodeItemClick = {
                     val projectId = currentProjectId ?: return@ChatTopBar
                     scope.launch { exportSourceCode(context, projectId) }
@@ -275,7 +292,7 @@ fun ChatScreen(
                                     GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
                                     run {
                                         val uid = chatViewModel.enabledPlatformsInChat.getOrNull(platformIndexState)
-                                        val platformName = appEnabledPlatforms.find { it.uid == uid }?.name
+                                        val platformName = allPlatforms.find { it.uid == uid }?.name
                                             ?: stringResource(R.string.unknown)
                                         Text(
                                             text = platformName,
@@ -331,9 +348,17 @@ fun ChatScreen(
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
                 isResponding = !isIdle,
+                imageInputEnabled = isKimiImageInputEnabled,
                 selectedFiles = selectedFiles,
                 onFileSelected = { filePath -> chatViewModel.addSelectedFile(filePath) },
                 onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) },
+                onUnsupportedImageInputClick = {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.kimi_image_input_only_supported),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
                 onStopClick = { chatViewModel.stopResponding() }
             ) {
                 chatViewModel.askQuestion()
@@ -638,14 +663,31 @@ private fun installApk(context: Context, apkPath: String) {
     }
 }
 
-private fun exportChat(context: Context, chatViewModel: ChatViewModel) {
+private suspend fun exportChat(context: Context, chatViewModel: ChatViewModel) {
     try {
-        val (fileName, fileContent) = chatViewModel.exportChat()
-        val file = File(context.getExternalFilesDir(null), fileName)
-        file.writeText(fileContent)
-        val uri = getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val exportBundle = chatViewModel.exportChat()
+        val zipFile = File(context.getExternalFilesDir(null), exportBundle.zipFileName)
+        withContext(Dispatchers.IO) {
+            if (zipFile.exists()) zipFile.delete()
+            ZipOutputStream(zipFile.outputStream().buffered()).use { zos ->
+                zos.putNextEntry(ZipEntry("chat.md"))
+                zos.write(exportBundle.chatMarkdown.toByteArray())
+                zos.closeEntry()
+
+                exportBundle.diagnosticLogContent?.takeIf { it.isNotBlank() }?.let { diagnosticContent ->
+                    zos.putNextEntry(ZipEntry("diagnostic-log.ndjson"))
+                    zos.write(diagnosticContent.toByteArray())
+                    zos.closeEntry()
+                }
+
+                zos.putNextEntry(ZipEntry("manifest.json"))
+                zos.write(exportBundle.manifestJson.toByteArray())
+                zos.closeEntry()
+            }
+        }
+        val uri = getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/markdown"
+            type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -671,9 +713,11 @@ fun ChatInputBox(
     chatEnabled: Boolean = true,
     sendButtonEnabled: Boolean = true,
     isResponding: Boolean = false,
+    imageInputEnabled: Boolean = false,
     selectedFiles: List<String> = emptyList(),
     onFileSelected: (String) -> Unit = {},
     onFileRemoved: (String) -> Unit = {},
+    onUnsupportedImageInputClick: () -> Unit = {},
     onStopClick: () -> Unit = {},
     onSendButtonClick: (String) -> Unit = {}
 ) {
@@ -685,8 +729,26 @@ fun ChatInputBox(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
+            val mimeType = FileUtils.getMimeType(context, it.toString())
+            if (!FileUtils.isKimiSupportedImage(mimeType)) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.kimi_supported_image_formats),
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@rememberLauncherForActivityResult
+            }
+
             val filePath = copyFileToAppDirectory(context, it)
-            filePath?.let { path -> onFileSelected(path) }
+            if (filePath != null) {
+                onFileSelected(filePath)
+            } else {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.failed_to_select_image),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 
@@ -721,11 +783,17 @@ fun ChatInputBox(
                 ) {
                     IconButton(
                         enabled = chatEnabled,
-                        onClick = { filePickerLauncher.launch("*/*") }
+                        onClick = {
+                            if (imageInputEnabled) {
+                                filePickerLauncher.launch("image/*")
+                            } else {
+                                onUnsupportedImageInputClick()
+                            }
+                        }
                     ) {
                         Icon(
                             imageVector = ImageVector.vectorResource(R.drawable.ic_add_file),
-                            contentDescription = stringResource(R.string.attach_file)
+                            contentDescription = stringResource(R.string.select_image)
                         )
                     }
                     Box(
@@ -767,6 +835,8 @@ private fun FileThumbnailRow(
     selectedFiles: List<String>,
     onFileRemoved: (String) -> Unit
 ) {
+    var previewImagePath by remember { mutableStateOf<String?>(null) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -777,15 +847,24 @@ private fun FileThumbnailRow(
         selectedFiles.forEach { filePath ->
             FileThumbnail(
                 filePath = filePath,
+                onImageClick = { previewImagePath = filePath },
                 onRemove = { onFileRemoved(filePath) }
             )
         }
+    }
+
+    previewImagePath?.let { imagePath ->
+        FullscreenImagePreview(
+            filePath = imagePath,
+            onDismissRequest = { previewImagePath = null }
+        )
     }
 }
 
 @Composable
 private fun FileThumbnail(
     filePath: String,
+    onImageClick: () -> Unit,
     onRemove: () -> Unit
 ) {
     val file = File(filePath)
@@ -800,13 +879,14 @@ private fun FileThumbnail(
                 .size(64.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(if (isImage) Modifier.clickable(onClick = onImageClick) else Modifier)
         ) {
             if (isImage) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_image),
+                AsyncImage(
+                    model = file,
                     contentDescription = file.name,
                     modifier = Modifier.fillMaxSize(),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentScale = ContentScale.Crop
                 )
             } else {
                 Icon(

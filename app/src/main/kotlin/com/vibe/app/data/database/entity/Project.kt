@@ -64,4 +64,5 @@ data class Project(
 data class ProjectWithChat(
     val project: Project,
     val chat: ChatRoomV2,
+    val lastMessageContent: String? = null,
 )

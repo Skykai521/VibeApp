@@ -1,9 +1,11 @@
 package com.vibe.app.presentation.ui.chat
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.vibe.app.data.database.entity.ChatRoomV2
 import com.vibe.app.data.database.entity.MessageV2
@@ -16,9 +18,14 @@ import com.vibe.app.feature.agent.AgentLoopCoordinator
 import com.vibe.app.feature.agent.AgentLoopEvent
 import com.vibe.app.feature.agent.AgentLoopRequest
 import com.vibe.app.feature.agent.AgentToolRegistry
+import com.vibe.app.feature.diagnostic.BuildTriggerSource
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
+import com.vibe.app.feature.diagnostic.DiagnosticContext
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.handleStates
+import com.vibe.app.util.FileUtils
 import com.vibe.build.engine.model.BuildLogLevel
 import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.BuildStatus
@@ -33,9 +40,15 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     savedStateHandle: SavedStateHandle,
     private val chatRepository: ChatRepository,
     private val settingRepository: SettingRepository,
@@ -43,6 +56,7 @@ class ChatViewModel @Inject constructor(
     private val agentLoopCoordinator: AgentLoopCoordinator,
     private val agentToolRegistry: AgentToolRegistry,
     private val projectInitializer: ProjectInitializer,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -62,6 +76,18 @@ class ChatViewModel @Inject constructor(
         val isVisible: Boolean = false,
         val progress: Float = 0f,
         val currentStage: BuildStage? = null,
+    )
+
+    data class ChatExportBundle(
+        val zipFileName: String,
+        val chatMarkdown: String,
+        val diagnosticLogContent: String?,
+        val manifestJson: String,
+    )
+
+    private data class ActiveTurnState(
+        val diagnosticChatId: Int,
+        val context: ChatTurnDiagnosticContext,
     )
 
     private val chatRoomId: Int = checkNotNull(savedStateHandle["chatRoomId"])
@@ -132,6 +158,9 @@ class ChatViewModel @Inject constructor(
 
     // Jobs for active AI response coroutines (used to cancel on stop)
     private val responseJobs = mutableListOf<Job>()
+    private var activeTurnState: ActiveTurnState? = null
+    private var pendingUnsavedDiagnosticChatId: Int? = null
+    private val json = Json { explicitNulls = false; encodeDefaults = false }
 
     // Used for passing user question to Edit User Message Dialog
     private val _editedQuestion = MutableStateFlow(MessageV2(chatId = chatRoomId, content = "", platformType = null))
@@ -175,16 +204,17 @@ class ChatViewModel @Inject constructor(
 
     fun askQuestion() {
         Log.d("Question: ", _question.value)
-        MessageV2(
+        val userMessage = MessageV2(
             chatId = chatRoomId,
             content = _question.value,
             files = _selectedFiles.value,
             platformType = null,
             createdAt = currentTimeStamp
-        ).let { addMessage(it) }
+        )
+        addMessage(userMessage)
         _question.update { "" }
         clearSelectedFiles()
-        completeChat()
+        completeChat(startTurn(userMessage))
     }
 
     fun closeProjectNameDialog() = _isProjectNameDialogOpen.update { false }
@@ -220,6 +250,7 @@ class ChatViewModel @Inject constructor(
                 Log.d("RunBuild", "Starting buildProject for projectId=$projectId")
                 val result = projectInitializer.buildProject(
                     projectId = projectId,
+                    triggerSource = BuildTriggerSource.CHAT_BUTTON,
                     progressListener = BuildProgressListener { update ->
                         val progress = if (update.totalSteps == 0) {
                             0f
@@ -268,13 +299,14 @@ class ChatViewModel @Inject constructor(
 
     private fun sendBuildErrorToChat(errorMessage: String) {
         val content = "Build failed. Please fix the following errors:\n\n$errorMessage"
-        MessageV2(
+        val userMessage = MessageV2(
             chatId = chatRoomId,
             content = content,
             platformType = null,
             createdAt = currentTimeStamp
-        ).let { addMessage(it) }
-        completeChat()
+        )
+        addMessage(userMessage)
+        completeChat(startTurn(userMessage))
     }
 
     fun openEditQuestionDialog(question: MessageV2) {
@@ -303,7 +335,11 @@ class ChatViewModel @Inject constructor(
 
     fun retryChat(platformIndex: Int) {
         if (platformIndex >= enabledPlatformsInChat.size || platformIndex < 0) return
-        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == enabledPlatformsInChat[platformIndex] } ?: return
+        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == enabledPlatformsInChat[platformIndex] }
+        if (platform == null) {
+            Log.w("ChatViewModel", "Platform at index $platformIndex is no longer available")
+            return
+        }
         val platformWithChatModel = resolvePlatformModel(platform)
         _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Loading } }
         _groupedMessages.update {
@@ -315,13 +351,19 @@ class ChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            val turnState = startTurn(_groupedMessages.value.userMessages.last(), listOf(platformWithChatModel.uid))
             if (shouldUseAgentMode(platformWithChatModel)) {
-                runAgentLoop(platformWithChatModel, platformIndex)
+                runAgentLoop(
+                    platform = platformWithChatModel,
+                    platformIndex = platformIndex,
+                    diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
+                )
             } else {
                 chatRepository.completeChat(
                     _groupedMessages.value.userMessages,
                     _groupedMessages.value.assistantMessages,
-                    platformWithChatModel
+                    platformWithChatModel,
+                    turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
                 ).handleStates(
                     messageFlow = _groupedMessages,
                     platformIdx = platformIndex,
@@ -422,10 +464,10 @@ class ChatViewModel @Inject constructor(
         }
 
         // Start new conversation from the edited question
-        completeChat()
+        completeChat(startTurn(editedMessage))
     }
 
-    fun exportChat(): Pair<String, String> {
+    suspend fun exportChat(): ChatExportBundle {
         // Build the chat history in Markdown format
         val chatHistoryMarkdown = buildString {
             appendLine("# Chat Export: \"${chatRoom.value.title}\"")
@@ -452,34 +494,72 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        // Save the Markdown file
-        val fileName = "export_${chatRoom.value.title}_${System.currentTimeMillis()}.md"
-        return Pair(fileName, chatHistoryMarkdown)
+        val exportedAt = System.currentTimeMillis()
+        val diagnostics = diagnosticLogger.readChatLog(_chatRoom.value.id)
+        val appVersion = appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName ?: "unknown"
+        val manifest = buildJsonObject {
+            put("chatId", _chatRoom.value.id)
+            put("chatTitle", _chatRoom.value.title)
+            put("exportedAt", exportedAt)
+            put("appVersion", appVersion)
+            put("diagnosticSchemaVersion", 1)
+            put("diagnosticEventCount", diagnostics?.eventCount ?: 0L)
+        }
+        return ChatExportBundle(
+            zipFileName = "chat_export_${sanitizeForFileName(chatRoom.value.title)}_$exportedAt.zip",
+            chatMarkdown = chatHistoryMarkdown,
+            diagnosticLogContent = diagnostics?.content,
+            manifestJson = json.encodeToString(manifest),
+        )
     }
 
     fun stopResponding() {
+        val turnState = activeTurnState
+        if (turnState != null) {
+            viewModelScope.launch {
+                diagnosticLogger.logChatTurnFinished(
+                    context = turnState.context,
+                    success = false,
+                    finishReason = "cancelled",
+                    outputChars = currentTurnOutputChars(turnState.context.turnIndex),
+                    thinkingChars = currentTurnThinkingChars(turnState.context.turnIndex),
+                )
+            }
+            activeTurnState = null
+        }
         responseJobs.forEach { it.cancel() }
         responseJobs.clear()
         _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Idle } }
     }
 
-    private fun completeChat() {
+    private fun completeChat(turnState: ActiveTurnState) {
+        activeTurnState = turnState
         // Update all the platform loading states to Loading
         _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Loading } }
         responseJobs.clear()
 
         // Send chat completion requests
         enabledPlatformsInChat.forEachIndexed { idx, platformUid ->
-            val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid } ?: return@forEachIndexed
+            val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid }
+            if (platform == null) {
+                // Platform was disabled/removed since chat was created — reset loading state
+                _loadingStates.update { it.toMutableList().apply { this[idx] = LoadingState.Idle } }
+                return@forEachIndexed
+            }
             val platformWithChatModel = resolvePlatformModel(platform)
             val job = viewModelScope.launch {
                 if (shouldUseAgentMode(platformWithChatModel)) {
-                    runAgentLoop(platformWithChatModel, idx)
+                    runAgentLoop(
+                        platform = platformWithChatModel,
+                        platformIndex = idx,
+                        diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
+                    )
                 } else {
                     chatRepository.completeChat(
                         _groupedMessages.value.userMessages,
                         _groupedMessages.value.assistantMessages,
-                        platformWithChatModel
+                        platformWithChatModel,
+                        turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
                     ).handleStates(
                         messageFlow = _groupedMessages,
                         platformIdx = idx,
@@ -600,6 +680,7 @@ class ChatViewModel @Inject constructor(
                     Log.d("ChatViewModel", "GroupMessage: ${_groupedMessages.value}")
 
                     // Save the chat & chat room
+                    val previousChatId = _chatRoom.value.id
                     _chatRoom.update {
                         chatRepository.saveChat(
                             chatRoom = _chatRoom.value,
@@ -607,9 +688,27 @@ class ChatViewModel @Inject constructor(
                             chatPlatformModels = _chatPlatformModels.value
                         )
                     }
+                    val savedChatId = _chatRoom.value.id
+                    if (previousChatId <= 0 && savedChatId > 0) {
+                        pendingUnsavedDiagnosticChatId?.let { fromChatId ->
+                            diagnosticLogger.migrateChatLogs(fromChatId, savedChatId)
+                            activeTurnState = activeTurnState
+                                ?.takeIf { it.diagnosticChatId == fromChatId }
+                                ?.let { state ->
+                                    state.copy(
+                                        diagnosticChatId = savedChatId,
+                                        context = state.context.copy(
+                                            diagnosticContext = state.context.diagnosticContext.copy(chatId = savedChatId),
+                                        ),
+                                    )
+                                } ?: activeTurnState
+                        }
+                        pendingUnsavedDiagnosticChatId = null
+                    }
 
                     // Sync message ids
                     fetchMessages()
+                    finalizeActiveTurnIfNeeded()
                 }
             }
         }
@@ -631,11 +730,13 @@ class ChatViewModel @Inject constructor(
     private suspend fun runAgentLoop(
         platform: PlatformV2,
         platformIndex: Int,
+        diagnosticContext: DiagnosticContext,
     ) {
         agentLoopCoordinator.run(
             AgentLoopRequest(
                 chatId = chatRoomId,
                 projectId = _currentProjectId.value,
+                diagnosticContext = diagnosticContext,
                 platform = platform,
                 userMessages = _groupedMessages.value.userMessages,
                 assistantMessages = _groupedMessages.value.assistantMessages,
@@ -666,6 +767,84 @@ class ChatViewModel @Inject constructor(
         }
         // Refresh project name in case the agent called rename_project during this turn.
         _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+    }
+
+    private fun startTurn(message: MessageV2, platformUids: List<String> = enabledPlatformsInChat): ActiveTurnState {
+        val startedAt = System.currentTimeMillis()
+        val diagnosticChatId = resolveDiagnosticChatId(startedAt)
+        val turnIndex = _groupedMessages.value.userMessages.size
+        val turnContext = ChatTurnDiagnosticContext(
+            diagnosticContext = DiagnosticContext(
+                chatId = diagnosticChatId,
+                projectId = _currentProjectId.value,
+                turnId = "$diagnosticChatId-$turnIndex-$startedAt",
+            ),
+            turnIndex = turnIndex,
+            isAgentMode = platformUids.size == 1 && _enabledPlatformsInApp.value
+                .firstOrNull { it.uid == platformUids.firstOrNull() }
+                ?.let { shouldUseAgentMode(resolvePlatformModel(it)) } == true,
+            platformUids = platformUids,
+            userTextChars = message.content.length,
+            attachmentCount = message.files.size,
+            attachmentKinds = message.files.mapNotNull(::attachmentKind).distinct(),
+            startedAt = startedAt,
+        )
+        val activeState = ActiveTurnState(
+            diagnosticChatId = diagnosticChatId,
+            context = turnContext,
+        )
+        activeTurnState = activeState
+        viewModelScope.launch {
+            diagnosticLogger.logChatTurnStarted(turnContext)
+        }
+        return activeState
+    }
+
+    private fun resolveDiagnosticChatId(startedAt: Long): Int {
+        val persistedChatId = _chatRoom.value.id.takeIf { it > 0 }
+        if (persistedChatId != null) {
+            return persistedChatId
+        }
+        val temporaryChatId = -((startedAt % Int.MAX_VALUE).toInt().coerceAtLeast(1))
+        pendingUnsavedDiagnosticChatId = temporaryChatId
+        return temporaryChatId
+    }
+
+    private suspend fun finalizeActiveTurnIfNeeded() {
+        val turnState = activeTurnState ?: return
+        val turnIndex = turnState.context.turnIndex - 1
+        val assistantTurn = _groupedMessages.value.assistantMessages.getOrNull(turnIndex).orEmpty()
+        val outputChars = assistantTurn.sumOf { it.content.length }
+        val thinkingChars = assistantTurn.sumOf { it.thoughts.length }
+        val failed = assistantTurn.any { it.content.startsWith("Error:") || it.thoughts.contains("[Agent Error]") }
+        diagnosticLogger.logChatTurnFinished(
+            context = turnState.context,
+            success = !failed,
+            finishReason = if (failed) "provider_error" else "success",
+            outputChars = outputChars,
+            thinkingChars = thinkingChars,
+        )
+        activeTurnState = null
+    }
+
+    private fun currentTurnOutputChars(turnIndex: Int): Int {
+        return _groupedMessages.value.assistantMessages.getOrNull(turnIndex - 1).orEmpty().sumOf { it.content.length }
+    }
+
+    private fun currentTurnThinkingChars(turnIndex: Int): Int {
+        return _groupedMessages.value.assistantMessages.getOrNull(turnIndex - 1).orEmpty().sumOf { it.thoughts.length }
+    }
+
+    private fun attachmentKind(path: String): String? {
+        return when (path.substringAfterLast('.', "").lowercase()) {
+            "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "svg" -> "image"
+            "pdf", "txt", "doc", "docx", "xls", "xlsx" -> "document"
+            else -> null
+        }
+    }
+
+    private fun sanitizeForFileName(input: String): String {
+        return input.replace(Regex("[^a-zA-Z0-9._-]+"), "_").trim('_').ifBlank { "chat" }
     }
 
     private fun appendAssistantThought(

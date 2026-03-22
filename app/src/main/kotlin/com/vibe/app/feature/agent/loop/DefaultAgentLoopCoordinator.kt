@@ -14,6 +14,7 @@ import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val agentModelGateway: AgentModelGateway,
     private val agentToolRegistry: AgentToolRegistry,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentLoopCoordinator {
 
     private val contextManager = ConversationContextManager()
@@ -65,6 +67,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             agentModelGateway.streamTurn(
                 AgentModelRequest(
                     platform = request.platform,
+                    diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
                     conversation = conversationDelta,
                     fullConversation = fullConversation.toList(),
                     instructions = buildInstructions(request),
@@ -143,6 +146,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 }
 
                 emit(AgentLoopEvent.ToolExecutionStarted(iteration, call))
+                val toolStartedAt = System.currentTimeMillis()
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+                    diagnosticLogger.logAgentToolStarted(
+                        context = diagnosticContext,
+                        iteration = iteration,
+                        call = call,
+                        startedAt = toolStartedAt,
+                    )
+                }
                 val result = runCatching {
                     tool.execute(
                         call = call,
@@ -165,6 +177,14 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 }
                 pendingToolResults += result
                 collectedToolResults += result
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+                    diagnosticLogger.logAgentToolFinished(
+                        context = diagnosticContext,
+                        iteration = iteration,
+                        result = result,
+                        startedAt = toolStartedAt,
+                    )
+                }
                 emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
             }
 
@@ -211,6 +231,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         val isAssistant = platformType != null
         return AgentConversationItem(
             role = if (isAssistant) AgentMessageRole.ASSISTANT else AgentMessageRole.USER,
+            attachments = if (isAssistant) emptyList() else files,
             text = buildString {
                 append(content)
                 if (files.isNotEmpty()) {

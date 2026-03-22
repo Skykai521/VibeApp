@@ -15,6 +15,7 @@ import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.ChatRepositoryImpl
 import com.vibe.app.data.repository.SettingRepository
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import javax.inject.Singleton
 
 @Module
@@ -31,7 +32,8 @@ object ChatRepositoryModule {
         settingRepository: SettingRepository,
         openAIAPI: OpenAIAPI,
         anthropicAPI: AnthropicAPI,
-        googleAPI: GoogleAPI
+        googleAPI: GoogleAPI,
+        diagnosticLogger: ChatDiagnosticLogger,
     ): ChatRepository = ChatRepositoryImpl(
         context,
         chatRoomV2Dao,
@@ -40,6 +42,7 @@ object ChatRepositoryModule {
         settingRepository,
         openAIAPI,
         anthropicAPI,
-        googleAPI
+        googleAPI,
+        diagnosticLogger,
     )
 }

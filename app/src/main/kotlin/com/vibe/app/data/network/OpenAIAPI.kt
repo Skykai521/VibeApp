@@ -6,12 +6,28 @@ import com.vibe.app.data.dto.openai.response.ChatCompletionChunk
 import com.vibe.app.data.dto.openai.response.ResponsesStreamEvent
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.response.QwenChatCompletionResponse
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import kotlinx.coroutines.flow.Flow
 
 interface OpenAIAPI {
     fun setToken(token: String?)
     fun setAPIUrl(url: String)
-    fun streamChatCompletion(request: ChatCompletionRequest): Flow<ChatCompletionChunk>
-    fun streamResponses(request: ResponsesRequest): Flow<ResponsesStreamEvent>
-    suspend fun completeQwenChatCompletion(request: QwenChatCompletionRequest): QwenChatCompletionResponse
+    fun streamChatCompletion(
+        request: ChatCompletionRequest,
+        diagnosticContext: ModelRequestDiagnosticContext? = null,
+        trace: ModelExecutionTrace? = null,
+    ): Flow<ChatCompletionChunk>
+
+    fun streamResponses(
+        request: ResponsesRequest,
+        diagnosticContext: ModelRequestDiagnosticContext? = null,
+        trace: ModelExecutionTrace? = null,
+    ): Flow<ResponsesStreamEvent>
+
+    suspend fun completeQwenChatCompletion(
+        request: QwenChatCompletionRequest,
+        diagnosticContext: ModelRequestDiagnosticContext? = null,
+        trace: ModelExecutionTrace? = null,
+    ): QwenChatCompletionResponse
 }

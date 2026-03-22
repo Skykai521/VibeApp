@@ -5,6 +5,9 @@ import com.vibe.app.data.dto.anthropic.request.MessageRequest
 import com.vibe.app.data.dto.anthropic.response.ErrorDetail
 import com.vibe.app.data.dto.anthropic.response.ErrorResponseChunk
 import com.vibe.app.data.dto.anthropic.response.MessageResponseChunk
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
 import io.ktor.client.request.headers
@@ -24,7 +27,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 
 class AnthropicAPIImpl @Inject constructor(
-    private val networkClient: NetworkClient
+    private val networkClient: NetworkClient,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AnthropicAPI {
 
     private var token: String? = null
@@ -45,9 +49,23 @@ class AnthropicAPIImpl @Inject constructor(
         this.apiUrl = url
     }
 
-    override fun streamChatMessage(messageRequest: MessageRequest): Flow<MessageResponseChunk> = flow {
+    override fun streamChatMessage(
+        messageRequest: MessageRequest,
+        diagnosticContext: ModelRequestDiagnosticContext?,
+        trace: ModelExecutionTrace?,
+    ): Flow<MessageResponseChunk> = flow {
         val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/messages" else "$apiUrl/v1/messages"
         val requestBody = json.encodeToJsonElement(messageRequest).toString()
+        val requestStartedAt = System.currentTimeMillis()
+        trace?.markRequestStarted(requestStartedAt)
+        diagnosticContext?.let {
+            diagnosticLogger.logModelRequest(
+                context = it,
+                endpointUrl = endpoint,
+                requestBodyBytesApprox = requestBody.toByteArray().size,
+                startedAt = requestStartedAt,
+            )
+        }
         NetworkLogcatLogger.logRequest(
             method = "POST",
             url = endpoint,
@@ -61,7 +79,7 @@ class AnthropicAPIImpl @Inject constructor(
         )
 
         try {
-            val startTime = System.currentTimeMillis()
+            val startTime = requestStartedAt
             networkClient().preparePost(endpoint) {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody)
@@ -71,6 +89,7 @@ class AnthropicAPIImpl @Inject constructor(
                     append(VERSION_HEADER, ANTHROPIC_VERSION)
                 }
             }.execute { response ->
+                trace?.markFirstByte(response.status.value)
                 NetworkLogcatLogger.logResponse(
                     method = "POST",
                     url = endpoint,
@@ -84,6 +103,7 @@ class AnthropicAPIImpl @Inject constructor(
 
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    trace?.updateStatusCode(response.status.value)
                     NetworkLogcatLogger.logResponse(
                         method = "POST",
                         url = endpoint,

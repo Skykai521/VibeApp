@@ -24,6 +24,10 @@ import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolChoiceMode
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
+import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +51,7 @@ import kotlinx.serialization.json.buildJsonObject
 @Singleton
 class AnthropicMessagesAgentGateway @Inject constructor(
     private val anthropicAPI: AnthropicAPI,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
 
     private val json = Json {
@@ -58,6 +63,7 @@ class AnthropicMessagesAgentGateway @Inject constructor(
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
         anthropicAPI.setToken(request.platform.token)
         anthropicAPI.setAPIUrl(request.platform.apiUrl)
+        val trace = ModelExecutionTrace()
 
         val messages = buildMessages(request.fullConversation)
         val tools = request.tools
@@ -75,6 +81,22 @@ class AnthropicMessagesAgentGateway @Inject constructor(
             tools = tools,
             toolChoice = tools?.let { buildToolChoice(request.policy.toolChoiceMode) },
         )
+        trace.markRequestPrepared()
+        val requestContext = request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+            ModelRequestDiagnosticContext(
+                diagnosticContext = diagnosticContext,
+                providerType = request.platform.compatibleType.toDiagnosticProviderType(),
+                apiFamily = "messages",
+                model = request.platform.model,
+                stream = true,
+                reasoningEnabled = request.platform.reasoning,
+                messageCount = messages.size,
+                toolCount = request.tools.size.takeIf { it > 0 },
+                toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),
+                systemPromptPresent = !request.instructions.isNullOrBlank(),
+                systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
+            )
+        }
 
         // Per-block state: maps content block index → pending tool call info
         data class ToolUseBlock(val id: String, val name: String, val inputBuilder: StringBuilder)
@@ -82,7 +104,7 @@ class AnthropicMessagesAgentGateway @Inject constructor(
         val activeToolBlocks = mutableMapOf<Int, ToolUseBlock>()
         var stopReason: StopReason? = null
 
-        anthropicAPI.streamChatMessage(messageRequest).collect { chunk ->
+        anthropicAPI.streamChatMessage(messageRequest, requestContext, trace).collect { chunk ->
             when (chunk) {
                 is ContentStartResponseChunk -> {
                     if (chunk.contentBlock.type == ContentBlockType.TOOL_USE) {
@@ -99,11 +121,17 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                 is ContentDeltaResponseChunk -> {
                     when (chunk.delta.type) {
                         ContentBlockType.DELTA -> {
-                            chunk.delta.text?.let { emit(AgentModelEvent.OutputDelta(it)) }
+                            chunk.delta.text?.let {
+                                trace.markOutput(it)
+                                emit(AgentModelEvent.OutputDelta(it))
+                            }
                         }
 
                         ContentBlockType.THINKING_DELTA -> {
-                            chunk.delta.thinking?.let { emit(AgentModelEvent.ThinkingDelta(it)) }
+                            chunk.delta.thinking?.let {
+                                trace.markThinking(it)
+                                emit(AgentModelEvent.ThinkingDelta(it))
+                            }
                         }
 
                         ContentBlockType.INPUT_JSON_DELTA -> {
@@ -130,6 +158,7 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                                 ),
                             ),
                         )
+                        trace.markToolCall()
                     }
                 }
 
@@ -138,15 +167,21 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                 }
 
                 is MessageStopResponseChunk -> {
+                    trace.markCompleted(stopReason?.name?.lowercase())
                     emit(AgentModelEvent.Completed())
                 }
 
                 is ErrorResponseChunk -> {
+                    trace.markFailed("provider_error", chunk.error.message)
                     emit(AgentModelEvent.Failed(chunk.error.message))
                 }
 
                 else -> Unit
             }
+        }
+        if (requestContext != null) {
+            diagnosticLogger.logModelResponse(requestContext, trace, trace.errorKind == null)
+            diagnosticLogger.logLatencyBreakdown(requestContext, trace)
         }
     }
 

@@ -3,6 +3,9 @@ package com.vibe.app.data.network
 import com.vibe.app.data.dto.google.request.GenerateContentRequest
 import com.vibe.app.data.dto.google.response.ErrorDetail
 import com.vibe.app.data.dto.google.response.GenerateContentResponse
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import io.ktor.client.call.body
 import io.ktor.client.request.parameter
 import io.ktor.client.request.preparePost
@@ -20,7 +23,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.encodeToJsonElement
 
 class GoogleAPIImpl @Inject constructor(
-    private val networkClient: NetworkClient
+    private val networkClient: NetworkClient,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : GoogleAPI {
 
     private var token: String? = null
@@ -34,13 +38,28 @@ class GoogleAPIImpl @Inject constructor(
         this.apiUrl = url
     }
 
-    override fun streamGenerateContent(request: GenerateContentRequest, model: String): Flow<GenerateContentResponse> = flow {
+    override fun streamGenerateContent(
+        request: GenerateContentRequest,
+        model: String,
+        diagnosticContext: ModelRequestDiagnosticContext?,
+        trace: ModelExecutionTrace?,
+    ): Flow<GenerateContentResponse> = flow {
         val endpoint = if (apiUrl.endsWith("/")) {
             "${apiUrl}v1beta/models/$model:streamGenerateContent"
         } else {
             "$apiUrl/v1beta/models/$model:streamGenerateContent"
         }
         val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
+        val requestStartedAt = System.currentTimeMillis()
+        trace?.markRequestStarted(requestStartedAt)
+        diagnosticContext?.let {
+            diagnosticLogger.logModelRequest(
+                context = it,
+                endpointUrl = endpoint,
+                requestBodyBytesApprox = requestBody.toByteArray().size,
+                startedAt = requestStartedAt,
+            )
+        }
         NetworkLogcatLogger.logRequest(
             method = "POST",
             url = endpoint,
@@ -53,13 +72,14 @@ class GoogleAPIImpl @Inject constructor(
         )
 
         try {
-            val startTime = System.currentTimeMillis()
+            val startTime = requestStartedAt
             networkClient().preparePost(endpoint) {
                 parameter("key", token ?: "")
                 parameter("alt", "sse")
                 contentType(ContentType.Application.Json)
                 setBody(requestBody)
             }.execute { response ->
+                trace?.markFirstByte(response.status.value)
                 NetworkLogcatLogger.logResponse(
                     method = "POST",
                     url = endpoint,
@@ -73,6 +93,7 @@ class GoogleAPIImpl @Inject constructor(
 
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    trace?.updateStatusCode(response.status.value)
                     NetworkLogcatLogger.logResponse(
                         method = "POST",
                         url = endpoint,
