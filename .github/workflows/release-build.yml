@@ -43,6 +43,24 @@ jobs:
           cp keystore.jks "${{ github.workspace }}/app/build/outputs/apk/release/keystore.jks"
           cp keystore.jks "${{ github.workspace }}/app/build/outputs/bundle/release/keystore.jks"
 
+      - name: Locate Android build tools
+        id: android-build-tools
+        shell: bash
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$sdk_root" ]; then
+            echo "ANDROID_SDK_ROOT/ANDROID_HOME is not set" >&2
+            exit 1
+          fi
+
+          apksigner_path="$(find "$sdk_root/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          if [ -z "$apksigner_path" ]; then
+            echo "apksigner not found under $sdk_root/build-tools" >&2
+            exit 1
+          fi
+
+          echo "apksigner=$apksigner_path" >> "$GITHUB_OUTPUT"
+
       - name: Sign Release APK
         working-directory: ${{ github.workspace }}/app/build/outputs/apk/release
         env:
@@ -50,7 +68,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          apksigner sign \
+          "${{ steps.android-build-tools.outputs.apksigner }}" sign \
             --ks keystore.jks \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
