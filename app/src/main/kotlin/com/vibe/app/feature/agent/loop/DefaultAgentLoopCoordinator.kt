@@ -248,12 +248,13 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             - NEVER use View.OnClickListener with lambda syntax — use anonymous inner classes
             - NEVER add dependencies or libraries beyond what is bundled
             - NEVER use android:cx, android:cy, or android:r attributes — they do not exist in the Android SDK
+            - NEVER use DarkActionBar theme with setSupportActionBar() — this causes a fatal crash
 
             ### ALWAYS do these:
             - ALWAYS extend AppCompatActivity (from androidx.appcompat.app.AppCompatActivity)
             - ALWAYS keep package $packageName in all Java files
             - ALWAYS import $packageName.R when referencing XML resources
-            - ALWAYS use Material themes: Theme.MaterialComponents.DayNight.NoActionBar or Theme.MaterialComponents.DayNight.DarkActionBar
+            - ALWAYS use Theme.MaterialComponents.DayNight.NoActionBar as the parent theme in styles.xml. If you need a Toolbar, add a MaterialToolbar in your XML layout and call setSupportActionBar(toolbar) in your Activity
             - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 
             ### Available AndroidX & Material libraries (bundled, no build.gradle needed):
@@ -270,11 +271,10 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             - androidx.drawerlayout.widget.DrawerLayout
 
             ### Available Material Themes (for styles.xml parent):
-            - Theme.MaterialComponents.DayNight.NoActionBar (recommended)
-            - Theme.MaterialComponents.DayNight.DarkActionBar
+            - Theme.MaterialComponents.DayNight.NoActionBar ← ALWAYS USE THIS. The template already uses it.
             - Theme.MaterialComponents.Light.NoActionBar
-            - Theme.MaterialComponents.Light.DarkActionBar
             - Theme.MaterialComponents.DayNight.Bridge (for mixed theme migration)
+            ⚠ DO NOT use DarkActionBar themes — they supply a window ActionBar that crashes if you also use setSupportActionBar() with a Toolbar.
 
             ### Available Widget Styles (for XML style= attribute):
             - @style/Widget.MaterialComponents.Button
