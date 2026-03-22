@@ -21,17 +21,12 @@ VibeApp is a **fully open-source** Android app that lets anyone **generate, comp
 
 The entire build pipeline runs on-device. Your code never leaves your phone.
 
-### 30-Second Demo
+### Demo
 
-```
-You: "Build me a Pomodoro timer app, 25 min work / 5 min break, with a nice countdown animation"
-     |
-VibeApp: Generate code -> Compile -> Sign -> Install
-     |
-A real Pomodoro app appears on your home screen
-```
 
----
+|                | Video                                                                                                 | Note                                                                                     |
+|----------------|-------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
+| Pomodoro timer | <video src="https://github.com/Skykai521/VibeApp/blob/main/docs/assets/pomodoro_timer_20260322.mov"/> | Model: kimi-k2.5. The video has been edited and omits some of the model’s thinking time. |
 
 ## Why VibeApp
 
