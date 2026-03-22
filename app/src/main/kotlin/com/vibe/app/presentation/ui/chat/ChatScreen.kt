@@ -126,6 +126,7 @@ fun ChatScreen(
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
     val question by chatViewModel.question.collectAsStateWithLifecycle()
     val selectedFiles by chatViewModel.selectedFiles.collectAsStateWithLifecycle()
+    val allPlatforms by chatViewModel.platformsInApp.collectAsStateWithLifecycle()
     val appEnabledPlatforms by chatViewModel.enabledPlatformsInApp.collectAsStateWithLifecycle()
     val canUseChat = appEnabledPlatforms.isNotEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
@@ -275,7 +276,7 @@ fun ChatScreen(
                                     GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
                                     run {
                                         val uid = chatViewModel.enabledPlatformsInChat.getOrNull(platformIndexState)
-                                        val platformName = appEnabledPlatforms.find { it.uid == uid }?.name
+                                        val platformName = allPlatforms.find { it.uid == uid }?.name
                                             ?: stringResource(R.string.unknown)
                                         Text(
                                             text = platformName,

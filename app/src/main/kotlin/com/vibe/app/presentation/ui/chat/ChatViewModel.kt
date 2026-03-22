@@ -303,7 +303,11 @@ class ChatViewModel @Inject constructor(
 
     fun retryChat(platformIndex: Int) {
         if (platformIndex >= enabledPlatformsInChat.size || platformIndex < 0) return
-        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == enabledPlatformsInChat[platformIndex] } ?: return
+        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == enabledPlatformsInChat[platformIndex] }
+        if (platform == null) {
+            Log.w("ChatViewModel", "Platform at index $platformIndex is no longer available")
+            return
+        }
         val platformWithChatModel = resolvePlatformModel(platform)
         _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Loading } }
         _groupedMessages.update {
@@ -470,7 +474,12 @@ class ChatViewModel @Inject constructor(
 
         // Send chat completion requests
         enabledPlatformsInChat.forEachIndexed { idx, platformUid ->
-            val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid } ?: return@forEachIndexed
+            val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid }
+            if (platform == null) {
+                // Platform was disabled/removed since chat was created — reset loading state
+                _loadingStates.update { it.toMutableList().apply { this[idx] = LoadingState.Idle } }
+                return@forEachIndexed
+            }
             val platformWithChatModel = resolvePlatformModel(platform)
             val job = viewModelScope.launch {
                 if (shouldUseAgentMode(platformWithChatModel)) {

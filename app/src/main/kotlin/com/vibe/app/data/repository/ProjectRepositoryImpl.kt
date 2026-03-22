@@ -2,6 +2,7 @@ package com.vibe.app.data.repository
 
 import android.util.Log
 import com.vibe.app.data.database.dao.ChatRoomV2Dao
+import com.vibe.app.data.database.dao.MessageV2Dao
 import com.vibe.app.data.database.dao.ProjectDao
 import com.vibe.app.data.database.entity.Project
 import com.vibe.app.data.database.entity.ProjectBuildStatus
@@ -15,20 +16,23 @@ import kotlinx.coroutines.withContext
 class ProjectRepositoryImpl @Inject constructor(
     private val projectDao: ProjectDao,
     private val chatRoomV2Dao: ChatRoomV2Dao,
+    private val messageV2Dao: MessageV2Dao,
 ) : ProjectRepository {
 
     override suspend fun fetchProjects(): List<ProjectWithChat> {
         val projects = projectDao.getProjects()
         return projects.mapNotNull { project ->
             val chat = chatRoomV2Dao.getChatRoomById(project.chatId) ?: return@mapNotNull null
-            ProjectWithChat(project = project, chat = chat)
+            val lastMessage = messageV2Dao.getLastMessageContent(project.chatId)
+            ProjectWithChat(project = project, chat = chat, lastMessageContent = lastMessage)
         }
     }
 
     override suspend fun fetchProject(projectId: String): ProjectWithChat? {
         val project = projectDao.getProject(projectId) ?: return null
         val chat = chatRoomV2Dao.getChatRoomById(project.chatId) ?: return null
-        return ProjectWithChat(project = project, chat = chat)
+        val lastMessage = messageV2Dao.getLastMessageContent(project.chatId)
+        return ProjectWithChat(project = project, chat = chat, lastMessageContent = lastMessage)
     }
 
     override suspend fun fetchProjectByChatId(chatId: Int): Project? {

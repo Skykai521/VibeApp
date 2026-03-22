@@ -257,8 +257,10 @@ private fun ProjectListItem(
             BuildStatusBadge(status = pwc.project.buildStatus)
         },
         supportingContent = {
+            val displayText = pwc.lastMessageContent?.replace('\n', ' ')?.trim()
+                ?: formatUpdatedAt(pwc.chat.updatedAt)
             Text(
-                text = formatUpdatedAt(pwc.chat.updatedAt),
+                text = displayText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,

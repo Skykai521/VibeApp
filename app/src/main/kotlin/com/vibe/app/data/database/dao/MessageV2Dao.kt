@@ -13,6 +13,9 @@ interface MessageV2Dao {
     @Query("SELECT * FROM messages_v2 WHERE chat_id=:chatInt")
     suspend fun loadMessages(chatInt: Int): List<MessageV2>
 
+    @Query("SELECT content FROM messages_v2 WHERE chat_id=:chatId ORDER BY created_at DESC LIMIT 1")
+    suspend fun getLastMessageContent(chatId: Int): String?
+
     @Query(
         "SELECT DISTINCT chat_id FROM messages_v2 " +
             "WHERE content LIKE '%' || :query || '%' OR " +
