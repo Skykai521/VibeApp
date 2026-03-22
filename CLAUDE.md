@@ -81,6 +81,7 @@ build-engine/src/main/java/com/vibe/build/engine/
 4. **Project workspaces live under app-private storage.** The typical runtime workspace is `files/projects/{projectId}/app`.
 5. **Agent tooling is workspace-centric.** Tools read/write/list project files, run the build pipeline, rename projects, and update launcher icons.
 6. **Provider support is not uniform.** Platform settings support multiple providers, but agent-loop gateway behavior is implemented in `feature/agent/loop` and should be checked before assuming identical tool-calling capability across providers.
+7. **Agent system prompt lives in `app/src/main/assets/agent-system-prompt.md`.** It is loaded at runtime by `DefaultAgentLoopCoordinator` and supports `{{PACKAGE_NAME}}` and `{{PACKAGE_PATH}}` template variables. Edit this file (not Kotlin code) when adding constraints or rules for the AI code generation agent.
 
 ## Common Tasks
 
