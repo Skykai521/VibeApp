@@ -42,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import com.halilibo.richtext.markdown.BasicMarkdown
 import com.halilibo.richtext.ui.CodeBlockStyle
 import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.material3.RichText
+import com.halilibo.richtext.ui.string.RichTextStringStyle
 import com.vibe.app.R
 import com.vibe.app.presentation.theme.GPTMobileTheme
 import java.io.File
@@ -383,6 +385,7 @@ private fun scrollableCodeBlockStyle(): RichTextStyle {
                 .clip(RoundedCornerShape(12.dp))
                 .background(bgColor),
         ),
+        stringStyle = RichTextStringStyle(codeStyle = SpanStyle(background = bgColor))
     )
 }
 
