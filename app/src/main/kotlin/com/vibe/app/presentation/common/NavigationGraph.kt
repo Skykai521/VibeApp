@@ -18,7 +18,6 @@ import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.vibe.app.presentation.ui.chat.ChatScreen
 import com.vibe.app.presentation.ui.home.HomeScreen
-import com.vibe.app.presentation.ui.migrate.MigrateScreen
 import com.vibe.app.presentation.ui.setting.AboutScreen
 import com.vibe.app.presentation.ui.setting.AddPlatformScreen
 import com.vibe.app.presentation.ui.setting.LicenseScreen
@@ -42,21 +41,10 @@ fun SetupNavGraph(navController: NavHostController) {
         startDestination = Route.CHAT_LIST
     ) {
         homeScreenNavigation(navController)
-        migrationScreenNavigation(navController)
         startScreenNavigation(navController)
         setupNavigation(navController)
         settingNavigation(navController)
         chatScreenNavigation(navController)
-    }
-}
-
-fun NavGraphBuilder.migrationScreenNavigation(navController: NavHostController) {
-    composable(Route.MIGRATE_V2) {
-        MigrateScreen {
-            navController.navigate(Route.CHAT_LIST) {
-                popUpTo(Route.MIGRATE_V2) { inclusive = true }
-            }
-        }
     }
 }
 
