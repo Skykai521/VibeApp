@@ -1,9 +1,13 @@
 package com.vibe.app.presentation.ui.chat
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -53,6 +57,13 @@ fun ThinkingBlock(
         label = "rotation"
     )
 
+    val toolCallingFmt = stringResource(R.string.tool_calling)
+    val toolOkFmt = stringResource(R.string.tool_result_ok)
+    val toolErrorFmt = stringResource(R.string.tool_result_error)
+    val formattedThoughts = remember(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt) {
+        formatToolLines(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt)
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -67,7 +78,7 @@ fun ThinkingBlock(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "💭",
+                text = "\uD83D\uDCAD",
                 style = MaterialTheme.typography.titleSmall
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -107,7 +118,7 @@ fun ThinkingBlock(
             exit = shrinkVertically()
         ) {
             val parser = remember { CommonmarkAstNodeParser() }
-            val displayText = if (isLoading) thoughts.trimIndent() + "●" else thoughts.trimIndent()
+            val displayText = if (isLoading) formattedThoughts.trimIndent() + "\u25CF" else formattedThoughts.trimIndent()
             val astNode = remember(displayText) { parser.parse(displayText) }
 
             RichText(
@@ -122,16 +133,69 @@ fun ThinkingBlock(
             }
         }
 
-        if (!isExpanded && thoughts.isNotBlank()) {
-            Text(
-                text = thoughts.take(100).replace("\n", " ") + if (thoughts.length > 100) "..." else "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
-            )
+        if (!isExpanded && formattedThoughts.isNotBlank()) {
+            val latestToolLine = remember(formattedThoughts) {
+                findLatestToolLine(formattedThoughts)
+            }
+            AnimatedContent(
+                targetState = latestToolLine,
+                transitionSpec = {
+                    slideInVertically { it } togetherWith slideOutVertically { -it }
+                },
+                label = "tool_line_transition",
+            ) { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                )
+            }
         }
+    }
+}
+
+private val FORMATTED_TOOL_LINE_PREFIX = listOf("\uD83D\uDD27 ", "\u2705 ", "\u274C ")
+
+private fun findLatestToolLine(formattedThoughts: String): String {
+    return formattedThoughts.lines()
+        .lastOrNull { line ->
+            val trimmed = line.trim()
+            FORMATTED_TOOL_LINE_PREFIX.any { trimmed.startsWith(it) }
+        }
+        ?.trim()
+        ?: formattedThoughts.lines().lastOrNull { it.isNotBlank() }?.trim().orEmpty()
+}
+
+private val TOOL_LINE_REGEX = Regex("""\[Tool]\s+(\S+)""")
+private val TOOL_RESULT_LINE_REGEX = Regex("""\[Tool Result]\s+(\S+):\s*(ok|error|fail)""")
+
+private fun formatToolLines(
+    thoughts: String,
+    toolCallingFmt: String,
+    toolOkFmt: String,
+    toolErrorFmt: String,
+): String = thoughts.lines().joinToString("\n") { line ->
+    val trimmed = line.trim()
+    val toolMatch = TOOL_LINE_REGEX.matchEntire(trimmed)
+    val resultMatch = TOOL_RESULT_LINE_REGEX.matchEntire(trimmed)
+    when {
+        resultMatch != null -> {
+            val name = resultMatch.groupValues[1]
+            val status = resultMatch.groupValues[2]
+            if (status == "ok") {
+                "\u2705 ${toolOkFmt.format(name)}"
+            } else {
+                "\u274C ${toolErrorFmt.format(name)}"
+            }
+        }
+        toolMatch != null -> {
+            val name = toolMatch.groupValues[1]
+            "\uD83D\uDD27 ${toolCallingFmt.format(name)}"
+        }
+        else -> line
     }
 }
 

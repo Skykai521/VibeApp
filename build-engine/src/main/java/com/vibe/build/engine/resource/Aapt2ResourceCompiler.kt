@@ -90,6 +90,17 @@ class Aapt2ResourceCompiler(
             "--target-sdk-version",
             input.targetSdk.toString(),
         )
+        // AndroidX pre-compiled resources as overlay (must come before project resources)
+        if (workspace.androidxResCompiledDir != null) {
+            val flatFiles = workspace.androidxResCompiledDir.listFiles { file ->
+                file.isFile && file.name.endsWith(".flat")
+            }
+            flatFiles?.sorted()?.forEach { flat ->
+                linkArgs += listOf("-R", flat.absolutePath)
+            }
+            // Generate R.java for each AndroidX library package so their code can resolve R references
+            linkArgs += listOf("--extra-packages", ANDROIDX_EXTRA_PACKAGES)
+        }
         if (hasProjectResources) {
             linkArgs += listOf("-R", workspace.compiledResZip.absolutePath)
         }
@@ -158,5 +169,28 @@ class Aapt2ResourceCompiler(
         } catch (_: Throwable) {
             "AAPT2 failed"
         }
+    }
+
+    companion object {
+        /**
+         * Colon-separated package names for all bundled AndroidX libraries.
+         * AAPT2 --extra-packages generates R.java for each, so library code
+         * can resolve its own R.drawable / R.style / R.attr references at runtime.
+         */
+        private const val ANDROIDX_EXTRA_PACKAGES =
+            "androidx.appcompat" +
+            ":androidx.appcompat.resources" +
+            ":androidx.cardview" +
+            ":androidx.constraintlayout.widget" +
+            ":androidx.coordinatorlayout" +
+            ":androidx.core" +
+            ":androidx.fragment" +
+            ":androidx.lifecycle.runtime" +
+            ":androidx.lifecycle.viewmodel" +
+            ":androidx.recyclerview" +
+            ":androidx.savedstate" +
+            ":androidx.transition" +
+            ":androidx.viewpager2" +
+            ":com.google.android.material"
     }
 }

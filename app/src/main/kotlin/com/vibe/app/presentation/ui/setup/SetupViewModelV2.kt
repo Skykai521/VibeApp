@@ -9,8 +9,11 @@ import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.repository.SettingRepository
 import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -51,6 +54,9 @@ class SetupViewModelV2 @Inject constructor(
 
     private val _saveStatus = MutableStateFlow<SaveStatus>(SaveStatus.Idle)
     val saveStatus: StateFlow<SaveStatus> = _saveStatus.asStateFlow()
+
+    private val _switchedPlatformEvent = MutableSharedFlow<String>()
+    val switchedPlatformEvent: SharedFlow<String> = _switchedPlatformEvent.asSharedFlow()
 
     init {
         loadPlatforms()
@@ -125,7 +131,16 @@ class SetupViewModelV2 @Inject constructor(
                     reasoning = false,
                     timeout = 30
                 )
+                // Disable all currently enabled platforms before adding new one
+                val allPlatforms = settingRepository.fetchPlatformV2s()
+                val othersEnabled = allPlatforms.filter { it.enabled }
+                othersEnabled.forEach { other ->
+                    settingRepository.updatePlatformV2(other.copy(enabled = false))
+                }
                 settingRepository.addPlatformV2(platform)
+                if (othersEnabled.isNotEmpty()) {
+                    _switchedPlatformEvent.emit(platform.name)
+                }
                 loadPlatforms()
                 _saveStatus.value = SaveStatus.Success
                 resetWizard()
@@ -173,6 +188,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OLLAMA -> "Ollama"
         ClientType.OPENROUTER -> "OpenRouter"
         ClientType.QWEN -> "Qwen"
+        ClientType.KIMI -> "Kimi"
         ClientType.CUSTOM -> ""
     }
 
@@ -184,6 +200,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OLLAMA -> "http://localhost:11434/"
         ClientType.OPENROUTER -> ModelConstants.OPENROUTER_API_URL
         ClientType.QWEN -> ModelConstants.QWEN_API_URL
+        ClientType.KIMI -> ModelConstants.KIMI_API_URL
         ClientType.CUSTOM -> ""
     }
 
@@ -191,6 +208,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OPENAI -> "gpt-4o"
         ClientType.ANTHROPIC -> "claude-3-5-sonnet-20240620"
         ClientType.QWEN -> "qwen3-coder-plus"
+        ClientType.KIMI -> "kimi-k2.5"
         else -> ""
     }
 

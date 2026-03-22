@@ -42,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import com.halilibo.richtext.markdown.BasicMarkdown
 import com.halilibo.richtext.ui.CodeBlockStyle
 import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.material3.RichText
+import com.halilibo.richtext.ui.string.RichTextStringStyle
 import com.vibe.app.R
 import com.vibe.app.presentation.theme.GPTMobileTheme
 import java.io.File
@@ -62,10 +64,10 @@ fun UserChatBubble(
     onLongPress: () -> Unit
 ) {
     val cardColor = CardColors(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        disabledContentColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.38f),
-        disabledContainerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.38f)
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
     )
     val parser = remember { CommonmarkAstNodeParser() }
     val astNode = remember(text) { parser.parse(text.trimIndent()) }
@@ -77,15 +79,16 @@ fun UserChatBubble(
     Column(horizontalAlignment = Alignment.End) {
         Card(
             modifier = modifier
+                .padding(end = 10.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(onLongPress = { onLongPress.invoke() })
                 },
-            shape = RoundedCornerShape(32.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = cardColor
         ) {
             RichText(
                 modifier = Modifier.padding(16.dp),
-                style = ScrollableCodeBlockStyle,
+                style = scrollableCodeBlockStyle(),
             ) {
                 BasicMarkdown(astNode = astNode)
             }
@@ -139,7 +142,7 @@ fun OpponentChatBubble(
                     modifier = Modifier
                         .padding(16.dp)
                         .then(if (isLoading) Modifier.animateContentSize() else Modifier),
-                    style = ScrollableCodeBlockStyle,
+                    style = scrollableCodeBlockStyle(),
                 ) {
                     BasicMarkdown(astNode = astNode)
                 }
@@ -372,9 +375,19 @@ private fun UserFileThumbnail(filePath: String) {
     }
 }
 
-private val ScrollableCodeBlockStyle = RichTextStyle(
-    codeBlockStyle = CodeBlockStyle(wordWrap = false),
-)
+@Composable
+private fun scrollableCodeBlockStyle(): RichTextStyle {
+    val bgColor = MaterialTheme.colorScheme.surfaceVariant
+    return RichTextStyle(
+        codeBlockStyle = CodeBlockStyle(
+            wordWrap = false,
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(bgColor),
+        ),
+        stringStyle = RichTextStringStyle(codeStyle = SpanStyle(background = bgColor))
+    )
+}
 
 private fun isImageFile(extension: String?): Boolean {
     val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp")

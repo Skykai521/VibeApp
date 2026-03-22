@@ -3,14 +3,10 @@ package com.vibe.app.data.repository
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vibe.app.data.database.dao.ChatPlatformModelV2Dao
-import com.vibe.app.data.database.dao.ChatRoomDao
 import com.vibe.app.data.database.dao.ChatRoomV2Dao
-import com.vibe.app.data.database.dao.MessageDao
 import com.vibe.app.data.database.dao.MessageV2Dao
 import com.vibe.app.data.database.entity.ChatPlatformModelV2
-import com.vibe.app.data.database.entity.ChatRoom
 import com.vibe.app.data.database.entity.ChatRoomV2
-import com.vibe.app.data.database.entity.Message
 import com.vibe.app.data.database.entity.MessageV2
 import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.dto.ApiState
@@ -45,7 +41,6 @@ import com.vibe.app.data.dto.openai.response.OutputTextDeltaEvent
 import com.vibe.app.data.dto.openai.response.ReasoningSummaryTextDeltaEvent
 import com.vibe.app.data.dto.openai.response.ResponseErrorEvent
 import com.vibe.app.data.dto.openai.response.ResponseFailedEvent
-import com.vibe.app.data.model.ApiType
 import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.network.AnthropicAPI
 import com.vibe.app.data.network.GoogleAPI
@@ -60,8 +55,6 @@ import kotlinx.coroutines.flow.onCompletion
 
 class ChatRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val chatRoomDao: ChatRoomDao,
-    private val messageDao: MessageDao,
     private val chatRoomV2Dao: ChatRoomV2Dao,
     private val messageV2Dao: MessageV2Dao,
     private val chatPlatformModelV2Dao: ChatPlatformModelV2Dao,
@@ -117,7 +110,7 @@ class ChatRepositoryImpl @Inject constructor(
             completeChatWithOpenAIResponses(userMessages, assistantMessages, platform)
         }
 
-        ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM -> {
+        ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM, ClientType.KIMI -> {
             // Use Chat Completions API for OpenAI-compatible services
             completeChatWithOpenAIChatCompletions(userMessages, assistantMessages, platform)
         }
@@ -568,8 +561,6 @@ class ChatRepositoryImpl @Inject constructor(
         return Content(role = role, parts = parts)
     }
 
-    override suspend fun fetchChatList(): List<ChatRoom> = chatRoomDao.getChatRooms()
-
     override suspend fun fetchChatListV2(): List<ChatRoomV2> = chatRoomV2Dao.getChatRooms()
 
     override suspend fun searchChatsV2(query: String): List<ChatRoomV2> {
@@ -593,8 +584,6 @@ class ChatRepositoryImpl @Inject constructor(
             .sortedByDescending { it.updatedAt }
     }
 
-    override suspend fun fetchMessages(chatId: Int): List<Message> = messageDao.loadMessages(chatId)
-
     override suspend fun fetchMessagesV2(chatId: Int): List<MessageV2> = messageV2Dao.loadMessages(chatId)
 
     override suspend fun fetchChatPlatformModels(chatId: Int): Map<String, String> = chatPlatformModelV2Dao.getByChatId(chatId).associate {
@@ -614,68 +603,6 @@ class ChatRepositoryImpl @Inject constructor(
 
         if (rows.isNotEmpty()) {
             chatPlatformModelV2Dao.upsertAll(*rows.toTypedArray())
-        }
-    }
-
-    override suspend fun migrateToChatRoomV2MessageV2() {
-        val leftOverChatRoomV2s = chatRoomV2Dao.getChatRooms()
-        leftOverChatRoomV2s.forEach { chatPlatformModelV2Dao.deleteByChatId(it.id) }
-        chatRoomV2Dao.deleteChatRooms(*leftOverChatRoomV2s.toTypedArray())
-
-        val chatList = fetchChatList()
-        val platforms = settingRepository.fetchPlatformV2s()
-        val apiTypeMap = mutableMapOf<ApiType, String>()
-        val modelByPlatformUid = mutableMapOf<String, String>()
-
-        platforms.forEach { platform ->
-            modelByPlatformUid[platform.uid] = platform.model
-            when (platform.name) {
-                "OpenAI" -> apiTypeMap[ApiType.OPENAI] = platform.uid
-                "Anthropic" -> apiTypeMap[ApiType.ANTHROPIC] = platform.uid
-                "Google" -> apiTypeMap[ApiType.GOOGLE] = platform.uid
-                "Groq" -> apiTypeMap[ApiType.GROQ] = platform.uid
-                "Ollama" -> apiTypeMap[ApiType.OLLAMA] = platform.uid
-            }
-        }
-
-        chatList.forEach { chatRoom ->
-            val messages = messageDao.loadMessages(chatRoom.id).map { m ->
-                MessageV2(
-                    id = m.id,
-                    chatId = m.chatId,
-                    content = m.content,
-                    files = listOf(),
-                    revisions = listOf(),
-                    linkedMessageId = m.linkedMessageId,
-                    platformType = m.platformType?.let { apiTypeMap[it] },
-                    createdAt = m.createdAt
-                )
-            }
-
-            val enabledPlatformUids = chatRoom.enabledPlatform.mapNotNull { apiTypeMap[it] }.filter { it.isNotBlank() }
-            chatRoomV2Dao.addChatRoom(
-                ChatRoomV2(
-                    id = chatRoom.id,
-                    title = chatRoom.title,
-                    enabledPlatform = enabledPlatformUids,
-                    createdAt = chatRoom.createdAt,
-                    updatedAt = chatRoom.createdAt
-                )
-            )
-
-            val modelRows = enabledPlatformUids.map { platformUid ->
-                ChatPlatformModelV2(
-                    chatId = chatRoom.id,
-                    platformUid = platformUid,
-                    model = modelByPlatformUid[platformUid] ?: ""
-                )
-            }
-
-            if (modelRows.isNotEmpty()) {
-                chatPlatformModelV2Dao.upsertAll(*modelRows.toTypedArray())
-            }
-
-            messageV2Dao.addMessages(*messages.toTypedArray())
         }
     }
 
@@ -725,10 +652,6 @@ class ChatRepositoryImpl @Inject constructor(
         )
 
         return chatRoom
-    }
-
-    override suspend fun deleteChats(chatRooms: List<ChatRoom>) {
-        chatRoomDao.deleteChatRooms(*chatRooms.toTypedArray())
     }
 
     override suspend fun deleteChatsV2(chatRooms: List<ChatRoomV2>) {

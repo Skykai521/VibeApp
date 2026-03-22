@@ -63,12 +63,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        MainViewModel.SplashEvent.OpenMigrate -> {
-                            navigate(Route.MIGRATE_V2) {
-                                popUpTo(Route.CHAT_LIST) { inclusive = true }
-                            }
-                        }
-
                         else -> {}
                     }
                 }

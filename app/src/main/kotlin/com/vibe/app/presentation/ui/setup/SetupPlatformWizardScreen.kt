@@ -31,10 +31,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import android.widget.Toast
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -67,6 +70,15 @@ fun SetupPlatformWizardScreen(
     val apiUrlState = setupViewModel.apiUrl.collectAsStateWithLifecycle()
     val apiKeyState = setupViewModel.apiKey.collectAsStateWithLifecycle()
     val modelState = setupViewModel.model.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val switchedHint = stringResource(R.string.switched_platform_hint)
+
+    LaunchedEffect(Unit) {
+        setupViewModel.switchedPlatformEvent.collect { name ->
+            Toast.makeText(context, switchedHint.format(name), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Extract values for use in composables
     val wizardStep = wizardStepState.value
@@ -542,5 +554,6 @@ private fun getApiHelpUrl(clientType: ClientType): String? = when (clientType) {
     ClientType.OLLAMA -> "https://ollama.com/blog/openai-compatibility"
     ClientType.OPENROUTER -> "https://openrouter.ai/keys"
     ClientType.QWEN -> "https://bailian.console.aliyun.com/cn-beijing/?tab=api#/api"
+    ClientType.KIMI -> "https://platform.moonshot.cn/console/api-keys"
     ClientType.CUSTOM -> null
 }

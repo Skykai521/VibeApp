@@ -127,7 +127,7 @@ fun ChatScreen(
     val question by chatViewModel.question.collectAsStateWithLifecycle()
     val selectedFiles by chatViewModel.selectedFiles.collectAsStateWithLifecycle()
     val appEnabledPlatforms by chatViewModel.enabledPlatformsInApp.collectAsStateWithLifecycle()
-    val canUseChat = (chatViewModel.enabledPlatformsInChat.toSet() - appEnabledPlatforms.map { it.uid }.toSet()).isEmpty()
+    val canUseChat = appEnabledPlatforms.isNotEmpty()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -135,14 +135,23 @@ fun ChatScreen(
     val context = LocalContext.current
 
     val scope = rememberCoroutineScope()
-    val latestMessageIndex = (groupedMessages.userMessages.size * 2 - 1).coerceAtLeast(0)
+    // +1 for the bottom spacer item appended to LazyColumn
+    val bottomSpacerIndex = groupedMessages.userMessages.size * 2
 
     LaunchedEffect(isIdle) {
-        listState.scrollToItem(latestMessageIndex)
+        listState.scrollToItem(bottomSpacerIndex)
     }
 
     LaunchedEffect(isLoaded) {
-        listState.scrollToItem(latestMessageIndex)
+        listState.scrollToItem(bottomSpacerIndex)
+    }
+
+    // Auto-scroll when a new conversation round starts (new user message added)
+    val messageCount = groupedMessages.userMessages.size
+    LaunchedEffect(messageCount) {
+        if (messageCount > 0) {
+            listState.animateScrollToItem(bottomSpacerIndex)
+        }
     }
 
     // Auto-scroll to bottom when keyboard opens
@@ -150,7 +159,7 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.scrollToItem(latestMessageIndex)
+            listState.scrollToItem(bottomSpacerIndex)
         }
     }
 
@@ -176,6 +185,7 @@ fun ChatScreen(
                 projectName ?: chatRoom.title,
                 isChatMenuEnabled,
                 runButtonEnabled,
+                isMoreOptionsEnabled = isIdle,
                 isProjectMenuEnabled,
                 buildProgress = buildProgress.progress,
                 isBuildProgressVisible = buildProgress.isVisible,
@@ -263,25 +273,18 @@ fun ChatScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
-                                    if (chatViewModel.enabledPlatformsInChat.size > 1) {
-                                        Row(
-                                            modifier = Modifier
-                                                .padding(horizontal = 16.dp)
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState())
-                                        ) {
-                                            chatViewModel.enabledPlatformsInChat.forEachIndexed { j, uid ->
-                                                val platform = appEnabledPlatforms.find { it.uid == uid }
-                                                val isLoading = loadingStates[j] == ChatViewModel.LoadingState.Loading
-                                                PlatformButton(
-                                                    isLoading = if (i == groupedMessages.assistantMessages.size - 1) isLoading else false,
-                                                    name = platform?.name ?: stringResource(R.string.unknown),
-                                                    selected = platformIndexState == j,
-                                                    onPlatformClick = { chatViewModel.updateChatPlatformIndex(i, j) }
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                            }
-                                        }
+                                    run {
+                                        val uid = chatViewModel.enabledPlatformsInChat.getOrNull(platformIndexState)
+                                        val platformName = appEnabledPlatforms.find { it.uid == uid }?.name
+                                            ?: stringResource(R.string.unknown)
+                                        Text(
+                                            text = platformName,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(start = 12.dp)
+                                        )
                                     }
                                 }
                                 OpponentChatBubble(
@@ -300,6 +303,10 @@ fun ChatScreen(
                             }
                         }
                     }
+                    // Bottom spacer so scrolling to this item reveals the full last message
+                    item {
+                        Spacer(modifier = Modifier.height(1.dp))
+                    }
                 }
 
                 if (listState.canScrollForward) {
@@ -311,7 +318,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(latestMessageIndex)
+                                listState.animateScrollToItem(bottomSpacerIndex)
                             }
                         }
                     }
@@ -323,9 +330,11 @@ fun ChatScreen(
                 onValueChange = { s -> chatViewModel.updateQuestion(s) },
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
+                isResponding = !isIdle,
                 selectedFiles = selectedFiles,
                 onFileSelected = { filePath -> chatViewModel.addSelectedFile(filePath) },
-                onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) }
+                onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) },
+                onStopClick = { chatViewModel.stopResponding() }
             ) {
                 chatViewModel.askQuestion()
                 focusManager.clearFocus()
@@ -374,6 +383,7 @@ private fun ChatTopBar(
     title: String,
     isChatMenuEnabled: Boolean,
     isRunEnabled: Boolean,
+    isMoreOptionsEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     buildProgress: Float,
     isBuildProgressVisible: Boolean,
@@ -408,6 +418,7 @@ private fun ChatTopBar(
                     )
                 }
                 IconButton(
+                    enabled = isMoreOptionsEnabled,
                     onClick = { isDropDownMenuExpanded = isDropDownMenuExpanded.not() }
                 ) {
                     Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.options))
@@ -659,9 +670,11 @@ fun ChatInputBox(
     onValueChange: (String) -> Unit = {},
     chatEnabled: Boolean = true,
     sendButtonEnabled: Boolean = true,
+    isResponding: Boolean = false,
     selectedFiles: List<String> = emptyList(),
     onFileSelected: (String) -> Unit = {},
     onFileRemoved: (String) -> Unit = {},
+    onStopClick: () -> Unit = {},
     onSendButtonClick: (String) -> Unit = {}
 ) {
     val localStyle = LocalTextStyle.current
@@ -702,7 +715,7 @@ fun ChatInputBox(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .fillMaxWidth()
                         .height(IntrinsicSize.Min)
-                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 24.dp))
+                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 12.dp))
                         .padding(all = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -711,7 +724,7 @@ fun ChatInputBox(
                         onClick = { filePickerLauncher.launch("*/*") }
                     ) {
                         Icon(
-                            imageVector = ImageVector.vectorResource(R.drawable.ic_attach_file),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_add_file),
                             contentDescription = stringResource(R.string.attach_file)
                         )
                     }
@@ -729,11 +742,19 @@ fun ChatInputBox(
                         }
                         innerTextField()
                     }
-                    IconButton(
-                        enabled = chatEnabled && sendButtonEnabled,
-                        onClick = { onSendButtonClick(value) }
-                    ) {
-                        Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send), contentDescription = stringResource(R.string.send))
+                    if (isResponding) {
+                        IconButton(
+                            onClick = { onStopClick() }
+                        ) {
+                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_pause), contentDescription = stringResource(R.string.stop))
+                        }
+                    } else {
+                        IconButton(
+                            enabled = chatEnabled && sendButtonEnabled,
+                            onClick = { onSendButtonClick(value) }
+                        ) {
+                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn), contentDescription = stringResource(R.string.send))
+                        }
                     }
                 }
             }

@@ -63,6 +63,7 @@
     <string name="google_setting">Google</string>
     <string name="platform_setting_description">API密钥、模型、系统提示词</string>
     <string name="enable_api">启用API</string>
+    <string name="switched_platform_hint">已切换到 %1$s，其他平台已关闭</string>
     <string name="api_key">API密钥</string>
     <string name="api_model">模型</string>
     <string name="dynamic_theme">动态取色</string>
@@ -203,6 +204,9 @@
     <string name="thinking_in_progress">推理中……</string>
     <string name="expand">展开</string>
     <string name="collapse">收起</string>
+    <string name="tool_calling">正在调用 %s</string>
+    <string name="tool_result_ok">%s 已完成</string>
+    <string name="tool_result_error">%s 失败</string>
     <string name="extended_thinking">深度推理</string>
     <string name="extended_thinking_description">支持深度推理的模型（例如 o1、o3, Claude 思考模式、Gemini 思考模式）</string>
     <string name="your_platforms">你的提供商</string>
@@ -230,6 +234,8 @@
     <string name="at_least_one_platform_required">请至少启用一个提供商</string>
     <string name="remove">移除</string>
     <string name="qwen_description">Qwen 创造者</string>
+    <string name="kimi_description">月之暗面旗下 Kimi 智能助手</string>
+    <string name="client_type_kimi_desc">Kimi 聊天补全 API（兼容 OpenAI）</string>
     <string name="export_source_code">导出源码</string>
     <string name="export_apk">导出安装包</string>
     <string name="projects">项目</string>

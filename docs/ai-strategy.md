@@ -4,165 +4,88 @@
 
 VibeApp 的 AI 代码生成遵循一个核心原则：**约束优于自由**。
 
-给 AI 越多的自由度，生成的代码就越不可控。通过严格的模板约束和 Prompt 工程，将 AI 的创造力限制在可编译、可运行的范围内。
+给 AI 越多的自由度，生成的代码就越不可控。通过严格的 System Prompt 约束和模板项目骨架，将 AI 的创造力限制在可编译、可运行的范围内。
 
 ## 模板系统
 
 ### 设计理念
 
-AI 不从零开始生成整个项目，而是在预定义的项目骨架内"填空"。
+AI 在预定义的项目骨架上增量开发，通过 tool calling 读写文件、触发构建、修复错误。
 
 ```
-模板提供：             AI 负责：
-├── AndroidManifest.xml  (固定结构)
-├── MainActivity.java    → AI 填充 onCreate() 内的业务逻辑
-├── activity_main.xml    → AI 生成布局内容
-└── strings.xml          → AI 填充字符串资源
+模板提供（app/src/main/assets/templates/EmptyActivity/）：
+├── AndroidManifest.xml       (固定结构，含 CrashHandlerApp)
+├── MainActivity.java         → AI 通过 write_project_file 工具重写
+├── activity_main.xml         → AI 通过 write_project_file 工具重写
+├── CrashHandlerApp.java      (崩溃处理，通常不修改)
+├── themes.xml                (NoActionBar 主题)
+├── colors.xml
+└── strings.xml               → AI 按需修改
 ```
 
-### 单 Activity 模板（Phase 1）
+### 生成的应用约束
 
-```java
-// template: single_activity/MainActivity.java
-package {{PACKAGE_NAME}};
+- **语言**：Java 8（不支持 lambda、method reference、try-with-resources）
+- **UI**：XML 布局 + View 系统
+- **基类**：必须使用 `AppCompatActivity`（来自 AndroidX）
+- **主题**：必须使用 `Theme.MaterialComponents.DayNight.NoActionBar`
+- **依赖**：仅限 bundled AndroidX/Material 库，不支持 Gradle 依赖解析
 
-import android.app.Activity;
-import android.os.Bundle;
-// {{IMPORTS}} — AI 填充所需 import
+## System Prompt 架构
 
-public class MainActivity extends Activity {
+### 文件位置
 
-    // {{FIELDS}} — AI 填充成员变量
+System prompt 以独立文件存放，运行时加载：
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        // {{INIT_CODE}} — AI 填充初始化逻辑
-    }
-
-    // {{METHODS}} — AI 填充自定义方法
-}
 ```
+app/src/main/assets/agent-system-prompt.md
+```
+
+由 `DefaultAgentLoopCoordinator` 在启动时通过 `context.assets.open()` 读取，使用 `lazy` 缓存。
 
 ### 模板变量
 
-| 变量 | 说明 |
-|------|------|
-| `{{PACKAGE_NAME}}` | 包名，系统生成 |
-| `{{IMPORTS}}` | AI 填充的 import 语句 |
-| `{{FIELDS}}` | AI 填充的成员变量 |
-| `{{INIT_CODE}}` | AI 填充的 onCreate 初始化逻辑 |
-| `{{METHODS}}` | AI 填充的自定义方法 |
-| `{{LAYOUT_CONTENT}}` | AI 填充的 XML 布局内容 |
-| `{{STRING_RESOURCES}}` | AI 填充的字符串资源 |
+| 变量 | 说明 | 示例值 |
+|------|------|--------|
+| `{{PACKAGE_NAME}}` | 生成应用的包名 | `com.vibe.generated.p202603222` |
+| `{{PACKAGE_PATH}}` | 包名对应的路径 | `com/vibe/generated/p202603222` |
 
-## Prompt 工程
+变量替换在 `buildInstructions()` 中执行，发生在每次 agent loop 请求时。
 
-### System Prompt 结构
+### Prompt 结构
 
 ```
-[角色定义]
-你是一个 Android 代码生成器，专门生成可以在设备端编译的 Java + XML 代码。
-
-[严格约束]
-1. 只使用白名单中的 Android SDK API
-2. 不使用任何第三方库
-3. 不使用反射、JNI、或 native 代码
-4. Java 8 语法，不使用 lambda（保守兼容当前设备端编译链）
-5. XML 布局使用基础 View 组件
-
-[白名单] (附 whitelist.json 内容)
-
-[输出格式]
-严格按照以下格式输出，不要输出其他内容：
----FILE: MainActivity.java---
-(代码内容)
----FILE: activity_main.xml---
-(布局内容)
----FILE: strings.xml---
-(字符串资源)
-
-[示例]
-(提供 2-3 个完整的输入输出示例)
+[角色定义]                    — 1 行
+[CRITICAL CONSTRAINTS]        — NEVER / ALWAYS 规则（核心防崩溃约束）
+[Bundled Libraries]           — 仅列出已打包的 AndroidX/Material 库清单
+[Template Project Structure]  — 模板文件列表
+[App Icon Requests]           — 图标生成规则
+[Phased Workflow]             — 5 阶段工作流程
+[Hard Rules]                  — 4 条硬性规则
+[Additional System Prompt]    — 用户在平台设置中自定义的补充指令（可选）
 ```
 
-### 关键约束细节
+### 设计原则
 
-**为什么不用 lambda？**
-当前主编译链已经是 `JavacTool + D8`。理论上可以支持部分 Java 8 语法，但设备端 desugaring 仍可能出现边界 case。Phase 1 保守策略，优先保证编译成功率。
+1. **只告诉 AI 不知道的事** — 标准 Android API、Material Component style 名称等 LLM 训练数据已覆盖的内容不需要列出。Prompt 的价值在于告诉 AI 这个环境的*特殊约束*（无 Gradle、无 lambda、特定打包库）。
 
-**为什么不用 AppCompat？**
-AppCompatActivity 等 Jetpack 库需要额外的依赖解析和预编译 DEX，Phase 1 直接使用 `android.app.Activity`。
+2. **内容与代码分离** — Prompt 内容在 markdown 文件中维护，不硬编码在 Kotlin 代码里。新增规则或修复崩溃模式时只需编辑 markdown 文件，无需修改 Kotlin 代码。
 
-**白名单范围（Phase 1）**：
-- `android.app.Activity`
-- `android.os.Bundle`, `android.os.Handler`
-- `android.widget.*`（TextView, Button, EditText, ListView, ImageView 等）
-- `android.view.*`（View, ViewGroup, LayoutInflater 等）
-- `android.graphics.*`（Canvas, Paint, Color, Bitmap 等）
-- `android.content.SharedPreferences`
-- `android.widget.Toast`
-- `android.util.Log`
-- `java.util.*`, `java.lang.*`, `java.io.*`
+3. **信噪比优先** — 每个 token 都占用 context window，会压缩留给用户对话历史的空间。低价值的 API 文档会稀释高价值的约束规则。
 
-### 错误修复 Prompt
+### 维护指南
 
-```
-[角色] 你是 Android 代码修复专家。
+**添加新的防崩溃规则**：编辑 `agent-system-prompt.md` 中的 NEVER/ALWAYS 段落。
 
-[上下文]
-以下代码编译失败，错误信息如下：
-{{ERROR_LOG}}
+**添加新的可用库**：编辑 `agent-system-prompt.md` 中的 Bundled Libraries 段落。同时需要确保 `build-engine` 中已打包对应的预编译产物。
 
-原始代码：
-{{SOURCE_CODE}}
-
-[要求]
-1. 分析错误原因
-2. 输出修复后的完整代码（不要只输出 diff）
-3. 确保只使用白名单 API
-4. 修复后的代码必须保持原有功能意图
-
-[输出格式] (同上)
-```
-
-## 响应解析
-
-AI 响应需要可靠地解析出各文件内容：
-
-```kotlin
-class AiResponseParser {
-    // 解析 ---FILE: xxx--- 格式
-    fun parse(response: String): Map<String, String> {
-        val files = mutableMapOf<String, String>()
-        val pattern = Regex("""---FILE:\s*(.+?)---\n([\s\S]*?)(?=---FILE:|$)""")
-        pattern.findAll(response).forEach { match ->
-            val filename = match.groupValues[1].trim()
-            val content = match.groupValues[2].trim()
-            files[filename] = content
-        }
-        return files
-    }
-}
-```
-
-**健壮性保障**：
-- 支持多种分隔符格式（`---FILE:`, `// FILE:`, ````java` 等）
-- AI 有时会在代码前后添加解释文本，需要过滤
-- 使用正则 + 启发式规则提取代码块
+**添加新的模板变量**：
+1. 在 `agent-system-prompt.md` 中使用 `{{VARIABLE_NAME}}` 占位符
+2. 在 `DefaultAgentLoopCoordinator.buildInstructions()` 中添加对应的 `.replace()` 调用
 
 ## 多模型适配
 
-不同模型的 Prompt 可能需要微调：
-
-| 模型 | 特点 | 适配策略 |
-|------|------|---------|
-| Claude | 遵循指令能力强 | 标准 Prompt 即可 |
-| GPT-4o | 倾向添加额外解释 | 强调"只输出代码" |
-| DeepSeek | 中文理解好，但可能混入第三方库 | 加强白名单约束 |
-| Ollama (本地) | 能力受模型大小限制 | 简化模板，减少约束复杂度 |
+不同 provider 通过 `AgentModelGateway` 接口适配，但 system prompt 是统一的。用户可在平台设置中添加 `systemPrompt` 做 provider 级别的微调，会作为 `[Additional System Prompt]` 追加到主 prompt 之后。
 
 ## 评估指标
 
@@ -170,6 +93,5 @@ class AiResponseParser {
 |------|------|------|
 | 首次编译成功率 | > 60% | 预检通过后直接编译成功 |
 | 修复后编译成功率 | > 90% | 经过自动修复循环 |
-| 预检拦截率 | > 80% | 明显错误在预检阶段拦截 |
 | 平均修复次数 | < 2 | 大多数问题 1-2 次修复搞定 |
 | 功能符合率 | > 70% | 生成的 App 功能符合用户描述 |

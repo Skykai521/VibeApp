@@ -32,6 +32,9 @@ data class AgentConversationItem(
     // Non-null only for ASSISTANT items that ended with tool calls.
     // Used by stateless providers (e.g. Anthropic) to reconstruct full conversation history.
     val toolCalls: List<AgentToolCall>? = null,
+    // Reasoning/thinking content from models that support it (e.g. Kimi kimi-k2.5).
+    // Must be echoed back in subsequent turns for providers that require it.
+    val reasoningContent: String? = null,
 )
 
 data class AgentToolDefinition(

@@ -9,4 +9,5 @@ enum class ClientType {
     OLLAMA,
     CUSTOM,
     QWEN,
+    KIMI,
 }

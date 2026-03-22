@@ -80,6 +80,7 @@
     <string name="google_setting">Google Settings</string>
     <string name="platform_setting_description">API Key, Model, System Prompt</string>
     <string name="enable_api">Enable API</string>
+    <string name="switched_platform_hint">Switched to %1$s, previous platform disabled</string>
     <string name="api_key">API Key</string>
     <string name="api_model">API Model</string>
     <string name="dynamic_theme">Dynamic Theme</string>
@@ -87,6 +88,7 @@
     <string name="key_icon">Key Icon</string>
     <string name="model_icon">Model Icon</string>
     <string name="send">Send</string>
+    <string name="stop">Stop</string>
     <string name="copy_text">Copy Text</string>
     <string name="retry">Retry</string>
     <string name="ask_a_question">Ask a question…</string>
@@ -243,6 +245,9 @@
     <string name="thinking_in_progress">Thinking…</string>
     <string name="expand">Expand</string>
     <string name="collapse">Collapse</string>
+    <string name="tool_calling">Calling %s</string>
+    <string name="tool_result_ok">%s completed</string>
+    <string name="tool_result_error">%s failed</string>
     <string name="extended_thinking">Extended Thinking</string>
     <string name="extended_thinking_description">Enable for reasoning models (o1, o3, Claude with thinking, Gemini thinking)</string>
 
@@ -272,6 +277,9 @@
     <string name="alibaba" translatable="false">Alibaba</string>
     <string name="qwen_description">Creator of Qwen.</string>
     <string name="client_type_qwen_desc">Qwen chat completions API</string>
+    <string name="kimi" translatable="false">Kimi</string>
+    <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
+    <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
     <string name="platform_added_successfully">Platform added successfully</string>
     <string name="at_least_one_platform_required">Add at least one platform to continue</string>
     <string name="remove">Remove</string>

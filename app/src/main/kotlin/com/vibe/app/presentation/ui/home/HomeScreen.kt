@@ -460,11 +460,12 @@ private fun NewProjectButton(
     }
     ExtendedFloatingActionButton(
         modifier = fabModifier
+            .padding(bottom = 16.dp)
             .shadow(
-                elevation = 8.dp,
+                elevation = 12.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = Color.Black.copy(alpha = 0.12f),
-                spotColor = Color.Black.copy(alpha = 0.2f),
+                ambientColor = Color.Black.copy(alpha = 0.2f),
+                spotColor = Color.Black.copy(alpha = 0.35f),
             ),
         onClick = { if (!isCreating) onClick() },
         expanded = expanded,

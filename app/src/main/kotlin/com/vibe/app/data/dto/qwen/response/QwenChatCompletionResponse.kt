@@ -36,6 +36,9 @@ data class QwenAssistantMessage(
     @SerialName("content")
     val content: String? = null,
 
+    @SerialName("reasoning_content")
+    val reasoningContent: String? = null,
+
     @SerialName("tool_calls")
     val toolCalls: List<QwenToolCall>? = null,
 )

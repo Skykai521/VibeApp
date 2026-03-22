@@ -9,12 +9,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import com.vibe.app.data.database.ChatDatabase
 import com.vibe.app.data.database.ChatDatabaseV2
 import com.vibe.app.data.database.dao.ChatPlatformModelV2Dao
-import com.vibe.app.data.database.dao.ChatRoomDao
 import com.vibe.app.data.database.dao.ChatRoomV2Dao
-import com.vibe.app.data.database.dao.MessageDao
 import com.vibe.app.data.database.dao.MessageV2Dao
 import com.vibe.app.data.database.dao.PlatformV2Dao
 import com.vibe.app.data.database.dao.ProjectDao
@@ -23,7 +20,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    private const val DB_NAME = "chat"
     private const val DB_NAME_V2 = "chat_v2"
     private val MIGRATION_CHAT_DB_V2_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -107,24 +103,10 @@ object DatabaseModule {
     fun providePlatformV2Dao(chatDatabaseV2: ChatDatabaseV2): PlatformV2Dao = chatDatabaseV2.platformDao()
 
     @Provides
-    fun provideChatRoomDao(chatDatabase: ChatDatabase): ChatRoomDao = chatDatabase.chatRoomDao()
-
-    @Provides
     fun provideChatRoomV2Dao(chatDatabaseV2: ChatDatabaseV2): ChatRoomV2Dao = chatDatabaseV2.chatRoomDao()
 
     @Provides
-    fun provideMessageDao(chatDatabase: ChatDatabase): MessageDao = chatDatabase.messageDao()
-
-    @Provides
     fun provideMessageV2Dao(chatDatabaseV2: ChatDatabaseV2): MessageV2Dao = chatDatabaseV2.messageDao()
-
-    @Provides
-    @Singleton
-    fun provideChatDatabase(@ApplicationContext appContext: Context): ChatDatabase = Room.databaseBuilder(
-        appContext,
-        ChatDatabase::class.java,
-        DB_NAME
-    ).build()
 
     @Provides
     @Singleton

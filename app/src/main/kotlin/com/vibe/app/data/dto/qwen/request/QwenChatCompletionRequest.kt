@@ -60,6 +60,10 @@ data class QwenChatMessage(
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val content: String? = null,
 
+    @SerialName("reasoning_content")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val reasoningContent: String? = null,
+
     @SerialName("tool_calls")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val toolCalls: List<QwenToolCall>? = null,

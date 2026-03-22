@@ -21,9 +21,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -64,6 +67,14 @@ fun SettingScreen(
     )
     val platformState by settingViewModel.platformState.collectAsStateWithLifecycle()
     val dialogState by settingViewModel.dialogState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val switchedHint = stringResource(R.string.switched_platform_hint)
+
+    LaunchedEffect(Unit) {
+        settingViewModel.switchedPlatformEvent.collect { name ->
+            Toast.makeText(context, switchedHint.format(name), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -101,7 +112,7 @@ fun SettingScreen(
                 description = stringResource(R.string.add_platform_description),
                 onItemClick = onNavigateToAddPlatform,
                 showTrailingIcon = false,
-                showLeadingIcon = true,
+                showLeadingIcon = false,
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.Add,

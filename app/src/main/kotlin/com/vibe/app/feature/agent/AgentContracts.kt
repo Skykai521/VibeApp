@@ -55,6 +55,7 @@ sealed interface AgentModelEvent {
     data class Completed(
         val finalText: String? = null,
         val responseId: String? = null,
+        val reasoningContent: String? = null,
     ) : AgentModelEvent
 
     data class Failed(

@@ -25,6 +25,8 @@ data class BuildWorkspace(
     val signedApk: File,
     val bootstrapJar: File,
     val lambdaStubsJar: File,
+    val androidxClassesJar: File?,
+    val androidxResCompiledDir: File?,
 ) {
     fun allJavaSources(): List<File> {
         return collectFiles(sourceDir, ".java") + collectFiles(generatedSourcesDir, ".java")
@@ -76,6 +78,8 @@ data class BuildWorkspace(
                 signedApk = signedApk,
                 bootstrapJar = BuildModule.getAndroidJar(),
                 lambdaStubsJar = BuildModule.getLambdaStubs(),
+                androidxClassesJar = BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() },
+                androidxResCompiledDir = BuildModule.getAndroidxResCompiledDir()?.takeIf { it.exists() && it.isDirectory },
             )
         }
 

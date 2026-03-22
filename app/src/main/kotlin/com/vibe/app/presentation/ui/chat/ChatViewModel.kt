@@ -24,6 +24,7 @@ import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.BuildStatus
 import com.vibe.build.engine.pipeline.BuildProgressListener
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -128,6 +129,9 @@ class ChatViewModel @Inject constructor(
     // Loading states for each platform
     private val _loadingStates = MutableStateFlow(List<LoadingState>(enabledPlatformsInChat.size) { LoadingState.Idle })
     val loadingStates = _loadingStates.asStateFlow()
+
+    // Jobs for active AI response coroutines (used to cancel on stop)
+    private val responseJobs = mutableListOf<Job>()
 
     // Used for passing user question to Edit User Message Dialog
     private val _editedQuestion = MutableStateFlow(MessageV2(chatId = chatRoomId, content = "", platformType = null))
@@ -453,15 +457,22 @@ class ChatViewModel @Inject constructor(
         return Pair(fileName, chatHistoryMarkdown)
     }
 
+    fun stopResponding() {
+        responseJobs.forEach { it.cancel() }
+        responseJobs.clear()
+        _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Idle } }
+    }
+
     private fun completeChat() {
         // Update all the platform loading states to Loading
         _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Loading } }
+        responseJobs.clear()
 
         // Send chat completion requests
         enabledPlatformsInChat.forEachIndexed { idx, platformUid ->
             val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid } ?: return@forEachIndexed
             val platformWithChatModel = resolvePlatformModel(platform)
-            viewModelScope.launch {
+            val job = viewModelScope.launch {
                 if (shouldUseAgentMode(platformWithChatModel)) {
                     runAgentLoop(platformWithChatModel, idx)
                 } else {
@@ -478,6 +489,7 @@ class ChatViewModel @Inject constructor(
                     )
                 }
             }
+            responseJobs.add(job)
         }
     }
 
@@ -612,7 +624,7 @@ class ChatViewModel @Inject constructor(
 
     private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
         return enabledPlatformsInChat.size == 1 &&
-            (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN) &&
+            (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN || platform.compatibleType == ClientType.KIMI) &&
             _currentProjectId.value != null
     }
 

@@ -47,6 +47,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,6 +71,16 @@ fun PlatformSettingScreen(
     val platform by settingViewModel.platformState.collectAsStateWithLifecycle()
     val dialogState by settingViewModel.dialogState.collectAsStateWithLifecycle()
     val isDeleted by settingViewModel.isDeleted.collectAsStateWithLifecycle()
+    val showSystemPrompt = false
+    val showExtendedThinking = false
+    val context = LocalContext.current
+    val switchedHint = stringResource(R.string.switched_platform_hint)
+
+    LaunchedEffect(Unit) {
+        settingViewModel.switchedPlatformEvent.collect { name ->
+            Toast.makeText(context, switchedHint.format(name), Toast.LENGTH_SHORT).show()
+        }
+    }
 
     LaunchedEffect(isDeleted) {
         if (isDeleted) {
@@ -195,28 +207,32 @@ fun PlatformSettingScreen(
                         )
                     }
                 )
-                SettingItem(
-                    modifier = Modifier.height(64.dp),
-                    title = stringResource(R.string.system_prompt),
-                    description = platformData.systemPrompt,
-                    enabled = false,
-                    onItemClick = settingViewModel::openSystemPromptDialog,
-                    showTrailingIcon = false,
-                    showLeadingIcon = true,
-                    leadingIcon = {
-                        Icon(
-                            ImageVector.vectorResource(id = R.drawable.ic_instructions),
-                            contentDescription = stringResource(R.string.system_prompt_icon)
-                        )
-                    }
-                )
-                ExtendedThinkingSwitch(
-                    modifier = Modifier.height(64.dp),
-                    enabled = false,
-                    isChecked = platformData.reasoning,
-                    onCheckedChange = { settingViewModel.toggleReasoning() }
-                )
+                if (showSystemPrompt) {
+                    SettingItem(
+                        modifier = Modifier.height(64.dp),
+                        title = stringResource(R.string.system_prompt),
+                        description = platformData.systemPrompt,
+                        enabled = false,
+                        onItemClick = settingViewModel::openSystemPromptDialog,
+                        showTrailingIcon = false,
+                        showLeadingIcon = true,
+                        leadingIcon = {
+                            Icon(
+                                ImageVector.vectorResource(id = R.drawable.ic_instructions),
+                                contentDescription = stringResource(R.string.system_prompt_icon)
+                            )
+                        }
+                    )
+                }
 
+                if (showExtendedThinking) {
+                    ExtendedThinkingSwitch(
+                        modifier = Modifier.height(64.dp),
+                        enabled = false,
+                        isChecked = platformData.reasoning,
+                        onCheckedChange = { settingViewModel.toggleReasoning() }
+                    )
+                }
                 PlatformNameDialog(dialogState, platformData.name, settingViewModel)
                 APIUrlDialog(dialogState, platformData.apiUrl, settingViewModel)
                 APIKeyDialog(dialogState, settingViewModel)
@@ -368,7 +384,7 @@ fun PreferenceSwitchWithContainer(
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .clip(MaterialTheme.shapes.extraLarge)
             .background(
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme.surfaceVariant
             )
             .toggleable(
                 value = isChecked,
@@ -386,7 +402,7 @@ fun PreferenceSwitchWithContainer(
                 modifier = Modifier
                     .padding(start = 8.dp, end = 16.dp)
                     .size(24.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Column(
@@ -398,7 +414,7 @@ fun PreferenceSwitchWithContainer(
                 text = title,
                 maxLines = 1,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Switch(
