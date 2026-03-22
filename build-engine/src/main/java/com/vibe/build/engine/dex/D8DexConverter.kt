@@ -46,8 +46,13 @@ class D8DexConverter(
             }
         }
 
+        val programFiles = classFiles.map { it.toPath() }.toMutableList()
+        if (workspace.androidxClassesJar != null) {
+            programFiles.add(workspace.androidxClassesJar.toPath())
+        }
+
         val command = D8Command.builder(diagnosticsHandler)
-            .addProgramFiles(classFiles.map { it.toPath() })
+            .addProgramFiles(programFiles)
             .addClasspathFiles(
                 input.classpathEntries.map(::File)
                     .filter { it.exists() }

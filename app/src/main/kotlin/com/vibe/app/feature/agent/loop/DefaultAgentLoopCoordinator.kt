@@ -237,27 +237,63 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
             ## CRITICAL CONSTRAINTS — Read these first!
 
-            This project uses an on-device build pipeline (ECJ compiler + D8 + AAPT2), NOT Gradle.
-            Only the standard Android SDK (android.jar) is available. There are NO third-party libraries.
+            This project uses an on-device build pipeline (Javac + D8 + AAPT2), NOT Gradle.
+            The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries are available.
 
             ### NEVER do these:
-            - NEVER use AppCompatActivity, FragmentActivity, or any androidx.* class
-            - NEVER use com.google.android.material.* classes
             - NEVER modify build.gradle — it is not used by the build pipeline
             - NEVER change the package name — it MUST stay as $packageName everywhere
             - NEVER change the package in AndroidManifest.xml
             - NEVER use Java lambdas (->), method references (::), or try-with-resources
-            - NEVER use Theme.AppCompat.* or Theme.MaterialComponents.* — they are not available
+            - NEVER use View.OnClickListener with lambda syntax — use anonymous inner classes
+            - NEVER add dependencies or libraries beyond what is bundled
+            - NEVER use android:cx, android:cy, or android:r attributes — they do not exist in the Android SDK
 
             ### ALWAYS do these:
-            - ALWAYS extend android.app.Activity (the base Activity class)
+            - ALWAYS extend AppCompatActivity (from androidx.appcompat.app.AppCompatActivity)
             - ALWAYS keep package $packageName in all Java files
             - ALWAYS import $packageName.R when referencing XML resources
-            - ALWAYS use platform themes: @android:style/Theme.Material.Light.NoActionBar or similar
+            - ALWAYS use Material themes: Theme.MaterialComponents.DayNight.NoActionBar or Theme.MaterialComponents.DayNight.DarkActionBar
             - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 
+            ### Available AndroidX & Material libraries (bundled, no build.gradle needed):
+            - androidx.appcompat.app.AppCompatActivity (use this instead of android.app.Activity)
+            - com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, MaterialToolbar, BottomNavigationView, TabLayout, Chip, Snackbar, etc.
+            - androidx.coordinatorlayout.widget.CoordinatorLayout
+            - androidx.constraintlayout.widget.ConstraintLayout
+            - androidx.recyclerview.widget.RecyclerView, LinearLayoutManager, GridLayoutManager
+            - androidx.cardview.widget.CardView
+            - androidx.viewpager2.widget.ViewPager2
+            - androidx.fragment.app.Fragment, FragmentManager
+            - androidx.core.content.ContextCompat, androidx.core.widget.*, etc.
+            - androidx.lifecycle.* (ViewModel, LiveData, etc.)
+            - androidx.drawerlayout.widget.DrawerLayout
+
+            ### Available Material Themes (for styles.xml parent):
+            - Theme.MaterialComponents.DayNight.NoActionBar (recommended)
+            - Theme.MaterialComponents.DayNight.DarkActionBar
+            - Theme.MaterialComponents.Light.NoActionBar
+            - Theme.MaterialComponents.Light.DarkActionBar
+            - Theme.MaterialComponents.DayNight.Bridge (for mixed theme migration)
+
+            ### Available Widget Styles (for XML style= attribute):
+            - @style/Widget.MaterialComponents.Button
+            - @style/Widget.MaterialComponents.Button.OutlinedButton
+            - @style/Widget.MaterialComponents.Button.TextButton
+            - @style/Widget.MaterialComponents.Button.UnelevatedButton
+            - @style/Widget.MaterialComponents.Button.Icon
+            - @style/Widget.MaterialComponents.CardView
+            - @style/Widget.MaterialComponents.TextInputLayout.OutlinedBox
+            - @style/Widget.MaterialComponents.TextInputLayout.FilledBox
+            - @style/Widget.MaterialComponents.Chip.Action / .Choice / .Filter / .Entry
+            - @style/Widget.MaterialComponents.FloatingActionButton
+            - @style/Widget.MaterialComponents.BottomNavigationView
+            - @style/Widget.MaterialComponents.TabLayout
+            - @style/Widget.MaterialComponents.Toolbar
+            - @style/Widget.MaterialComponents.Snackbar
+
             ### Available Android SDK APIs (from android.jar):
-            - android.app.Activity, android.app.AlertDialog, android.app.Service
+            - android.app.AlertDialog, android.app.Service
             - android.os.Bundle, android.os.Handler, android.os.Looper, android.os.CountDownTimer
             - android.widget.* (TextView, Button, EditText, ImageView, LinearLayout, RelativeLayout, FrameLayout, GridLayout, ScrollView, Toast, SeekBar, ProgressBar, CheckBox, Switch, Spinner, ListView, etc.)
             - android.view.* (View, ViewGroup, LayoutInflater, Gravity, ViewGroup.LayoutParams, etc.)

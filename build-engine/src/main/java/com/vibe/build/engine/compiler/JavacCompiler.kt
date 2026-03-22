@@ -44,6 +44,50 @@ open class JavacCompiler(
         }
         workspace.classesDir.mkdirs()
 
+        // Separate R.java files (generated, large) from user source files.
+        // R.java files are compiled in small batches to avoid OOM on memory-constrained devices,
+        // since each R.java can be several MB and Javac holds all parsed ASTs in memory.
+        val genPrefix = workspace.generatedSourcesDir.absolutePath
+        val rJavaFiles = javaSources.filter {
+            it.absolutePath.startsWith(genPrefix) && it.name == "R.java"
+        }
+        val userSources = javaSources.filter {
+            !(it.absolutePath.startsWith(genPrefix) && it.name == "R.java")
+        }
+
+        if (rJavaFiles.isNotEmpty()) {
+            Log.d(tag, "Phase 1: Compiling ${rJavaFiles.size} R.java files in batches of $R_JAVA_BATCH_SIZE")
+            rJavaFiles.chunked(R_JAVA_BATCH_SIZE).forEachIndexed { idx, batch ->
+                Log.d(tag, "R.java batch ${idx + 1}/${(rJavaFiles.size + R_JAVA_BATCH_SIZE - 1) / R_JAVA_BATCH_SIZE}: ${batch.size} files")
+                compileFiles(batch, workspace, input, logger)
+                // Hint GC between batches to reclaim parsed AST memory
+                System.gc()
+            }
+        }
+
+        if (userSources.isNotEmpty()) {
+            Log.d(tag, "Phase 2: Compiling ${userSources.size} user source files")
+            compileFiles(userSources, workspace, input, logger)
+        }
+
+        return BuildResult.success(
+            artifacts = listOf(
+                BuildArtifact(
+                    stage = BuildStage.COMPILE,
+                    path = workspace.classesDir.absolutePath,
+                    description = "JavacTool .class outputs",
+                ),
+            ),
+            logs = logger.entries,
+        )
+    }
+
+    private fun compileFiles(
+        sources: List<File>,
+        workspace: BuildWorkspace,
+        input: CompileInput,
+        logger: RecordingLogger,
+    ) {
         var hasErrors = false
         val tool = JavacTool.create()
         val diagnosticListener = javax.tools.DiagnosticListener<JavaFileObject> { diagnostic ->
@@ -61,15 +105,9 @@ open class JavacCompiler(
             fileManager.setSymbolFileEnabled(false)
         }
 
-        val classpath = input.classpathEntries.map(::File).filter { it.exists() } + workspace.classesDir
-        Log.d(
-            tag,
-            "Classpath entries=${classpath.joinToString { it.absolutePath }}",
-        )
-        Log.d(
-            tag,
-            "Platform classpath=${workspace.bootstrapJar.absolutePath}, ${workspace.lambdaStubsJar.absolutePath}",
-        )
+        val classpath = input.classpathEntries.map(::File).filter { it.exists() } +
+            listOfNotNull(workspace.androidxClassesJar) +
+            workspace.classesDir
         fileManager.setLocation(StandardLocation.CLASS_OUTPUT, listOf(workspace.classesDir))
         fileManager.setLocation(
             StandardLocation.PLATFORM_CLASS_PATH,
@@ -94,7 +132,7 @@ open class JavacCompiler(
                 diagnosticListener,
                 options,
                 null,
-                fileManager.getJavaFileObjectsFromFiles(javaSources),
+                fileManager.getJavaFileObjectsFromFiles(sources),
             )
             task.call()
         } finally {
@@ -104,23 +142,12 @@ open class JavacCompiler(
         if (!success || hasErrors) {
             Log.e(
                 tag,
-                "JavacTool failed. success=$success, hasErrors=$hasErrors, sources=${javaSources.joinToString { it.absolutePath }}",
+                "JavacTool failed. success=$success, hasErrors=$hasErrors, sources=${sources.joinToString { it.absolutePath }}",
             )
         }
         check(success && !hasErrors) {
             "JavacTool compilation failed. See logcat tag $tag for source list and diagnostics."
         }
-
-        return BuildResult.success(
-            artifacts = listOf(
-                BuildArtifact(
-                    stage = BuildStage.COMPILE,
-                    path = workspace.classesDir.absolutePath,
-                    description = "JavacTool .class outputs",
-                ),
-            ),
-            logs = logger.entries,
-        )
     }
 
     private fun closeQuietly(fileManager: javax.tools.StandardJavaFileManager) {
@@ -128,5 +155,14 @@ open class JavacCompiler(
             fileManager.close()
         } catch (_: IOException) {
         }
+    }
+
+    companion object {
+        /**
+         * Number of R.java files to compile per Javac invocation.
+         * Each R.java can be several MB; compiling too many at once causes OOM
+         * on devices with a 192MB heap limit.
+         */
+        private const val R_JAVA_BATCH_SIZE = 3
     }
 }

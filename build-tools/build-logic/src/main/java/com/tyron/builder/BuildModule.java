@@ -13,6 +13,8 @@ public class BuildModule {
     private static Context sApplicationContext;
     private static File sAndroidJar;
     private static File sLambdaStubs;
+    private static File sAndroidxClassesJar;
+    private static File sAndroidxResCompiledDir;
 
     public static void initialize(Context applicationContext) {
             sApplicationContext = applicationContext.getApplicationContext();
@@ -50,6 +52,28 @@ public class BuildModule {
             }
         }
         return sLambdaStubs;
+    }
+
+    public static File getAndroidxClassesJar() {
+        if (sAndroidxClassesJar == null) {
+            sAndroidxClassesJar = new File(BuildModule.getContext().getFilesDir(), "androidx-classes.jar");
+
+            if (!sAndroidxClassesJar.exists()) {
+                Decompress.unzipFromAssets(BuildModule.getContext(), "androidx-classes.jar.zip", sAndroidxClassesJar.getParentFile().getAbsolutePath());
+            }
+        }
+        return sAndroidxClassesJar;
+    }
+
+    public static File getAndroidxResCompiledDir() {
+        if (sAndroidxResCompiledDir == null) {
+            sAndroidxResCompiledDir = new File(BuildModule.getContext().getFilesDir(), "androidx-res-compiled");
+
+            if (!sAndroidxResCompiledDir.exists()) {
+                Decompress.unzipFromAssets(BuildModule.getContext(), "androidx-res-compiled.zip", sAndroidxResCompiledDir.getAbsolutePath());
+            }
+        }
+        return sAndroidxResCompiledDir;
     }
 
     public static void setAndroidJar(@NonNull File jar) {
