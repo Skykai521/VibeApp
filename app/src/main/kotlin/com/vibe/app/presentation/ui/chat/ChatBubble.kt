@@ -375,7 +375,7 @@ private fun UserFileThumbnail(filePath: String) {
 
 @Composable
 private fun scrollableCodeBlockStyle(): RichTextStyle {
-    val bgColor = MaterialTheme.colorScheme.background
+    val bgColor = MaterialTheme.colorScheme.surfaceVariant
     return RichTextStyle(
         codeBlockStyle = CodeBlockStyle(
             wordWrap = false,
