@@ -146,6 +146,7 @@ fun ChatScreen(
     val isChatMenuEnabled = chatRoom.id > 0
     val isProjectMenuEnabled = currentProjectId != null
     val context = LocalContext.current
+    val kimiImageInputOnlySupportedText = stringResource(R.string.kimi_image_input_only_supported)
 
     val scope = rememberCoroutineScope()
     // +1 for the bottom spacer item appended to LazyColumn
@@ -355,7 +356,7 @@ fun ChatScreen(
                 onUnsupportedImageInputClick = {
                     Toast.makeText(
                         context,
-                        context.getString(R.string.kimi_image_input_only_supported),
+                        kimiImageInputOnlySupportedText,
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
@@ -724,6 +725,8 @@ fun ChatInputBox(
     val localStyle = LocalTextStyle.current
     val mergedStyle = localStyle.merge(TextStyle(color = LocalContentColor.current))
     val context = LocalContext.current
+    val kimiSupportedImageFormatsText = stringResource(R.string.kimi_supported_image_formats)
+    val failedToSelectImageText = stringResource(R.string.failed_to_select_image)
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -733,7 +736,7 @@ fun ChatInputBox(
             if (!FileUtils.isKimiSupportedImage(mimeType)) {
                 Toast.makeText(
                     context,
-                    context.getString(R.string.kimi_supported_image_formats),
+                    kimiSupportedImageFormatsText,
                     Toast.LENGTH_SHORT,
                 ).show()
                 return@rememberLauncherForActivityResult
@@ -745,7 +748,7 @@ fun ChatInputBox(
             } else {
                 Toast.makeText(
                     context,
-                    context.getString(R.string.failed_to_select_image),
+                    failedToSelectImageText,
                     Toast.LENGTH_SHORT,
                 ).show()
             }

@@ -153,4 +153,15 @@
     <string name="openai_description">Twórca Chata GPT.</string>
     <string name="enter_api_key">Podaj klucz API</string>
     <string name="token_input_description">Wprowadź klucz API wybranej przez Ciebie platformy. Nasza aplikacja nie zbiera tych danych. Klucze API i historia czatów są zapisywane tylko na Twoim urządzeniu, i nie zostaną nigdzie wysłane, z wyjątkiem serwerów odbiorczych API.</string>
+    <string name="switched_platform_hint">Switched to %1$s, previous platform disabled</string>
+    <string name="stop">Stop</string>
+    <string name="select_image">Select Image</string>
+    <string name="kimi_image_input_only_supported">Image selection is currently supported only for Kimi chats.</string>
+    <string name="kimi_supported_image_formats">Kimi currently supports png, jpeg, webp, and gif images only.</string>
+    <string name="failed_to_select_image">Failed to select image.</string>
+    <string name="tool_calling">Calling %s</string>
+    <string name="tool_result_ok">%s completed</string>
+    <string name="tool_result_error">%s failed</string>
+    <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
+    <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>
