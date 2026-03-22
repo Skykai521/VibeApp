@@ -6,6 +6,7 @@ import com.vibe.app.data.dto.qwen.request.QwenFunctionCall
 import com.vibe.app.data.dto.qwen.request.QwenFunctionDefinition
 import com.vibe.app.data.dto.qwen.request.QwenTool
 import com.vibe.app.data.dto.qwen.request.QwenToolCall
+import com.vibe.app.data.dto.qwen.request.qwenTextContent
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.feature.agent.AgentConversationItem
 import com.vibe.app.feature.agent.AgentMessageRole
@@ -86,7 +87,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
             ?.let { instructions ->
                 messages += QwenChatMessage(
                     role = "system",
-                    content = instructions,
+                    content = qwenTextContent(instructions),
                 )
             }
 
@@ -94,12 +95,12 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
             when (item.role) {
                 AgentMessageRole.USER -> messages += QwenChatMessage(
                     role = "user",
-                    content = item.text.orEmpty(),
+                    content = qwenTextContent(item.text.orEmpty()),
                 )
 
                 AgentMessageRole.ASSISTANT -> messages += QwenChatMessage(
                     role = "assistant",
-                    content = item.text,
+                    content = qwenTextContent(item.text),
                     toolCalls = item.toolCalls
                         ?.map { toolCall ->
                             QwenToolCall(
@@ -115,7 +116,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
 
                 AgentMessageRole.TOOL -> messages += QwenChatMessage(
                     role = "tool",
-                    content = item.payload?.toString() ?: item.text.orEmpty(),
+                    content = qwenTextContent(item.payload?.toString() ?: item.text.orEmpty()),
                     toolCallId = item.toolCallId,
                 )
 

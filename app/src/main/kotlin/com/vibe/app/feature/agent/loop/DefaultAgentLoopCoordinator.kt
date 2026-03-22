@@ -211,6 +211,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         val isAssistant = platformType != null
         return AgentConversationItem(
             role = if (isAssistant) AgentMessageRole.ASSISTANT else AgentMessageRole.USER,
+            attachments = if (isAssistant) emptyList() else files,
             text = buildString {
                 append(content)
                 if (files.isNotEmpty()) {

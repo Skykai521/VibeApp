@@ -26,6 +26,7 @@ data class AgentLoopPolicy(
 data class AgentConversationItem(
     val role: AgentMessageRole,
     val text: String? = null,
+    val attachments: List<String> = emptyList(),
     val toolCallId: String? = null,
     val toolName: String? = null,
     val payload: JsonElement? = null,

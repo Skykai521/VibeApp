@@ -1,11 +1,14 @@
 package com.vibe.app.feature.agent.loop
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.request.QwenChatMessage
 import com.vibe.app.data.dto.qwen.request.QwenFunctionCall
 import com.vibe.app.data.dto.qwen.request.QwenFunctionDefinition
 import com.vibe.app.data.dto.qwen.request.QwenTool
 import com.vibe.app.data.dto.qwen.request.QwenToolCall
+import com.vibe.app.data.dto.qwen.request.qwenTextContent
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.feature.agent.AgentMessageRole
 import com.vibe.app.feature.agent.AgentModelEvent
@@ -13,12 +16,15 @@ import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolChoiceMode
+import com.vibe.app.util.FileUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 
@@ -31,6 +37,7 @@ import kotlinx.serialization.json.jsonObject
  */
 @Singleton
 class KimiChatCompletionsAgentGateway @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val openAIAPI: OpenAIAPI,
 ) : AgentModelGateway {
 
@@ -100,7 +107,7 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
         if (systemContent.isNotBlank()) {
             messages += QwenChatMessage(
                 role = "system",
-                content = systemContent,
+                content = qwenTextContent(systemContent),
             )
         }
 
@@ -108,12 +115,12 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
             when (item.role) {
                 AgentMessageRole.USER -> messages += QwenChatMessage(
                     role = "user",
-                    content = item.text.orEmpty(),
+                    content = buildKimiUserContent(item),
                 )
 
                 AgentMessageRole.ASSISTANT -> messages += QwenChatMessage(
                     role = "assistant",
-                    content = item.text,
+                    content = qwenTextContent(item.text),
                     reasoningContent = item.reasoningContent,
                     toolCalls = item.toolCalls
                         ?.map { toolCall ->
@@ -130,7 +137,7 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
 
                 AgentMessageRole.TOOL -> messages += QwenChatMessage(
                     role = "tool",
-                    content = item.payload?.toString() ?: item.text.orEmpty(),
+                    content = qwenTextContent(item.payload?.toString() ?: item.text.orEmpty()),
                     toolCallId = item.toolCallId,
                 )
 
@@ -141,6 +148,41 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
         return messages
     }
 
+    private fun buildKimiUserContent(item: com.vibe.app.feature.agent.AgentConversationItem) =
+        buildJsonArray {
+            item.attachments.forEach { attachmentPath ->
+                val mimeType = FileUtils.getMimeType(context, attachmentPath)
+                if (!FileUtils.isKimiSupportedImage(mimeType)) return@forEach
+                val base64 = FileUtils.readAndEncodeFile(context, attachmentPath) ?: return@forEach
+                add(
+                    buildJsonObject {
+                        put("type", JsonPrimitive("image_url"))
+                        put(
+                            "image_url",
+                            buildJsonObject {
+                                put("url", JsonPrimitive("data:$mimeType;base64,$base64"))
+                            },
+                        )
+                    },
+                )
+            }
+
+            item.kimiTextContent()?.let { text ->
+                add(
+                    buildJsonObject {
+                        put("type", JsonPrimitive("text"))
+                        put("text", JsonPrimitive(text))
+                    },
+                )
+            }
+        }.let { content ->
+            if (content.isEmpty()) {
+                qwenTextContent(item.kimiTextContent().orEmpty())
+            } else {
+                content
+            }
+        }
+
     companion object {
         private const val TOOL_REQUIRED_INSTRUCTION =
             """## MANDATORY TOOL USE
@@ -148,6 +190,15 @@ You MUST call at least one tool in your response. Do NOT reply with only text.
 Analyze the user's request and use the appropriate tools to fulfill it.
 Every response MUST include one or more tool calls — a text-only answer is NOT acceptable."""
     }
+}
+
+private fun com.vibe.app.feature.agent.AgentConversationItem.kimiTextContent(): String? {
+    val rawText = text.orEmpty()
+    if (attachments.isEmpty()) return rawText.takeIf { it.isNotBlank() }
+    return rawText
+        .substringBefore("\n\n[Files]\n")
+        .trim()
+        .takeIf { it.isNotBlank() }
 }
 
 private fun String.toKimiBaseUrl(): String {

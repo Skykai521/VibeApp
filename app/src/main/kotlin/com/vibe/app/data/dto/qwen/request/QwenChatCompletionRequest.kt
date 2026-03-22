@@ -5,6 +5,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -58,7 +59,7 @@ data class QwenChatMessage(
 
     @SerialName("content")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val content: String? = null,
+    val content: JsonElement? = null,
 
     @SerialName("reasoning_content")
     @EncodeDefault(EncodeDefault.Mode.NEVER)
@@ -72,6 +73,8 @@ data class QwenChatMessage(
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val toolCallId: String? = null,
 )
+
+fun qwenTextContent(text: String?): JsonElement? = text?.let(::JsonPrimitive)
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable

@@ -88,6 +88,8 @@ import androidx.core.content.FileProvider.getUriForFile
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibe.app.R
+import com.vibe.app.data.model.ClientType
+import com.vibe.app.util.FileUtils
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -128,7 +130,15 @@ fun ChatScreen(
     val selectedFiles by chatViewModel.selectedFiles.collectAsStateWithLifecycle()
     val allPlatforms by chatViewModel.platformsInApp.collectAsStateWithLifecycle()
     val appEnabledPlatforms by chatViewModel.enabledPlatformsInApp.collectAsStateWithLifecycle()
+    val chatPlatforms = remember(allPlatforms, chatViewModel.enabledPlatformsInChat) {
+        chatViewModel.enabledPlatformsInChat.mapNotNull { uid ->
+            allPlatforms.firstOrNull { it.uid == uid }
+        }
+    }
     val canUseChat = appEnabledPlatforms.isNotEmpty()
+    val isKimiImageInputEnabled = chatPlatforms.isNotEmpty() &&
+        chatPlatforms.size == chatViewModel.enabledPlatformsInChat.size &&
+        chatPlatforms.all { it.compatibleType == ClientType.KIMI }
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -332,9 +342,17 @@ fun ChatScreen(
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
                 isResponding = !isIdle,
+                imageInputEnabled = isKimiImageInputEnabled,
                 selectedFiles = selectedFiles,
                 onFileSelected = { filePath -> chatViewModel.addSelectedFile(filePath) },
                 onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) },
+                onUnsupportedImageInputClick = {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.kimi_image_input_only_supported),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
                 onStopClick = { chatViewModel.stopResponding() }
             ) {
                 chatViewModel.askQuestion()
@@ -672,9 +690,11 @@ fun ChatInputBox(
     chatEnabled: Boolean = true,
     sendButtonEnabled: Boolean = true,
     isResponding: Boolean = false,
+    imageInputEnabled: Boolean = false,
     selectedFiles: List<String> = emptyList(),
     onFileSelected: (String) -> Unit = {},
     onFileRemoved: (String) -> Unit = {},
+    onUnsupportedImageInputClick: () -> Unit = {},
     onStopClick: () -> Unit = {},
     onSendButtonClick: (String) -> Unit = {}
 ) {
@@ -686,8 +706,26 @@ fun ChatInputBox(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
+            val mimeType = FileUtils.getMimeType(context, it.toString())
+            if (!FileUtils.isKimiSupportedImage(mimeType)) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.kimi_supported_image_formats),
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@rememberLauncherForActivityResult
+            }
+
             val filePath = copyFileToAppDirectory(context, it)
-            filePath?.let { path -> onFileSelected(path) }
+            if (filePath != null) {
+                onFileSelected(filePath)
+            } else {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.failed_to_select_image),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 
@@ -722,11 +760,17 @@ fun ChatInputBox(
                 ) {
                     IconButton(
                         enabled = chatEnabled,
-                        onClick = { filePickerLauncher.launch("*/*") }
+                        onClick = {
+                            if (imageInputEnabled) {
+                                filePickerLauncher.launch("image/*")
+                            } else {
+                                onUnsupportedImageInputClick()
+                            }
+                        }
                     ) {
                         Icon(
                             imageVector = ImageVector.vectorResource(R.drawable.ic_add_file),
-                            contentDescription = stringResource(R.string.attach_file)
+                            contentDescription = stringResource(R.string.select_image)
                         )
                     }
                     Box(

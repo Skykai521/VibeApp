@@ -236,6 +236,10 @@
     <string name="qwen_description">Qwen 创造者</string>
     <string name="kimi_description">月之暗面旗下 Kimi 智能助手</string>
     <string name="client_type_kimi_desc">Kimi 聊天补全 API（兼容 OpenAI）</string>
+    <string name="select_image">选择图片</string>
+    <string name="kimi_image_input_only_supported">当前仅 Kimi 对话支持选择图片。</string>
+    <string name="kimi_supported_image_formats">Kimi 当前仅支持 png、jpeg、webp、gif 图片。</string>
+    <string name="failed_to_select_image">选择图片失败。</string>
     <string name="export_source_code">导出源码</string>
     <string name="export_apk">导出安装包</string>
     <string name="projects">项目</string>

@@ -9,6 +9,12 @@ import java.io.FileInputStream
 import java.io.InputStream
 
 object FileUtils {
+    private val kimiSupportedImageMimeTypes = setOf(
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/gif",
+    )
 
     /**
      * Read file from URI and encode to base64
@@ -119,6 +125,8 @@ object FileUtils {
      * @return true if image, false otherwise
      */
     fun isImage(mimeType: String): Boolean = mimeType.startsWith("image/")
+
+    fun isKimiSupportedImage(mimeType: String): Boolean = mimeType.lowercase() in kimiSupportedImageMimeTypes
 
     /**
      * Check if file is a document based on MIME type
