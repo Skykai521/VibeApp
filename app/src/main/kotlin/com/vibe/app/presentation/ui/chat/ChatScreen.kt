@@ -71,6 +71,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
@@ -87,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider.getUriForFile
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.vibe.app.R
 import com.vibe.app.data.model.ClientType
 import com.vibe.app.util.FileUtils
@@ -812,6 +814,8 @@ private fun FileThumbnailRow(
     selectedFiles: List<String>,
     onFileRemoved: (String) -> Unit
 ) {
+    var previewImagePath by remember { mutableStateOf<String?>(null) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -822,15 +826,24 @@ private fun FileThumbnailRow(
         selectedFiles.forEach { filePath ->
             FileThumbnail(
                 filePath = filePath,
+                onImageClick = { previewImagePath = filePath },
                 onRemove = { onFileRemoved(filePath) }
             )
         }
+    }
+
+    previewImagePath?.let { imagePath ->
+        FullscreenImagePreview(
+            filePath = imagePath,
+            onDismissRequest = { previewImagePath = null }
+        )
     }
 }
 
 @Composable
 private fun FileThumbnail(
     filePath: String,
+    onImageClick: () -> Unit,
     onRemove: () -> Unit
 ) {
     val file = File(filePath)
@@ -845,13 +858,14 @@ private fun FileThumbnail(
                 .size(64.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(if (isImage) Modifier.clickable(onClick = onImageClick) else Modifier)
         ) {
             if (isImage) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_image),
+                AsyncImage(
+                    model = file,
                     contentDescription = file.name,
                     modifier = Modifier.fillMaxSize(),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentScale = ContentScale.Crop
                 )
             } else {
                 Icon(

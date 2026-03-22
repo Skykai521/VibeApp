@@ -1,13 +1,16 @@
 package com.vibe.app.presentation.ui.chat
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -31,12 +34,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -46,6 +53,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import com.halilibo.richtext.commonmark.CommonmarkAstNodeParser
 import com.halilibo.richtext.markdown.BasicMarkdown
 import com.halilibo.richtext.ui.CodeBlockStyle
@@ -93,7 +103,11 @@ fun UserChatBubble(
                 BasicMarkdown(astNode = astNode)
             }
         }
-        UserFileThumbnailRow(files = files)
+        UserFileThumbnailRow(
+            modifier = Modifier
+                .padding(top = 8.dp, end = 10.dp),
+            files = files
+        )
     }
 }
 
@@ -301,9 +315,13 @@ fun OpponentChatBubblePreview() {
 }
 
 @Composable
-private fun UserFileThumbnailRow(files: List<String>) {
+private fun UserFileThumbnailRow(
+    modifier: Modifier = Modifier,
+    files: List<String>
+) {
     // Filter out empty strings and check if we have valid files
     val validFiles = files.filter { it.isNotEmpty() && it.isNotBlank() }
+    var previewImagePath by remember { mutableStateOf<String?>(null) }
 
     Log.d("UserFileThumbnailRow", "Original files: $files (size: ${files.size})")
     Log.d("UserFileThumbnailRow", "Valid files: $validFiles (size: ${validFiles.size})")
@@ -312,42 +330,67 @@ private fun UserFileThumbnailRow(files: List<String>) {
         return
     }
 
-    Row(
-        modifier = Modifier
-            .padding(top = 8.dp)
-            .wrapContentHeight()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
+        )
     ) {
-        validFiles.forEach { filePath ->
-            UserFileThumbnail(filePath = filePath)
+        Row(
+            modifier = Modifier
+                .wrapContentHeight()
+                .horizontalScroll(rememberScrollState())
+                .padding(12.dp),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
+        ) {
+            validFiles.forEach { filePath ->
+                UserFileThumbnail(
+                    filePath = filePath,
+                    onImageClick = { previewImagePath = filePath }
+                )
+            }
         }
+    }
+
+    previewImagePath?.let { imagePath ->
+        FullscreenImagePreview(
+            filePath = imagePath,
+            onDismissRequest = { previewImagePath = null }
+        )
     }
 }
 
 @Composable
-private fun UserFileThumbnail(filePath: String) {
+private fun UserFileThumbnail(
+    filePath: String,
+    onImageClick: () -> Unit
+) {
     val file = File(filePath)
     val isImage = isImageFile(file.extension)
+    val imageModel = remember(filePath) { Uri.fromFile(file) }
 
     Column(
-        modifier = Modifier.width(56.dp),
+        modifier = Modifier.width(if (isImage) 144.dp else 92.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .width(if (isImage) 144.dp else 92.dp)
+                .size(if (isImage) 144.dp else 92.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f))
+                .then(if (isImage) Modifier.clickable(onClick = onImageClick) else Modifier)
         ) {
             if (isImage) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_image),
+                AsyncImage(
+                    model = imageModel,
                     contentDescription = file.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             } else {
                 Icon(
@@ -364,13 +407,13 @@ private fun UserFileThumbnail(filePath: String) {
         Text(
             text = file.name,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier
-                .padding(top = 4.dp)
-                .width(56.dp)
+                .padding(top = 6.dp)
+                .width(if (isImage) 144.dp else 92.dp)
         )
     }
 }
@@ -387,6 +430,32 @@ private fun scrollableCodeBlockStyle(): RichTextStyle {
         ),
         stringStyle = RichTextStringStyle(codeStyle = SpanStyle(background = bgColor))
     )
+}
+
+@Composable
+fun FullscreenImagePreview(
+    filePath: String,
+    onDismissRequest: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+                .clickable(onClick = onDismissRequest),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = Uri.fromFile(File(filePath)),
+                contentDescription = File(filePath).name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        }
+    }
 }
 
 private fun isImageFile(extension: String?): Boolean {
