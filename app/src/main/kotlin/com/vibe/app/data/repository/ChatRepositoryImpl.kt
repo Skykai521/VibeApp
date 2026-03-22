@@ -45,6 +45,12 @@ import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.network.AnthropicAPI
 import com.vibe.app.data.network.GoogleAPI
 import com.vibe.app.data.network.OpenAIAPI
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.DiagnosticContext
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
+import com.vibe.app.feature.diagnostic.clipPreview
+import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
 import com.vibe.app.util.FileUtils
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -61,7 +67,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val settingRepository: SettingRepository,
     private val openAIAPI: OpenAIAPI,
     private val anthropicAPI: AnthropicAPI,
-    private val googleAPI: GoogleAPI
+    private val googleAPI: GoogleAPI,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : ChatRepository {
 
     private fun isImageFile(extension: String): Boolean = extension in setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "svg")
@@ -103,32 +110,35 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun completeChat(
         userMessages: List<MessageV2>,
         assistantMessages: List<List<MessageV2>>,
-        platform: PlatformV2
+        platform: PlatformV2,
+        diagnosticContext: DiagnosticContext?,
     ): Flow<ApiState> = when (platform.compatibleType) {
         ClientType.OPENAI, ClientType.QWEN -> {
             // Use Responses API for OpenAI (supports reasoning/thinking)
-            completeChatWithOpenAIResponses(userMessages, assistantMessages, platform)
+            completeChatWithOpenAIResponses(userMessages, assistantMessages, platform, diagnosticContext)
         }
 
         ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM, ClientType.KIMI -> {
             // Use Chat Completions API for OpenAI-compatible services
-            completeChatWithOpenAIChatCompletions(userMessages, assistantMessages, platform)
+            completeChatWithOpenAIChatCompletions(userMessages, assistantMessages, platform, diagnosticContext)
         }
 
         ClientType.ANTHROPIC -> {
-            completeChatWithAnthropic(userMessages, assistantMessages, platform)
+            completeChatWithAnthropic(userMessages, assistantMessages, platform, diagnosticContext)
         }
 
         ClientType.GOOGLE -> {
-            completeChatWithGoogle(userMessages, assistantMessages, platform)
+            completeChatWithGoogle(userMessages, assistantMessages, platform, diagnosticContext)
         }
     }
 
     private suspend fun completeChatWithOpenAIResponses(
         userMessages: List<MessageV2>,
         assistantMessages: List<List<MessageV2>>,
-        platform: PlatformV2
+        platform: PlatformV2,
+        diagnosticContext: DiagnosticContext?,
     ): Flow<ApiState> = try {
+        val trace = ModelExecutionTrace()
         // Configure API
         openAIAPI.setToken(platform.token)
         openAIAPI.setAPIUrl(platform.apiUrl)
@@ -169,26 +179,46 @@ class ChatRepositoryImpl @Inject constructor(
             },
             responseFormat = platform.qwenResponseFormatOrNull(),
         )
+        trace.markRequestPrepared()
+        val requestContext = createModelRequestDiagnosticContext(
+            diagnosticContext = diagnosticContext,
+            platform = platform,
+            apiFamily = "responses",
+            stream = true,
+            messageCount = inputMessages.size,
+            userMessageCount = userMessages.size,
+            assistantMessageCount = assistantMessages.flatten().count { it.platformType == platform.uid && it.content.isNotBlank() },
+            systemPrompt = platform.systemPrompt,
+            imageCount = countImageFiles(userMessages),
+        )
 
         // Stream response
         flow {
             emit(ApiState.Loading)
-            openAIAPI.streamResponses(request).collect { event ->
+            openAIAPI.streamResponses(request, requestContext, trace).collect { event ->
                 when (event) {
                     is ReasoningSummaryTextDeltaEvent -> {
+                        trace.markThinking(event.delta)
                         emit(ApiState.Thinking(event.delta))
                     }
 
                     is OutputTextDeltaEvent -> {
+                        trace.markOutput(event.delta)
                         emit(ApiState.Success(event.delta))
                     }
 
                     is ResponseFailedEvent -> {
                         val errorMessage = event.response.error?.message ?: "Response failed"
+                        trace.finishReason = event.response.error?.code?.toString()
+                        trace.markFailed("provider_error", errorMessage)
                         emit(ApiState.Error(errorMessage))
                     }
 
                     is ResponseErrorEvent -> {
+                        trace.markFailed(
+                            errorKind = if (event.code == "network_error") "network_error" else "provider_error",
+                            errorMessage = event.message,
+                        )
                         emit(ApiState.Error(event.message))
                     }
 
@@ -198,8 +228,16 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
         }.catch { e ->
+            trace.markFailed("provider_error", e.message ?: "Unknown error")
             emit(ApiState.Error(e.message ?: "Unknown error"))
         }.onCompletion {
+            if (trace.errorKind == null) {
+                trace.markCompleted()
+            }
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, trace.errorKind == null)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(ApiState.Done)
         }
     } catch (e: Exception) {
@@ -209,8 +247,10 @@ class ChatRepositoryImpl @Inject constructor(
     private suspend fun completeChatWithOpenAIChatCompletions(
         userMessages: List<MessageV2>,
         assistantMessages: List<List<MessageV2>>,
-        platform: PlatformV2
+        platform: PlatformV2,
+        diagnosticContext: DiagnosticContext?,
     ): Flow<ApiState> = try {
+        val trace = ModelExecutionTrace()
         // Configure API
         openAIAPI.setToken(platform.token)
         openAIAPI.setAPIUrl(platform.apiUrl)
@@ -251,22 +291,48 @@ class ChatRepositoryImpl @Inject constructor(
             temperature = platform.temperature,
             topP = platform.topP
         )
+        trace.markRequestPrepared()
+        val requestContext = createModelRequestDiagnosticContext(
+            diagnosticContext = diagnosticContext,
+            platform = platform,
+            apiFamily = "chat_completions",
+            stream = platform.stream,
+            messageCount = messages.size,
+            userMessageCount = userMessages.size,
+            assistantMessageCount = assistantMessages.flatten().count { it.platformType == platform.uid && it.content.isNotBlank() },
+            systemPrompt = platform.systemPrompt,
+            imageCount = countImageFiles(userMessages),
+        )
 
         // Stream response
         flow {
             emit(ApiState.Loading)
-            openAIAPI.streamChatCompletion(request).collect { chunk ->
+            openAIAPI.streamChatCompletion(request, requestContext, trace).collect { chunk ->
                 when {
-                    chunk.error != null -> emit(ApiState.Error(chunk.error.message))
+                    chunk.error != null -> {
+                        trace.markFailed(chunk.error.type ?: "provider_error", chunk.error.message)
+                        emit(ApiState.Error(chunk.error.message))
+                    }
 
                     chunk.choices?.firstOrNull()?.delta?.content != null -> {
-                        emit(ApiState.Success(chunk.choices.first().delta.content!!))
+                        val delta = chunk.choices.first().delta.content!!
+                        trace.finishReason = chunk.choices.first().finishReason ?: trace.finishReason
+                        trace.markOutput(delta)
+                        emit(ApiState.Success(delta))
                     }
                 }
             }
         }.catch { e ->
+            trace.markFailed("provider_error", e.message ?: "Unknown error")
             emit(ApiState.Error(e.message ?: "Unknown error"))
         }.onCompletion {
+            if (trace.errorKind == null) {
+                trace.markCompleted(trace.finishReason)
+            }
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, trace.errorKind == null)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(ApiState.Done)
         }
     } catch (e: Exception) {
@@ -345,8 +411,10 @@ class ChatRepositoryImpl @Inject constructor(
     private suspend fun completeChatWithAnthropic(
         userMessages: List<MessageV2>,
         assistantMessages: List<List<MessageV2>>,
-        platform: PlatformV2
+        platform: PlatformV2,
+        diagnosticContext: DiagnosticContext?,
     ): Flow<ApiState> = try {
+        val trace = ModelExecutionTrace()
         // Configure API
         anthropicAPI.setToken(platform.token)
         anthropicAPI.setAPIUrl(platform.apiUrl)
@@ -387,20 +455,38 @@ class ChatRepositoryImpl @Inject constructor(
                 null
             }
         )
+        trace.markRequestPrepared()
+        val requestContext = createModelRequestDiagnosticContext(
+            diagnosticContext = diagnosticContext,
+            platform = platform,
+            apiFamily = "messages",
+            stream = platform.stream,
+            messageCount = messages.size,
+            userMessageCount = userMessages.size,
+            assistantMessageCount = assistantMessages.flatten().count { it.platformType == platform.uid && it.content.isNotBlank() },
+            systemPrompt = platform.systemPrompt,
+            imageCount = countImageFiles(userMessages),
+        )
 
         // Stream response
         flow {
             emit(ApiState.Loading)
-            anthropicAPI.streamChatMessage(request).collect { chunk ->
+            anthropicAPI.streamChatMessage(request, requestContext, trace).collect { chunk ->
                 when (chunk) {
                     is com.vibe.app.data.dto.anthropic.response.ContentDeltaResponseChunk -> {
                         when (chunk.delta.type) {
                             com.vibe.app.data.dto.anthropic.response.ContentBlockType.THINKING_DELTA -> {
-                                chunk.delta.thinking?.let { emit(ApiState.Thinking(it)) }
+                                chunk.delta.thinking?.let {
+                                    trace.markThinking(it)
+                                    emit(ApiState.Thinking(it))
+                                }
                             }
 
                             com.vibe.app.data.dto.anthropic.response.ContentBlockType.DELTA -> {
-                                chunk.delta.text?.let { emit(ApiState.Success(it)) }
+                                chunk.delta.text?.let {
+                                    trace.markOutput(it)
+                                    emit(ApiState.Success(it))
+                                }
                             }
 
                             // Ignore signature blocks and other types
@@ -409,6 +495,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
 
                     is com.vibe.app.data.dto.anthropic.response.ErrorResponseChunk -> {
+                        trace.markFailed("provider_error", chunk.error.message)
                         emit(ApiState.Error(chunk.error.message))
                     }
 
@@ -416,8 +503,16 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
         }.catch { e ->
+            trace.markFailed("provider_error", e.message ?: "Unknown error")
             emit(ApiState.Error(e.message ?: "Unknown error"))
         }.onCompletion {
+            if (trace.errorKind == null) {
+                trace.markCompleted()
+            }
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, trace.errorKind == null)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(ApiState.Done)
         }
     } catch (e: Exception) {
@@ -465,8 +560,10 @@ class ChatRepositoryImpl @Inject constructor(
     private suspend fun completeChatWithGoogle(
         userMessages: List<MessageV2>,
         assistantMessages: List<List<MessageV2>>,
-        platform: PlatformV2
+        platform: PlatformV2,
+        diagnosticContext: DiagnosticContext?,
     ): Flow<ApiState> = try {
+        val trace = ModelExecutionTrace()
         // Configure API
         googleAPI.setToken(platform.token)
         googleAPI.setAPIUrl(platform.apiUrl)
@@ -508,21 +605,42 @@ class ChatRepositoryImpl @Inject constructor(
                 )
             }
         )
+        trace.markRequestPrepared()
+        val requestContext = createModelRequestDiagnosticContext(
+            diagnosticContext = diagnosticContext,
+            platform = platform,
+            apiFamily = "generate_content",
+            stream = true,
+            messageCount = contents.size,
+            userMessageCount = userMessages.size,
+            assistantMessageCount = assistantMessages.flatten().count { it.platformType == platform.uid && it.content.isNotBlank() },
+            systemPrompt = platform.systemPrompt,
+            imageCount = countImageFiles(userMessages),
+        )
 
         // Stream response
         flow {
             emit(ApiState.Loading)
-            googleAPI.streamGenerateContent(request, platform.model).collect { response ->
+            googleAPI.streamGenerateContent(request, platform.model, requestContext, trace).collect { response ->
                 when {
-                    response.error != null -> emit(ApiState.Error(response.error.message))
+                    response.error != null -> {
+                        trace.markFailed(
+                            errorKind = response.error.status?.lowercase() ?: "provider_error",
+                            errorMessage = response.error.message,
+                        )
+                        emit(ApiState.Error(response.error.message))
+                    }
 
                     response.candidates?.firstOrNull()?.content?.parts != null -> {
+                        trace.finishReason = response.candidates.firstOrNull()?.finishReason ?: trace.finishReason
                         val parts = response.candidates.first().content.parts
                         parts.forEach { part ->
                             part.text?.let { text ->
                                 if (part.thought == true) {
+                                    trace.markThinking(text)
                                     emit(ApiState.Thinking(text))
                                 } else {
+                                    trace.markOutput(text)
                                     emit(ApiState.Success(text))
                                 }
                             }
@@ -531,8 +649,16 @@ class ChatRepositoryImpl @Inject constructor(
                 }
             }
         }.catch { e ->
+            trace.markFailed("provider_error", e.message ?: "Unknown error")
             emit(ApiState.Error(e.message ?: "Unknown error"))
         }.onCompletion {
+            if (trace.errorKind == null) {
+                trace.markCompleted(trace.finishReason)
+            }
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, trace.errorKind == null)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(ApiState.Done)
         }
     } catch (e: Exception) {
@@ -559,6 +685,44 @@ class ChatRepositoryImpl @Inject constructor(
         }
 
         return Content(role = role, parts = parts)
+    }
+
+    private fun createModelRequestDiagnosticContext(
+        diagnosticContext: DiagnosticContext?,
+        platform: PlatformV2,
+        apiFamily: String,
+        stream: Boolean,
+        messageCount: Int,
+        userMessageCount: Int,
+        assistantMessageCount: Int,
+        systemPrompt: String?,
+        imageCount: Int,
+    ): ModelRequestDiagnosticContext? {
+        return diagnosticContext?.copy(platformUid = platform.uid)?.let { context ->
+            ModelRequestDiagnosticContext(
+                diagnosticContext = context,
+                providerType = platform.compatibleType.toDiagnosticProviderType(),
+                apiFamily = apiFamily,
+                model = platform.model,
+                stream = stream,
+                reasoningEnabled = platform.reasoning,
+                messageCount = messageCount,
+                userMessageCount = userMessageCount,
+                assistantMessageCount = assistantMessageCount,
+                systemPromptPresent = !systemPrompt.isNullOrBlank(),
+                systemPromptChars = systemPrompt?.length?.takeIf { it > 0 },
+                hasImages = imageCount > 0,
+                imageCount = imageCount.takeIf { it > 0 },
+            )
+        }
+    }
+
+    private fun countImageFiles(messages: List<MessageV2>): Int {
+        return messages.sumOf { message ->
+            message.files.count { fileUri ->
+                FileUtils.isImage(FileUtils.getMimeType(context, fileUri))
+            }
+        }
     }
 
     override suspend fun fetchChatListV2(): List<ChatRoomV2> = chatRoomV2Dao.getChatRooms()

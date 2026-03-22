@@ -16,6 +16,10 @@ import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolChoiceMode
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
+import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
 import com.vibe.app.util.FileUtils
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +43,7 @@ import kotlinx.serialization.json.jsonObject
 class KimiChatCompletionsAgentGateway @Inject constructor(
     @ApplicationContext private val context: Context,
     private val openAIAPI: OpenAIAPI,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
 
     private val json = Json {
@@ -50,8 +55,27 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
         openAIAPI.setToken(request.platform.token)
         openAIAPI.setAPIUrl(request.platform.apiUrl.toKimiBaseUrl())
+        val trace = ModelExecutionTrace()
 
         val messages = buildMessages(request)
+        trace.markRequestPrepared()
+        val requestContext = request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+            ModelRequestDiagnosticContext(
+                diagnosticContext = diagnosticContext,
+                providerType = request.platform.compatibleType.toDiagnosticProviderType(),
+                apiFamily = "chat_completions",
+                model = request.platform.model,
+                stream = false,
+                reasoningEnabled = request.platform.reasoning,
+                messageCount = messages.size,
+                toolCount = request.tools.size.takeIf { it > 0 },
+                toolChoiceMode = "auto".takeIf { request.tools.isNotEmpty() },
+                systemPromptPresent = true,
+                systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
+                hasImages = request.fullConversation.any { it.attachments.isNotEmpty() },
+                imageCount = request.fullConversation.sumOf { it.attachments.size }.takeIf { it > 0 },
+            )
+        }
         val response = openAIAPI.completeQwenChatCompletion(
             QwenChatCompletionRequest(
                 model = request.platform.model,
@@ -68,27 +92,50 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
                 toolChoice = if (request.tools.isNotEmpty()) "auto" else null,
                 stream = false,
             ),
+            diagnosticContext = requestContext,
+            trace = trace,
         )
 
         if (response.error != null) {
+            trace.markFailed(response.error.type ?: "provider_error", response.error.message)
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, success = false)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(AgentModelEvent.Failed(response.error.message))
             return@flow
         }
 
         val choice = response.choices?.firstOrNull()
         if (choice == null) {
+            trace.markFailed("provider_error", "Kimi chat completion returned no choices")
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, success = false)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(AgentModelEvent.Failed("Kimi chat completion returned no choices"))
             return@flow
         }
 
+        trace.finishReason = choice.finishReason
         choice.message.content
             ?.takeIf { it.isNotBlank() }
-            ?.let { emit(AgentModelEvent.OutputDelta(it)) }
+            ?.let {
+                trace.markOutput(it)
+                emit(AgentModelEvent.OutputDelta(it))
+            }
 
         choice.message.toolCalls.orEmpty().forEach { toolCall ->
+            trace.markToolCall()
             emit(AgentModelEvent.ToolCallReady(toolCall.toAgentToolCall(json)))
         }
 
+        choice.message.reasoningContent?.let { trace.markThinking(it) }
+        trace.markCompleted(choice.finishReason)
+        if (requestContext != null) {
+            diagnosticLogger.logModelResponse(requestContext, trace, success = true)
+            diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+        }
         emit(AgentModelEvent.Completed(reasoningContent = choice.message.reasoningContent))
     }
 

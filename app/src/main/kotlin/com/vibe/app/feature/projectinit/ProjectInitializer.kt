@@ -2,9 +2,14 @@ package com.vibe.app.feature.projectinit
 
 import android.content.Context
 import android.util.Log
+import com.vibe.app.data.repository.ProjectRepository
+import com.vibe.app.feature.diagnostic.BuildTriggerSource
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.DiagnosticContext
 import com.vibe.build.engine.model.BuildResult
 import com.vibe.build.engine.model.CompileInput
 import com.vibe.build.engine.model.EngineBuildType
+import com.vibe.build.engine.pipeline.BuildProgressState
 import com.vibe.build.engine.pipeline.BuildPipeline
 import com.vibe.build.engine.pipeline.BuildProgressListener
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +25,8 @@ import kotlinx.coroutines.withContext
 class ProjectInitializer @Inject constructor(
     @ApplicationContext private val context: Context,
     private val buildPipeline: BuildPipeline,
+    private val projectRepository: ProjectRepository,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) {
 
     private val tag = "ProjectInitializer"
@@ -47,7 +54,7 @@ class ProjectInitializer @Inject constructor(
         Log.d(tag, "initProject started")
         val project = prepareTemplateProject(forceReset = true)
         Log.d(tag, "Template project prepared at ${project.appModuleDir.absolutePath}")
-        val result = buildProject(project)
+        val result = buildProject(project, triggerSource = BuildTriggerSource.TEMPLATE_INIT)
         Log.d(
             tag,
             "initProject finished with status=${result.status}, error=${result.errorMessage}, logs=${result.logs.size}",
@@ -61,7 +68,7 @@ class ProjectInitializer @Inject constructor(
 
     suspend fun buildTemplateProject(): BuildResult = withContext(Dispatchers.IO) {
         val project = ensureTemplateProject()
-        buildProject(project)
+        buildProject(project, triggerSource = BuildTriggerSource.TEMPLATE_INIT)
     }
 
     /**
@@ -145,10 +152,11 @@ class ProjectInitializer @Inject constructor(
      */
     suspend fun buildProject(
         projectId: String,
+        triggerSource: String = BuildTriggerSource.CHAT_BUTTON,
         progressListener: BuildProgressListener? = null,
     ): BuildResult = withContext(Dispatchers.IO) {
         val project = ensureProject(projectId)
-        buildProject(project, progressListener)
+        buildProject(project, triggerSource, progressListener)
     }
 
     suspend fun ensureProjectLauncherResources(projectId: String) = withContext(Dispatchers.IO) {
@@ -159,9 +167,43 @@ class ProjectInitializer @Inject constructor(
 
     private suspend fun buildProject(
         project: TemplateProject,
+        triggerSource: String = BuildTriggerSource.CHAT_BUTTON,
         progressListener: BuildProgressListener? = null,
     ): BuildResult {
-        return buildPipeline.run(project.toCompileInput(), progressListener)
+        val startedAt = System.currentTimeMillis()
+        val stageStartedAt = mutableMapOf<com.vibe.build.engine.model.BuildStage, Long>()
+        val stageDurations = mutableMapOf<com.vibe.build.engine.model.BuildStage, Long>()
+        val wrappedListener = BuildProgressListener { update ->
+            when (update.state) {
+                BuildProgressState.STARTED -> {
+                    stageStartedAt[update.stage] = System.currentTimeMillis()
+                }
+
+                BuildProgressState.COMPLETED -> {
+                    val stageStart = stageStartedAt[update.stage]
+                    if (stageStart != null) {
+                        stageDurations[update.stage] = (System.currentTimeMillis() - stageStart).coerceAtLeast(0L)
+                    }
+                }
+            }
+            progressListener?.onProgress(update)
+        }
+        val result = buildPipeline.run(project.toCompileInput(), wrappedListener)
+        val completedAt = System.currentTimeMillis()
+        val chatId = projectRepository.fetchProject(project.projectId)?.chat?.id
+        val diagnosticContext = DiagnosticContext(
+            chatId = chatId ?: 0,
+            projectId = project.projectId,
+        )
+        diagnosticLogger.logBuildResult(
+            context = diagnosticContext,
+            triggerSource = triggerSource,
+            result = result,
+            startedAt = startedAt,
+            stageDurations = stageDurations,
+            completedAt = completedAt,
+        )
+        return result
     }
 
     private fun prepareTemplateProject(forceReset: Boolean): TemplateProject {

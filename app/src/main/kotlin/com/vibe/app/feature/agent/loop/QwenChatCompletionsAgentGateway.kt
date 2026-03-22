@@ -14,6 +14,10 @@ import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
+import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +30,7 @@ import kotlinx.serialization.json.jsonObject
 @Singleton
 class QwenChatCompletionsAgentGateway @Inject constructor(
     private val openAIAPI: OpenAIAPI,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
 
     private val json = Json {
@@ -37,8 +42,25 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
         openAIAPI.setToken(request.platform.token)
         openAIAPI.setAPIUrl(request.platform.apiUrl.toQwenChatCompletionsBaseUrl())
+        val trace = ModelExecutionTrace()
 
         val messages = buildMessages(request)
+        trace.markRequestPrepared()
+        val requestContext = request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+            ModelRequestDiagnosticContext(
+                diagnosticContext = diagnosticContext,
+                providerType = request.platform.compatibleType.toDiagnosticProviderType(),
+                apiFamily = "chat_completions",
+                model = request.platform.model,
+                stream = false,
+                reasoningEnabled = request.platform.reasoning,
+                messageCount = messages.size,
+                toolCount = request.tools.size.takeIf { it > 0 },
+                toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),
+                systemPromptPresent = !request.instructions.isNullOrBlank(),
+                systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
+            )
+        }
         val response = openAIAPI.completeQwenChatCompletion(
             QwenChatCompletionRequest(
                 model = request.platform.model,
@@ -55,27 +77,49 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 toolChoice = request.policy.toolChoiceMode.name.lowercase(),
                 stream = false,
             ),
+            diagnosticContext = requestContext,
+            trace = trace,
         )
 
         if (response.error != null) {
+            trace.markFailed(response.error.type ?: "provider_error", response.error.message)
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, success = false)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(AgentModelEvent.Failed(response.error.message))
             return@flow
         }
 
         val choice = response.choices?.firstOrNull()
         if (choice == null) {
+            trace.markFailed("provider_error", "Qwen chat completion returned no choices")
+            if (requestContext != null) {
+                diagnosticLogger.logModelResponse(requestContext, trace, success = false)
+                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+            }
             emit(AgentModelEvent.Failed("Qwen chat completion returned no choices"))
             return@flow
         }
 
+        trace.finishReason = choice.finishReason
         choice.message.content
             ?.takeIf { it.isNotBlank() }
-            ?.let { emit(AgentModelEvent.OutputDelta(it)) }
+            ?.let {
+                trace.markOutput(it)
+                emit(AgentModelEvent.OutputDelta(it))
+            }
 
         choice.message.toolCalls.orEmpty().forEach { toolCall ->
+            trace.markToolCall()
             emit(AgentModelEvent.ToolCallReady(toolCall.toAgentToolCall(json)))
         }
 
+        trace.markCompleted(choice.finishReason)
+        if (requestContext != null) {
+            diagnosticLogger.logModelResponse(requestContext, trace, success = true)
+            diagnosticLogger.logLatencyBreakdown(requestContext, trace)
+        }
         emit(AgentModelEvent.Completed())
     }
 

@@ -2,6 +2,7 @@ package com.vibe.app.feature.project
 
 import android.util.Log
 import com.vibe.app.data.database.entity.Project
+import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.build.engine.model.BuildResult
 import java.io.File
@@ -57,7 +58,10 @@ class DefaultProjectWorkspace(
     }
 
     override suspend fun buildProject(): BuildResult =
-        projectInitializer.buildProject(projectId)
+        projectInitializer.buildProject(
+            projectId = projectId,
+            triggerSource = BuildTriggerSource.AGENT_TOOL,
+        )
 
     override suspend fun resolveFile(relativePath: String): File = withContext(Dispatchers.IO) {
         require(relativePath.isNotBlank()) { "relativePath must not be blank" }

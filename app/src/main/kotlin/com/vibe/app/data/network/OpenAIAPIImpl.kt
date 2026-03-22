@@ -10,6 +10,9 @@ import com.vibe.app.data.dto.openai.response.ResponsesStreamEvent
 import com.vibe.app.data.dto.openai.response.UnknownEvent
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.response.QwenChatCompletionResponse
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
@@ -28,7 +31,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.encodeToJsonElement
 
 class OpenAIAPIImpl @Inject constructor(
-    private val networkClient: NetworkClient
+    private val networkClient: NetworkClient,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : OpenAIAPI {
 
     private var token: String? = null
@@ -42,9 +46,23 @@ class OpenAIAPIImpl @Inject constructor(
         this.apiUrl = url
     }
 
-    override suspend fun completeQwenChatCompletion(request: QwenChatCompletionRequest): QwenChatCompletionResponse {
+    override suspend fun completeQwenChatCompletion(
+        request: QwenChatCompletionRequest,
+        diagnosticContext: ModelRequestDiagnosticContext?,
+        trace: ModelExecutionTrace?,
+    ): QwenChatCompletionResponse {
         val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
         val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
+        val requestStartedAt = System.currentTimeMillis()
+        trace?.markRequestStarted(requestStartedAt)
+        diagnosticContext?.let {
+            diagnosticLogger.logModelRequest(
+                context = it,
+                endpointUrl = endpoint,
+                requestBodyBytesApprox = requestBody.toByteArray().size,
+                startedAt = requestStartedAt,
+            )
+        }
 
         NetworkLogcatLogger.logRequest(
             method = "POST",
@@ -60,13 +78,14 @@ class OpenAIAPIImpl @Inject constructor(
         )
 
         return try {
-            val startTime = System.currentTimeMillis()
+            val startTime = requestStartedAt
             networkClient().preparePost(endpoint) {
                 contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 setBody(requestBody)
                 token?.let { bearerAuth(it) }
             }.execute { response ->
+                trace?.markFirstByte(response.status.value)
                 val rawBody = response.body<String>()
                 NetworkLogcatLogger.logResponse(
                     method = "POST",
@@ -80,6 +99,7 @@ class OpenAIAPIImpl @Inject constructor(
                 )
 
                 if (!response.status.isSuccess()) {
+                    trace?.updateStatusCode(response.status.value)
                     return@execute QwenChatCompletionResponse(
                         error = com.vibe.app.data.dto.qwen.response.QwenErrorDetail(
                             message = rawBody,
@@ -101,6 +121,7 @@ class OpenAIAPIImpl @Inject constructor(
             }
         } catch (e: io.ktor.client.plugins.ClientRequestException) {
             val errorBody = e.response.body<String>()
+            trace?.updateStatusCode(e.response.status.value)
             NetworkLogcatLogger.logResponse(
                 method = "POST",
                 url = endpoint,
@@ -118,6 +139,7 @@ class OpenAIAPIImpl @Inject constructor(
             )
         } catch (e: io.ktor.client.plugins.ServerResponseException) {
             val errorBody = e.response.body<String>()
+            trace?.updateStatusCode(e.response.status.value)
             NetworkLogcatLogger.logResponse(
                 method = "POST",
                 url = endpoint,
@@ -144,19 +166,34 @@ class OpenAIAPIImpl @Inject constructor(
         }
     }
 
-    override fun streamChatCompletion(request: ChatCompletionRequest): Flow<ChatCompletionChunk> = flow {
+    override fun streamChatCompletion(
+        request: ChatCompletionRequest,
+        diagnosticContext: ModelRequestDiagnosticContext?,
+        trace: ModelExecutionTrace?,
+    ): Flow<ChatCompletionChunk> = flow {
         val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
         val requestBody = NetworkClient.openAIJson.encodeToJsonElement(request).toString()
+        val requestStartedAt = System.currentTimeMillis()
+        trace?.markRequestStarted(requestStartedAt)
+        diagnosticContext?.let {
+            diagnosticLogger.logModelRequest(
+                context = it,
+                endpointUrl = endpoint,
+                requestBodyBytesApprox = requestBody.toByteArray().size,
+                startedAt = requestStartedAt,
+            )
+        }
         logOpenAiRequest(endpoint, requestBody)
 
         try {
-            val startTime = System.currentTimeMillis()
+            val startTime = requestStartedAt
             networkClient().preparePost(endpoint) {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody)
                 accept(ContentType.Text.EventStream)
                 token?.let { bearerAuth(it) }
             }.execute { response ->
+                trace?.markFirstByte(response.status.value)
                 NetworkLogcatLogger.logResponse(
                     method = "POST",
                     url = endpoint,
@@ -170,6 +207,7 @@ class OpenAIAPIImpl @Inject constructor(
 
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    trace?.updateStatusCode(response.status.value)
                     NetworkLogcatLogger.logResponse(
                         method = "POST",
                         url = endpoint,
@@ -238,19 +276,34 @@ class OpenAIAPIImpl @Inject constructor(
         }
     }
 
-    override fun streamResponses(request: ResponsesRequest): Flow<ResponsesStreamEvent> = flow {
+    override fun streamResponses(
+        request: ResponsesRequest,
+        diagnosticContext: ModelRequestDiagnosticContext?,
+        trace: ModelExecutionTrace?,
+    ): Flow<ResponsesStreamEvent> = flow {
         val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/responses" else "$apiUrl/v1/responses"
         val requestBody = NetworkClient.openAIJson.encodeToJsonElement(request).toString()
+        val requestStartedAt = System.currentTimeMillis()
+        trace?.markRequestStarted(requestStartedAt)
+        diagnosticContext?.let {
+            diagnosticLogger.logModelRequest(
+                context = it,
+                endpointUrl = endpoint,
+                requestBodyBytesApprox = requestBody.toByteArray().size,
+                startedAt = requestStartedAt,
+            )
+        }
         logOpenAiRequest(endpoint, requestBody)
 
         try {
-            val startTime = System.currentTimeMillis()
+            val startTime = requestStartedAt
             networkClient().preparePost(endpoint) {
                 contentType(ContentType.Application.Json)
                 setBody(requestBody)
                 accept(ContentType.Text.EventStream)
                 token?.let { bearerAuth(it) }
             }.execute { response ->
+                trace?.markFirstByte(response.status.value)
                 NetworkLogcatLogger.logResponse(
                     method = "POST",
                     url = endpoint,
@@ -264,6 +317,7 @@ class OpenAIAPIImpl @Inject constructor(
 
                 if (!response.status.isSuccess()) {
                     val errorBody = response.body<String>()
+                    trace?.updateStatusCode(response.status.value)
                     NetworkLogcatLogger.logResponse(
                         method = "POST",
                         url = endpoint,

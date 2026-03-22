@@ -18,6 +18,10 @@ import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.ModelExecutionTrace
+import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
+import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +34,7 @@ import kotlinx.serialization.json.buildJsonObject
 @Singleton
 class OpenAiResponsesAgentGateway @Inject constructor(
     private val openAIAPI: OpenAIAPI,
+    private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
 
     private val json = Json {
@@ -41,6 +46,7 @@ class OpenAiResponsesAgentGateway @Inject constructor(
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
         openAIAPI.setToken(request.platform.token)
         openAIAPI.setAPIUrl(request.platform.apiUrl)
+        val trace = ModelExecutionTrace()
 
         val responseRequest = ResponsesRequest(
             model = request.platform.model,
@@ -58,24 +64,51 @@ class OpenAiResponsesAgentGateway @Inject constructor(
             },
             toolChoice = request.policy.toolChoiceMode.name.lowercase(),
         )
+        trace.markRequestPrepared()
+        val requestContext = request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+            ModelRequestDiagnosticContext(
+                diagnosticContext = diagnosticContext,
+                providerType = request.platform.compatibleType.toDiagnosticProviderType(),
+                apiFamily = "responses",
+                model = request.platform.model,
+                stream = true,
+                reasoningEnabled = request.platform.reasoning,
+                messageCount = request.conversation.size,
+                toolCount = request.tools.size.takeIf { it > 0 },
+                toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),
+                systemPromptPresent = !request.instructions.isNullOrBlank(),
+                systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
+            )
+        }
 
         var lastResponseId: String? = request.previousResponseId
 
-        openAIAPI.streamResponses(responseRequest).collect { event ->
+        openAIAPI.streamResponses(responseRequest, requestContext, trace).collect { event ->
             when (event) {
-                is ReasoningSummaryTextDeltaEvent -> emit(AgentModelEvent.ThinkingDelta(event.delta))
-                is OutputTextDeltaEvent -> emit(AgentModelEvent.OutputDelta(event.delta))
+                is ReasoningSummaryTextDeltaEvent -> {
+                    trace.markThinking(event.delta)
+                    emit(AgentModelEvent.ThinkingDelta(event.delta))
+                }
+                is OutputTextDeltaEvent -> {
+                    trace.markOutput(event.delta)
+                    emit(AgentModelEvent.OutputDelta(event.delta))
+                }
                 is ResponseCreatedEvent -> lastResponseId = event.response.id
                 is ResponseCompletedEvent -> {
                     lastResponseId = event.response.id
+                    trace.markCompleted()
                     emit(AgentModelEvent.Completed(responseId = lastResponseId))
                 }
 
                 is OutputItemDoneEvent -> {
-                    event.toToolCallOrNull(json)?.let { emit(AgentModelEvent.ToolCallReady(it)) }
+                    event.toToolCallOrNull(json)?.let {
+                        trace.markToolCall()
+                        emit(AgentModelEvent.ToolCallReady(it))
+                    }
                 }
 
                 is ResponseFailedEvent -> {
+                    trace.markFailed("provider_error", event.response.error?.message)
                     emit(
                         AgentModelEvent.Failed(
                             event.response.error?.message ?: "OpenAI Responses request failed",
@@ -83,9 +116,19 @@ class OpenAiResponsesAgentGateway @Inject constructor(
                     )
                 }
 
-                is ResponseErrorEvent -> emit(AgentModelEvent.Failed(event.message))
+                is ResponseErrorEvent -> {
+                    trace.markFailed(
+                        errorKind = if (event.code == "network_error") "network_error" else "provider_error",
+                        errorMessage = event.message,
+                    )
+                    emit(AgentModelEvent.Failed(event.message))
+                }
                 else -> Unit
             }
+        }
+        if (requestContext != null) {
+            diagnosticLogger.logModelResponse(requestContext, trace, trace.errorKind == null)
+            diagnosticLogger.logLatencyBreakdown(requestContext, trace)
         }
     }
 

@@ -206,7 +206,11 @@ fun ChatScreen(
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
                 chatViewModel::runBuild,
-                onExportChatItemClick = { exportChat(context, chatViewModel) },
+                onExportChatItemClick = {
+                    scope.launch {
+                        exportChat(context, chatViewModel)
+                    }
+                },
                 onExportSourceCodeItemClick = {
                     val projectId = currentProjectId ?: return@ChatTopBar
                     scope.launch { exportSourceCode(context, projectId) }
@@ -659,14 +663,31 @@ private fun installApk(context: Context, apkPath: String) {
     }
 }
 
-private fun exportChat(context: Context, chatViewModel: ChatViewModel) {
+private suspend fun exportChat(context: Context, chatViewModel: ChatViewModel) {
     try {
-        val (fileName, fileContent) = chatViewModel.exportChat()
-        val file = File(context.getExternalFilesDir(null), fileName)
-        file.writeText(fileContent)
-        val uri = getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val exportBundle = chatViewModel.exportChat()
+        val zipFile = File(context.getExternalFilesDir(null), exportBundle.zipFileName)
+        withContext(Dispatchers.IO) {
+            if (zipFile.exists()) zipFile.delete()
+            ZipOutputStream(zipFile.outputStream().buffered()).use { zos ->
+                zos.putNextEntry(ZipEntry("chat.md"))
+                zos.write(exportBundle.chatMarkdown.toByteArray())
+                zos.closeEntry()
+
+                exportBundle.diagnosticLogContent?.takeIf { it.isNotBlank() }?.let { diagnosticContent ->
+                    zos.putNextEntry(ZipEntry("diagnostic-log.ndjson"))
+                    zos.write(diagnosticContent.toByteArray())
+                    zos.closeEntry()
+                }
+
+                zos.putNextEntry(ZipEntry("manifest.json"))
+                zos.write(exportBundle.manifestJson.toByteArray())
+                zos.closeEntry()
+            }
+        }
+        val uri = getUriForFile(context, "${context.packageName}.fileprovider", zipFile)
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/markdown"
+            type = "application/zip"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

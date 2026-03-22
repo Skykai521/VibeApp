@@ -11,6 +11,7 @@ import com.vibe.app.data.network.GoogleAPIImpl
 import com.vibe.app.data.network.NetworkClient
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.data.network.OpenAIAPIImpl
+import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import io.ktor.client.engine.cio.CIO
 import javax.inject.Singleton
 
@@ -24,13 +25,22 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOpenAIAPI(networkClient: NetworkClient): OpenAIAPI = OpenAIAPIImpl(networkClient)
+    fun provideOpenAIAPI(
+        networkClient: NetworkClient,
+        diagnosticLogger: ChatDiagnosticLogger,
+    ): OpenAIAPI = OpenAIAPIImpl(networkClient, diagnosticLogger)
 
     @Provides
     @Singleton
-    fun provideAnthropicAPI(networkClient: NetworkClient): AnthropicAPI = AnthropicAPIImpl(networkClient)
+    fun provideAnthropicAPI(
+        networkClient: NetworkClient,
+        diagnosticLogger: ChatDiagnosticLogger,
+    ): AnthropicAPI = AnthropicAPIImpl(networkClient, diagnosticLogger)
 
     @Provides
     @Singleton
-    fun provideGoogleAPI(networkClient: NetworkClient): GoogleAPI = GoogleAPIImpl(networkClient)
+    fun provideGoogleAPI(
+        networkClient: NetworkClient,
+        diagnosticLogger: ChatDiagnosticLogger,
+    ): GoogleAPI = GoogleAPIImpl(networkClient, diagnosticLogger)
 }

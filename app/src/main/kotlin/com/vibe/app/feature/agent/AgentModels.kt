@@ -2,6 +2,7 @@ package com.vibe.app.feature.agent
 
 import com.vibe.app.data.database.entity.MessageV2
 import com.vibe.app.data.database.entity.PlatformV2
+import com.vibe.app.feature.diagnostic.DiagnosticContext
 import kotlinx.serialization.json.JsonElement
 
 enum class AgentMessageRole {
@@ -60,6 +61,7 @@ data class AgentToolResult(
 data class AgentLoopRequest(
     val chatId: Int,
     val projectId: String? = null,
+    val diagnosticContext: DiagnosticContext? = null,
     val platform: PlatformV2,
     val userMessages: List<MessageV2>,
     val assistantMessages: List<List<MessageV2>>,

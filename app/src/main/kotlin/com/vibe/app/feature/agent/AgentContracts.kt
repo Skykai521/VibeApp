@@ -1,6 +1,7 @@
 package com.vibe.app.feature.agent
 
 import com.vibe.app.data.database.entity.PlatformV2
+import com.vibe.app.feature.diagnostic.DiagnosticContext
 import kotlinx.coroutines.flow.Flow
 
 interface AgentTool {
@@ -27,6 +28,7 @@ interface AgentToolRegistry {
 
 data class AgentModelRequest(
     val platform: PlatformV2,
+    val diagnosticContext: DiagnosticContext? = null,
     // Delta items for this turn only (new messages since the last model response).
     // Stateful providers (OpenAI Responses API) use this together with previousResponseId.
     val conversation: List<AgentConversationItem>,
