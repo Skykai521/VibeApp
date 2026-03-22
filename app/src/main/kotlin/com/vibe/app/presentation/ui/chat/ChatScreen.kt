@@ -717,7 +717,7 @@ fun ChatInputBox(
                         onClick = { filePickerLauncher.launch("*/*") }
                     ) {
                         Icon(
-                            imageVector = ImageVector.vectorResource(R.drawable.ic_attach_file),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_add_file),
                             contentDescription = stringResource(R.string.attach_file)
                         )
                     }
@@ -739,7 +739,7 @@ fun ChatInputBox(
                         enabled = chatEnabled && sendButtonEnabled,
                         onClick = { onSendButtonClick(value) }
                     ) {
-                        Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send), contentDescription = stringResource(R.string.send))
+                        Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn), contentDescription = stringResource(R.string.send))
                     }
                 }
             }
