@@ -185,6 +185,7 @@ fun ChatScreen(
                 projectName ?: chatRoom.title,
                 isChatMenuEnabled,
                 runButtonEnabled,
+                isMoreOptionsEnabled = isIdle,
                 isProjectMenuEnabled,
                 buildProgress = buildProgress.progress,
                 isBuildProgressVisible = buildProgress.isVisible,
@@ -329,9 +330,11 @@ fun ChatScreen(
                 onValueChange = { s -> chatViewModel.updateQuestion(s) },
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
+                isResponding = !isIdle,
                 selectedFiles = selectedFiles,
                 onFileSelected = { filePath -> chatViewModel.addSelectedFile(filePath) },
-                onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) }
+                onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) },
+                onStopClick = { chatViewModel.stopResponding() }
             ) {
                 chatViewModel.askQuestion()
                 focusManager.clearFocus()
@@ -380,6 +383,7 @@ private fun ChatTopBar(
     title: String,
     isChatMenuEnabled: Boolean,
     isRunEnabled: Boolean,
+    isMoreOptionsEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     buildProgress: Float,
     isBuildProgressVisible: Boolean,
@@ -414,6 +418,7 @@ private fun ChatTopBar(
                     )
                 }
                 IconButton(
+                    enabled = isMoreOptionsEnabled,
                     onClick = { isDropDownMenuExpanded = isDropDownMenuExpanded.not() }
                 ) {
                     Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.options))
@@ -665,9 +670,11 @@ fun ChatInputBox(
     onValueChange: (String) -> Unit = {},
     chatEnabled: Boolean = true,
     sendButtonEnabled: Boolean = true,
+    isResponding: Boolean = false,
     selectedFiles: List<String> = emptyList(),
     onFileSelected: (String) -> Unit = {},
     onFileRemoved: (String) -> Unit = {},
+    onStopClick: () -> Unit = {},
     onSendButtonClick: (String) -> Unit = {}
 ) {
     val localStyle = LocalTextStyle.current
@@ -735,11 +742,19 @@ fun ChatInputBox(
                         }
                         innerTextField()
                     }
-                    IconButton(
-                        enabled = chatEnabled && sendButtonEnabled,
-                        onClick = { onSendButtonClick(value) }
-                    ) {
-                        Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn), contentDescription = stringResource(R.string.send))
+                    if (isResponding) {
+                        IconButton(
+                            onClick = { onStopClick() }
+                        ) {
+                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_pause), contentDescription = stringResource(R.string.stop))
+                        }
+                    } else {
+                        IconButton(
+                            enabled = chatEnabled && sendButtonEnabled,
+                            onClick = { onSendButtonClick(value) }
+                        ) {
+                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn), contentDescription = stringResource(R.string.send))
+                        }
                     }
                 }
             }
