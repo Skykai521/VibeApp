@@ -138,15 +138,16 @@ fun ChatScreen(
         }
     }
     val canUseChat = appEnabledPlatforms.isNotEmpty()
-    val isKimiImageInputEnabled = chatPlatforms.isNotEmpty() &&
+    val imageInputSupportedTypes = setOf(ClientType.KIMI, ClientType.OPENAI, ClientType.ANTHROPIC)
+    val isImageInputEnabled = chatPlatforms.isNotEmpty() &&
         chatPlatforms.size == chatViewModel.enabledPlatformsInChat.size &&
-        chatPlatforms.all { it.compatibleType == ClientType.KIMI }
+        chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
     val isProjectMenuEnabled = currentProjectId != null
     val context = LocalContext.current
-    val kimiImageInputOnlySupportedText = stringResource(R.string.kimi_image_input_only_supported)
+    val imageInputNotSupportedText = stringResource(R.string.image_input_not_supported)
 
     val scope = rememberCoroutineScope()
     // +1 for the bottom spacer item appended to LazyColumn
@@ -349,14 +350,14 @@ fun ChatScreen(
                 chatEnabled = canUseChat,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
                 isResponding = !isIdle,
-                imageInputEnabled = isKimiImageInputEnabled,
+                imageInputEnabled = isImageInputEnabled,
                 selectedFiles = selectedFiles,
                 onFileSelected = { filePath -> chatViewModel.addSelectedFile(filePath) },
                 onFileRemoved = { filePath -> chatViewModel.removeSelectedFile(filePath) },
                 onUnsupportedImageInputClick = {
                     Toast.makeText(
                         context,
-                        kimiImageInputOnlySupportedText,
+                        imageInputNotSupportedText,
                         Toast.LENGTH_SHORT,
                     ).show()
                 },
@@ -725,7 +726,7 @@ fun ChatInputBox(
     val localStyle = LocalTextStyle.current
     val mergedStyle = localStyle.merge(TextStyle(color = LocalContentColor.current))
     val context = LocalContext.current
-    val kimiSupportedImageFormatsText = stringResource(R.string.kimi_supported_image_formats)
+    val supportedImageFormatsText = stringResource(R.string.supported_image_formats)
     val failedToSelectImageText = stringResource(R.string.failed_to_select_image)
 
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -733,10 +734,10 @@ fun ChatInputBox(
     ) { uri ->
         uri?.let {
             val mimeType = FileUtils.getMimeType(context, it.toString())
-            if (!FileUtils.isKimiSupportedImage(mimeType)) {
+            if (!FileUtils.isVisionSupportedImage(mimeType)) {
                 Toast.makeText(
                     context,
-                    kimiSupportedImageFormatsText,
+                    supportedImageFormatsText,
                     Toast.LENGTH_SHORT,
                 ).show()
                 return@rememberLauncherForActivityResult

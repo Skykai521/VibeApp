@@ -1,5 +1,8 @@
 package com.vibe.app.feature.agent.loop
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.vibe.app.data.dto.openai.request.ResponseContentPart
 import com.vibe.app.data.dto.openai.request.ResponseInputContent
 import com.vibe.app.data.dto.openai.request.ResponseInputItem
 import com.vibe.app.data.dto.openai.request.ResponseTool
@@ -22,6 +25,7 @@ import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
+import com.vibe.app.util.FileUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +37,7 @@ import kotlinx.serialization.json.buildJsonObject
 
 @Singleton
 class OpenAiResponsesAgentGateway @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val openAIAPI: OpenAIAPI,
     private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
@@ -136,7 +141,7 @@ class OpenAiResponsesAgentGateway @Inject constructor(
         return when (item.role) {
             AgentMessageRole.USER -> ResponseInputItem.message(
                 role = "user",
-                content = ResponseInputContent.text(item.text.orEmpty()),
+                content = buildUserContent(item),
             )
 
             AgentMessageRole.ASSISTANT -> ResponseInputItem.message(
@@ -154,6 +159,24 @@ class OpenAiResponsesAgentGateway @Inject constructor(
                 content = ResponseInputContent.text(item.text.orEmpty()),
             )
         }
+    }
+
+    private fun buildUserContent(item: AgentConversationItem): ResponseInputContent {
+        val imageAttachments = item.attachments.filter { path ->
+            FileUtils.isVisionSupportedImage(FileUtils.getMimeType(context, path))
+        }
+        if (imageAttachments.isEmpty()) {
+            return ResponseInputContent.text(item.text.orEmpty())
+        }
+        val parts = buildList {
+            imageAttachments.forEach { path ->
+                val mimeType = FileUtils.getMimeType(context, path)
+                val base64 = FileUtils.readAndEncodeFile(context, path) ?: return@forEach
+                add(ResponseContentPart.image("data:$mimeType;base64,$base64"))
+            }
+            add(ResponseContentPart.text(item.text.orEmpty()))
+        }
+        return ResponseInputContent.parts(parts)
     }
 }
 
