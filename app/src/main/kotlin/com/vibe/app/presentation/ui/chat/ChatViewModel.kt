@@ -92,7 +92,8 @@ class ChatViewModel @Inject constructor(
 
     private val chatRoomId: Int = checkNotNull(savedStateHandle["chatRoomId"])
     private val enabledPlatformString: String = checkNotNull(savedStateHandle["enabledPlatforms"])
-    val enabledPlatformsInChat = enabledPlatformString.split(',')
+    private val _enabledPlatformsInChat = MutableStateFlow(enabledPlatformString.split(',').filter { it.isNotBlank() })
+    val enabledPlatformsInChat: StateFlow<List<String>> = _enabledPlatformsInChat.asStateFlow()
 
     private val _currentProjectId = MutableStateFlow<String?>(null)
     val currentProjectId: StateFlow<String?> = _currentProjectId.asStateFlow()
@@ -112,7 +113,7 @@ class ChatViewModel @Inject constructor(
     private val currentTimeStamp: Long
         get() = System.currentTimeMillis() / 1000
 
-    private val _chatRoom = MutableStateFlow(ChatRoomV2(id = -1, title = "", enabledPlatform = enabledPlatformsInChat))
+    private val _chatRoom = MutableStateFlow(ChatRoomV2(id = -1, title = "", enabledPlatform = _enabledPlatformsInChat.value))
     val chatRoom = _chatRoom.asStateFlow()
 
     private val _isProjectNameDialogOpen = MutableStateFlow(false)
@@ -153,7 +154,7 @@ class ChatViewModel @Inject constructor(
     val indexStates = _indexStates.asStateFlow()
 
     // Loading states for each platform
-    private val _loadingStates = MutableStateFlow(List<LoadingState>(enabledPlatformsInChat.size) { LoadingState.Idle })
+    private val _loadingStates = MutableStateFlow(List<LoadingState>(_enabledPlatformsInChat.value.size) { LoadingState.Idle })
     val loadingStates = _loadingStates.asStateFlow()
 
     // Jobs for active AI response coroutines (used to cancel on stop)
@@ -176,10 +177,12 @@ class ChatViewModel @Inject constructor(
 
     init {
         Log.d("ViewModel", "$chatRoomId")
-        Log.d("ViewModel", "$enabledPlatformsInChat")
+        Log.d("ViewModel", "${_enabledPlatformsInChat.value}")
         fetchChatRoom()
-        viewModelScope.launch { fetchMessages() }
-        fetchEnabledPlatformsInApp()
+        viewModelScope.launch {
+            refreshPlatformsInternal()
+            fetchMessages()
+        }
         observeStateChanges()
         viewModelScope.launch {
             if (chatRoomId != 0) {
@@ -195,7 +198,7 @@ class ChatViewModel @Inject constructor(
             it.copy(
                 userMessages = it.userMessages + listOf(userMessage),
                 assistantMessages = it.assistantMessages + listOf(
-                    enabledPlatformsInChat.map { p -> MessageV2(chatId = chatRoomId, content = "", platformType = p) }
+                    _enabledPlatformsInChat.value.map { p -> MessageV2(chatId = chatRoomId, content = "", platformType = p) }
                 )
             )
         }
@@ -321,7 +324,7 @@ class ChatViewModel @Inject constructor(
 
     fun updateChatPlatformModels(models: Map<String, String>) {
         val sanitizedModels = models
-            .filterKeys { it in enabledPlatformsInChat }
+            .filterKeys { it in _enabledPlatformsInChat.value }
             .mapValues { (_, model) -> model.trim() }
 
         _chatPlatformModels.update { it + sanitizedModels }
@@ -334,8 +337,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun retryChat(platformIndex: Int) {
-        if (platformIndex >= enabledPlatformsInChat.size || platformIndex < 0) return
-        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == enabledPlatformsInChat[platformIndex] }
+        if (platformIndex >= _enabledPlatformsInChat.value.size || platformIndex < 0) return
+        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == _enabledPlatformsInChat.value[platformIndex] }
         if (platform == null) {
             Log.w("ChatViewModel", "Platform at index $platformIndex is no longer available")
             return
@@ -391,7 +394,7 @@ class ChatViewModel @Inject constructor(
     fun updateChatPlatformIndex(assistantIndex: Int, platformIndex: Int) {
         // Change the message shown in the screen to another platform
         if (assistantIndex >= _indexStates.value.size || assistantIndex < 0) return
-        if (platformIndex >= enabledPlatformsInChat.size || platformIndex < 0) return
+        if (platformIndex >= _enabledPlatformsInChat.value.size || platformIndex < 0) return
 
         _indexStates.update {
             val updatedIndex = it.toMutableList()
@@ -450,7 +453,7 @@ class ChatViewModel @Inject constructor(
         _groupedMessages.update {
             it.copy(
                 assistantMessages = it.assistantMessages + listOf(
-                    enabledPlatformsInChat.map { p -> MessageV2(chatId = chatRoomId, content = "", platformType = p) }
+                    _enabledPlatformsInChat.value.map { p -> MessageV2(chatId = chatRoomId, content = "", platformType = p) }
                 )
             )
         }
@@ -529,17 +532,17 @@ class ChatViewModel @Inject constructor(
         }
         responseJobs.forEach { it.cancel() }
         responseJobs.clear()
-        _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Idle } }
+        _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
     }
 
     private fun completeChat(turnState: ActiveTurnState) {
         activeTurnState = turnState
         // Update all the platform loading states to Loading
-        _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Loading } }
+        _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Loading } }
         responseJobs.clear()
 
         // Send chat completion requests
-        enabledPlatformsInChat.forEachIndexed { idx, platformUid ->
+        _enabledPlatformsInChat.value.forEachIndexed { idx, platformUid ->
             val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid }
             if (platform == null) {
                 // Platform was disabled/removed since chat was created — reset loading state
@@ -586,7 +589,7 @@ class ChatViewModel @Inject constructor(
             if (_groupedMessages.value.assistantMessages.size != _indexStates.value.size) {
                 _indexStates.update { List(_groupedMessages.value.assistantMessages.size) { 0 } }
             }
-            _loadingStates.update { List(enabledPlatformsInChat.size) { LoadingState.Idle } }
+            _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
             _isLoaded.update { true } // Finish fetching
             return
         }
@@ -600,7 +603,7 @@ class ChatViewModel @Inject constructor(
 
     private suspend fun fetchGroupedMessages(chatId: Int): GroupedMessages {
         val messages = chatRepository.fetchMessagesV2(chatId).sortedBy { it.createdAt }
-        val platformOrderMap = enabledPlatformsInChat.withIndex().associate { (idx, uuid) -> uuid to idx }
+        val platformOrderMap = _enabledPlatformsInChat.value.withIndex().associate { (idx, uuid) -> uuid to idx }
 
         val userMessages = mutableListOf<MessageV2>()
         val assistantMessages = mutableListOf<MutableList<MessageV2>>()
@@ -630,7 +633,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _chatRoom.update {
                 if (chatRoomId == 0) {
-                    ChatRoomV2(id = 0, title = "Untitled Chat", enabledPlatform = enabledPlatformsInChat)
+                    ChatRoomV2(id = 0, title = "Untitled Chat", enabledPlatform = _enabledPlatformsInChat.value)
                 } else {
                     chatRepository.fetchChatListV2().first { it.id == chatRoomId }
                 }
@@ -639,17 +642,34 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun fetchEnabledPlatformsInApp() {
+    /**
+     * Re-fetch platform configuration from settings and sync the chat's enabled platforms
+     * with currently enabled ones. Call this when returning from settings screen.
+     */
+    fun refreshPlatforms() {
         viewModelScope.launch {
-            val allPlatforms = settingRepository.fetchPlatformV2s()
-            _platformsInApp.update { allPlatforms }
-            _enabledPlatformsInApp.update { allPlatforms.filter { it.enabled } }
-            initializeChatPlatformModels(allPlatforms)
+            refreshPlatformsInternal()
         }
     }
 
+    private suspend fun refreshPlatformsInternal() {
+        val allPlatforms = settingRepository.fetchPlatformV2s()
+        _platformsInApp.update { allPlatforms }
+        val enabledPlatforms = allPlatforms.filter { it.enabled }
+        _enabledPlatformsInApp.update { enabledPlatforms }
+
+        val currentEnabledUids = enabledPlatforms.map { it.uid }
+        if (currentEnabledUids.isNotEmpty() && currentEnabledUids != _enabledPlatformsInChat.value) {
+            _enabledPlatformsInChat.update { currentEnabledUids }
+            _loadingStates.update { List(currentEnabledUids.size) { LoadingState.Idle } }
+            _chatRoom.update { it.copy(enabledPlatform = currentEnabledUids) }
+        }
+
+        initializeChatPlatformModels(allPlatforms)
+    }
+
     private suspend fun initializeChatPlatformModels(platforms: List<PlatformV2>) {
-        val defaultModels = enabledPlatformsInChat.associateWith { uid ->
+        val defaultModels = _enabledPlatformsInChat.value.associateWith { uid ->
             platforms.firstOrNull { it.uid == uid }?.model ?: ""
         }
         val persistedModels = if (chatRoomId != 0) {
@@ -722,7 +742,7 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
-        return enabledPlatformsInChat.size == 1 &&
+        return _enabledPlatformsInChat.value.size == 1 &&
             (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN || platform.compatibleType == ClientType.KIMI) &&
             _currentProjectId.value != null
     }
@@ -769,7 +789,7 @@ class ChatViewModel @Inject constructor(
         _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
     }
 
-    private fun startTurn(message: MessageV2, platformUids: List<String> = enabledPlatformsInChat): ActiveTurnState {
+    private fun startTurn(message: MessageV2, platformUids: List<String> = _enabledPlatformsInChat.value): ActiveTurnState {
         val startedAt = System.currentTimeMillis()
         val diagnosticChatId = resolveDiagnosticChatId(startedAt)
         val turnIndex = _groupedMessages.value.userMessages.size

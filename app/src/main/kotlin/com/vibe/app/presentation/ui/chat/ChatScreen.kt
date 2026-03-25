@@ -60,6 +60,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -132,15 +133,16 @@ fun ChatScreen(
     val selectedFiles by chatViewModel.selectedFiles.collectAsStateWithLifecycle()
     val allPlatforms by chatViewModel.platformsInApp.collectAsStateWithLifecycle()
     val appEnabledPlatforms by chatViewModel.enabledPlatformsInApp.collectAsStateWithLifecycle()
-    val chatPlatforms = remember(allPlatforms, chatViewModel.enabledPlatformsInChat) {
-        chatViewModel.enabledPlatformsInChat.mapNotNull { uid ->
+    val enabledPlatformsInChat by chatViewModel.enabledPlatformsInChat.collectAsStateWithLifecycle()
+    val chatPlatforms = remember(allPlatforms, enabledPlatformsInChat) {
+        enabledPlatformsInChat.mapNotNull { uid ->
             allPlatforms.firstOrNull { it.uid == uid }
         }
     }
     val canUseChat = appEnabledPlatforms.isNotEmpty()
     val imageInputSupportedTypes = setOf(ClientType.KIMI, ClientType.OPENAI, ClientType.ANTHROPIC)
     val isImageInputEnabled = chatPlatforms.isNotEmpty() &&
-        chatPlatforms.size == chatViewModel.enabledPlatformsInChat.size &&
+        chatPlatforms.size == enabledPlatformsInChat.size &&
         chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
@@ -186,6 +188,18 @@ fun ChatScreen(
                 is ChatViewModel.BuildEvent.InstallApk -> installApk(context, event.apkPath)
             }
         }
+    }
+
+    // Re-sync platforms when returning from settings screen
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                chatViewModel.refreshPlatforms()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Scaffold(
@@ -293,8 +307,9 @@ fun ChatScreen(
                                 ) {
                                     GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
                                     run {
-                                        val uid = chatViewModel.enabledPlatformsInChat.getOrNull(platformIndexState)
-                                        val platformName = allPlatforms.find { it.uid == uid }?.name
+                                        val assistantMsg = assistantMessages.getOrNull(platformIndexState)
+                                        val platformName = assistantMsg?.platformType
+                                            ?.let { uid -> allPlatforms.find { it.uid == uid }?.name }
                                             ?: stringResource(R.string.unknown)
                                         Text(
                                             text = platformName,
