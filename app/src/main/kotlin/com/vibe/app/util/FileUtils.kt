@@ -129,6 +129,12 @@ object FileUtils {
     fun isKimiSupportedImage(mimeType: String): Boolean = mimeType.lowercase() in kimiSupportedImageMimeTypes
 
     /**
+     * Common vision-capable image formats supported by OpenAI, Anthropic, and Kimi.
+     * All three providers support PNG, JPEG, WebP, and GIF.
+     */
+    fun isVisionSupportedImage(mimeType: String): Boolean = mimeType.lowercase() in kimiSupportedImageMimeTypes
+
+    /**
      * Check if file is a document based on MIME type
      * @param mimeType MIME type string
      * @return true if document, false otherwise

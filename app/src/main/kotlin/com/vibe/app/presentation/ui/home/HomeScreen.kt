@@ -201,7 +201,12 @@ fun HomeScreen(
                         if (projectListState.isSelectionMode) {
                             homeViewModel.selectProject(idx)
                         } else {
-                            onProjectClick(pwc.project.chatId, pwc.chat.enabledPlatform)
+                            val currentEnabledPlatforms = homeViewModel.platformState.value
+                                .filter { it.enabled }
+                                .map { it.uid }
+                                .takeIf { it.isNotEmpty() }
+                                ?: pwc.chat.enabledPlatform
+                            onProjectClick(pwc.project.chatId, currentEnabledPlatforms)
                         }
                     },
                 )

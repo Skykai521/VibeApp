@@ -1,5 +1,12 @@
 package com.vibe.app.feature.agent.loop
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.vibe.app.data.dto.anthropic.common.ImageContent
+import com.vibe.app.data.dto.anthropic.common.ImageSource
+import com.vibe.app.data.dto.anthropic.common.ImageSourceType
+import com.vibe.app.data.dto.anthropic.common.MediaType
+import com.vibe.app.data.dto.anthropic.common.MessageContent
 import com.vibe.app.data.dto.anthropic.common.MessageRole
 import com.vibe.app.data.dto.anthropic.common.TextContent
 import com.vibe.app.data.dto.anthropic.common.ToolResultContent
@@ -28,6 +35,7 @@ import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import com.vibe.app.feature.diagnostic.toDiagnosticProviderType
+import com.vibe.app.util.FileUtils
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +58,7 @@ import kotlinx.serialization.json.buildJsonObject
  */
 @Singleton
 class AnthropicMessagesAgentGateway @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val anthropicAPI: AnthropicAPI,
     private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
@@ -209,7 +218,7 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                 AgentMessageRole.USER -> {
                     messages += InputMessage(
                         role = MessageRole.USER,
-                        content = listOf(TextContent(item.text.orEmpty())),
+                        content = buildUserContent(item),
                     )
                     i++
                 }
@@ -257,6 +266,24 @@ class AnthropicMessagesAgentGateway @Inject constructor(
             AgentToolChoiceMode.REQUIRED -> AnthropicToolChoice(type = "any")
             AgentToolChoiceMode.NONE -> AnthropicToolChoice(type = "none")
         }
+    }
+
+    private fun buildUserContent(item: AgentConversationItem): List<MessageContent> = buildList {
+        item.attachments.forEach { path ->
+            val mimeType = FileUtils.getMimeType(context, path)
+            val mediaType = mimeTypeToMediaType(mimeType) ?: return@forEach
+            val base64 = FileUtils.readAndEncodeFile(context, path) ?: return@forEach
+            add(ImageContent(source = ImageSource(type = ImageSourceType.BASE64, mediaType = mediaType, data = base64)))
+        }
+        add(TextContent(item.text.orEmpty()))
+    }
+
+    private fun mimeTypeToMediaType(mimeType: String): MediaType? = when (mimeType.lowercase()) {
+        "image/jpeg" -> MediaType.JPEG
+        "image/png" -> MediaType.PNG
+        "image/gif" -> MediaType.GIF
+        "image/webp" -> MediaType.WEBP
+        else -> null
     }
 
     companion object {
