@@ -161,6 +161,8 @@
     <string name="select_image">Select Image</string>
     <string name="kimi_image_input_only_supported">Image selection is currently supported only for Kimi chats.</string>
     <string name="kimi_supported_image_formats">Kimi currently supports png, jpeg, webp, and gif images only.</string>
+    <string name="image_input_not_supported">이미지 선택은 OpenAI, Anthropic, Kimi 채팅에서만 지원됩니다.</string>
+    <string name="supported_image_formats">현재 png, jpeg, webp, gif 이미지만 지원합니다.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
     <string name="tool_calling">Calling %s</string>
     <string name="tool_result_ok">%s completed</string>

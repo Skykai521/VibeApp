@@ -195,6 +195,8 @@
     <string name="select_image">Select Image</string>
     <string name="kimi_image_input_only_supported">Image selection is currently supported only for Kimi chats.</string>
     <string name="kimi_supported_image_formats">Kimi currently supports png, jpeg, webp, and gif images only.</string>
+    <string name="image_input_not_supported">Görsel seçimi yalnızca OpenAI, Anthropic ve Kimi sohbetlerinde desteklenmektedir.</string>
+    <string name="supported_image_formats">Şu anda yalnızca png, jpeg, webp ve gif görselleri desteklenmektedir.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
     <string name="tool_calling">Calling %s</string>
     <string name="tool_result_ok">%s completed</string>
