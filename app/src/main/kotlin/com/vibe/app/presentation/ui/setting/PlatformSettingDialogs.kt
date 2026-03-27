@@ -475,7 +475,7 @@ private fun TopPDialog(
                             isUnset = true
                         } else {
                             p.toFloatOrNull()?.let {
-                                val rounded = (it.coerceIn(0.1F, 1F) * 10).roundToInt() / 10F
+                                val rounded = (it.coerceIn(0.1F, 1F) * 100).roundToInt() / 100F
                                 sliderTopP = rounded
                                 isUnset = false
                             }
@@ -495,12 +495,12 @@ private fun TopPDialog(
                         .padding(horizontal = 20.dp, vertical = 16.dp),
                     value = sliderTopP,
                     valueRange = 0.1F..1F,
-                    steps = 8,
+                    steps = 89,
                     enabled = !isUnset,
                     onValueChange = { t ->
-                        val rounded = (t * 10).roundToInt() / 10F
+                        val rounded = (t * 100).roundToInt() / 100F
                         sliderTopP = rounded
-                        textFieldTopP = "%.1f".format(rounded)
+                        textFieldTopP = "%.2f".format(rounded)
                         isUnset = false
                     }
                 )
