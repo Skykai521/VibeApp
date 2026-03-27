@@ -19,7 +19,6 @@ import androidx.navigation.navigation
 import com.vibe.app.presentation.ui.chat.ChatScreen
 import com.vibe.app.presentation.ui.home.HomeScreen
 import com.vibe.app.presentation.ui.setting.AboutScreen
-import com.vibe.app.presentation.ui.setting.AddPlatformScreen
 import com.vibe.app.presentation.ui.setting.LicenseScreen
 import com.vibe.app.presentation.ui.setting.PlatformSettingScreen
 import com.vibe.app.presentation.ui.setting.SettingScreen
@@ -83,8 +82,15 @@ fun NavGraphBuilder.setupNavigation(
             SetupPlatformWizardScreen(
                 setupViewModel = setupViewModel,
                 onComplete = {
-                    navController.navigate(Route.SETUP_COMPLETE) {
-                        popUpTo(Route.SETUP_ROUTE) { inclusive = false }
+                    val fromSettings = runCatching {
+                        navController.getBackStackEntry(Route.SETTING_ROUTE)
+                    }.isSuccess
+                    if (fromSettings) {
+                        navController.popBackStack(Route.SETTINGS, inclusive = false)
+                    } else {
+                        navController.navigate(Route.SETUP_COMPLETE) {
+                            popUpTo(Route.SETUP_ROUTE) { inclusive = false }
+                        }
                     }
                 },
                 onBackAction = { navController.navigateUp() }
@@ -151,26 +157,13 @@ fun NavGraphBuilder.settingNavigation(navController: NavHostController) {
             SettingScreen(
                 settingViewModel = settingViewModel,
                 onNavigationClick = { navController.navigateUp() },
-                onNavigateToAddPlatform = { navController.navigate(Route.ADD_PLATFORM) },
+                onNavigateToAddPlatform = { navController.navigate(Route.SETUP_ROUTE) },
                 onNavigateToPlatformSetting = { platformUid ->
                     navController.navigate(
                         Route.PLATFORM_SETTINGS.replace("{platformUid}", platformUid)
                     )
                 },
                 onNavigateToAboutPage = { navController.navigate(Route.ABOUT_PAGE) }
-            )
-        }
-        composable(Route.ADD_PLATFORM) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.SETTING_ROUTE)
-            }
-            val settingViewModel: SettingViewModelV2 = hiltViewModel(parentEntry)
-            AddPlatformScreen(
-                onNavigationClick = { navController.navigateUp() },
-                onSave = { platform ->
-                    settingViewModel.addPlatform(platform)
-                    navController.navigateUp()
-                }
             )
         }
         composable(
