@@ -1,7 +1,7 @@
 package com.vibe.app.data.network
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.HttpClientEngineFactory
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
 
 @Singleton
 class NetworkClient @Inject constructor(
-    private val httpEngine: HttpClientEngineFactory<*>
+    private val httpEngine: HttpClientEngine
 ) {
 
     private val client by lazy {
