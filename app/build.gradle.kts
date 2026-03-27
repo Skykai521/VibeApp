@@ -18,8 +18,8 @@ android {
         applicationId = "com.vibe.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.2.0"
+        versionCode = 8
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -107,7 +107,7 @@ dependencies {
     // Ktor
     implementation(libs.ktor.content.negotiation)
     implementation(libs.ktor.core)
-    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.logging)
     implementation(libs.ktor.serialization)
 
@@ -141,6 +141,8 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    debugImplementation(libs.chucker.debug)
+    releaseImplementation(libs.chucker.release)
 }
 
 aboutLibraries {
