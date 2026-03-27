@@ -238,18 +238,6 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     append("\n\n[Files]\n")
                     append(files.joinToString(separator = "\n"))
                 }
-                // For assistant messages, extract tool usage lines from thoughts
-                // so the model can see what tools were used in prior turns.
-                if (isAssistant && thoughts.isNotBlank()) {
-                    val toolLines = thoughts.lines().filter { line ->
-                        val trimmed = line.trimStart()
-                        trimmed.startsWith("[Tool]") || trimmed.startsWith("[Tool Result]")
-                    }
-                    if (toolLines.isNotEmpty()) {
-                        append("\n\n[Tool Usage]\n")
-                        append(toolLines.joinToString(separator = "\n") { it.trim() })
-                    }
-                }
             }.trim(),
         )
     }

@@ -85,25 +85,11 @@ class ConversationContextManager(
             .joinToString(" ")
             .take(MAX_SUMMARY_ASSISTANT_TEXT)
 
-        // Extract tool names mentioned in text for historical messages
-        // (which don't have structured toolCalls)
-        val textToolNames = if (toolNames.isEmpty()) {
-            turn.filter { it.role == AgentMessageRole.ASSISTANT }
-                .flatMap { item ->
-                    TOOL_USAGE_PATTERN.findAll(item.text.orEmpty()).map { it.groupValues[1] }.toList()
-                }
-                .distinct()
-        } else {
-            emptyList()
-        }
-
-        val allToolNames = (toolNames + textToolNames).distinct()
-
         val summary = buildString {
             append("[Previous Turn Summary]\n")
             append("User: $userText\n")
-            if (allToolNames.isNotEmpty()) {
-                append("Tools used: ${allToolNames.joinToString(", ")}\n")
+            if (toolNames.isNotEmpty()) {
+                append("Tools used: ${toolNames.joinToString(", ")}\n")
             }
             if (assistantText.isNotBlank()) {
                 append("Result: $assistantText")
@@ -121,8 +107,6 @@ class ConversationContextManager(
         const val DEFAULT_RECENT_TURNS = 4
         private const val MAX_SUMMARY_USER_TEXT = 200
         private const val MAX_SUMMARY_ASSISTANT_TEXT = 200
-
-        private val TOOL_USAGE_PATTERN = Regex("""\[Tool]\s+(\S+)""")
 
         /**
          * Estimates token count using a character-based heuristic.
