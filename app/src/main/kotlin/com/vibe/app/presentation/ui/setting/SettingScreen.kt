@@ -10,8 +10,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
@@ -104,15 +108,29 @@ fun SettingScreen(
                 .padding(innerPadding)
                 .verticalScroll(scrollState)
         ) {
+            // General
             ThemeSetting { settingViewModel.openThemeDialog() }
 
-            // Add Platform button
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Platforms
+            platformState.forEach { platform ->
+                PlatformItem(
+                    platform = platform,
+                    onItemClick = { onNavigateToPlatformSetting(platform.uid) },
+                    onDeleteClick = { settingViewModel.openDeleteDialog(platform.id) }
+                )
+            }
+
             SettingItem(
                 title = stringResource(R.string.add_platform),
                 description = stringResource(R.string.add_platform_description),
                 onItemClick = onNavigateToAddPlatform,
                 showTrailingIcon = false,
-                showLeadingIcon = false,
+                showLeadingIcon = true,
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.Add,
@@ -122,15 +140,12 @@ fun SettingScreen(
                 }
             )
 
-            // Dynamic platform list
-            platformState.forEach { platform ->
-                PlatformItem(
-                    platform = platform,
-                    onItemClick = { onNavigateToPlatformSetting(platform.uid) },
-                    onDeleteClick = { settingViewModel.openDeleteDialog(platform.id) }
-                )
-            }
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
 
+            // About
             AboutPageItem(onItemClick = onNavigateToAboutPage)
 
             if (dialogState.isThemeDialogOpen) {
@@ -184,7 +199,14 @@ fun ThemeSetting(
         description = stringResource(R.string.theme_description),
         onItemClick = onItemClick,
         showTrailingIcon = false,
-        showLeadingIcon = false
+        showLeadingIcon = true,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Palette,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     )
 }
 
@@ -197,7 +219,14 @@ fun AboutPageItem(
         description = stringResource(R.string.about_description),
         onItemClick = onItemClick,
         showTrailingIcon = true,
-        showLeadingIcon = false
+        showLeadingIcon = true,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     )
 }
 
@@ -272,7 +301,14 @@ fun PlatformItem(
         description = "${getClientTypeDisplayName(platform.compatibleType)} • ${if (platform.enabled) stringResource(R.string.enabled) else stringResource(R.string.disabled)}",
         onItemClick = onItemClick,
         showTrailingIcon = true,
-        showLeadingIcon = false
+        showLeadingIcon = true,
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Cloud,
+                contentDescription = null,
+                tint = if (platform.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     )
 }
 
