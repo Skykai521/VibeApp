@@ -14,10 +14,10 @@ import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
-import com.vibe.app.feature.agent.AgentLoopCoordinator
-import com.vibe.app.feature.agent.AgentLoopEvent
-import com.vibe.app.feature.agent.AgentLoopRequest
-import com.vibe.app.feature.agent.AgentToolRegistry
+import com.vibe.app.feature.agent.service.AgentSessionManager
+import com.vibe.app.feature.agent.service.AgentSessionStatus
+import com.vibe.app.feature.agent.service.SessionMessageState
+import com.vibe.app.feature.agent.service.BuildMutex
 import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
@@ -53,10 +53,10 @@ class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val settingRepository: SettingRepository,
     private val projectRepository: ProjectRepository,
-    private val agentLoopCoordinator: AgentLoopCoordinator,
-    private val agentToolRegistry: AgentToolRegistry,
     private val projectInitializer: ProjectInitializer,
     private val diagnosticLogger: ChatDiagnosticLogger,
+    private val sessionManager: AgentSessionManager,
+    private val buildMutex: BuildMutex,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -182,6 +182,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             refreshPlatformsInternal()
             fetchMessages()
+            // Reconnect to an existing agent session if one is running for this chat
+            reconnectToExistingSession()
         }
         observeStateChanges()
         viewModelScope.launch {
@@ -251,24 +253,26 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 Log.d("RunBuild", "Starting buildProject for projectId=$projectId")
-                val result = projectInitializer.buildProject(
-                    projectId = projectId,
-                    triggerSource = BuildTriggerSource.CHAT_BUTTON,
-                    progressListener = BuildProgressListener { update ->
-                        val progress = if (update.totalSteps == 0) {
-                            0f
-                        } else {
-                            update.completedSteps.toFloat() / update.totalSteps
-                        }
-                        _buildProgress.update {
-                            it.copy(
-                                isVisible = true,
-                                progress = progress.coerceIn(0f, 1f),
-                                currentStage = update.stage,
-                            )
-                        }
-                    },
-                )
+                val result = buildMutex.withBuildLock {
+                    projectInitializer.buildProject(
+                        projectId = projectId,
+                        triggerSource = BuildTriggerSource.CHAT_BUTTON,
+                        progressListener = BuildProgressListener { update ->
+                            val progress = if (update.totalSteps == 0) {
+                                0f
+                            } else {
+                                update.completedSteps.toFloat() / update.totalSteps
+                            }
+                            _buildProgress.update {
+                                it.copy(
+                                    isVisible = true,
+                                    progress = progress.coerceIn(0f, 1f),
+                                    currentStage = update.stage,
+                                )
+                            }
+                        },
+                    )
+                }
                 Log.d("RunBuild", "buildProject finished: status=${result.status}, artifacts=${result.artifacts.map { "${it.stage}=${it.path}" }}, errorMessage=${result.errorMessage}")
                 if (result.status == BuildStatus.SUCCESS) {
                     val signedApkPath = result.artifacts
@@ -353,15 +357,25 @@ class ChatViewModel @Inject constructor(
             it.copy(assistantMessages = updatedAssistantMessages)
         }
 
-        viewModelScope.launch {
-            val turnState = startTurn(_groupedMessages.value.userMessages.last(), listOf(platformWithChatModel.uid))
-            if (shouldUseAgentMode(platformWithChatModel)) {
-                runAgentLoop(
-                    platform = platformWithChatModel,
-                    platformIndex = platformIndex,
-                    diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-                )
-            } else {
+        val turnState = startTurn(_groupedMessages.value.userMessages.last(), listOf(platformWithChatModel.uid))
+        if (shouldUseAgentMode(platformWithChatModel)) {
+            val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+            sessionManager.startSession(
+                chatId = effectiveChatId,
+                projectId = _currentProjectId.value,
+                platform = platformWithChatModel,
+                userMessages = _groupedMessages.value.userMessages,
+                assistantMessages = _groupedMessages.value.assistantMessages,
+                systemPrompt = platformWithChatModel.systemPrompt,
+                diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
+                chatRoom = _chatRoom.value,
+                chatPlatformModels = _chatPlatformModels.value,
+            )
+            viewModelScope.launch {
+                observeAgentSessionState(effectiveChatId)
+            }
+        } else {
+            viewModelScope.launch {
                 chatRepository.completeChat(
                     _groupedMessages.value.userMessages,
                     _groupedMessages.value.assistantMessages,
@@ -530,6 +544,9 @@ class ChatViewModel @Inject constructor(
             }
             activeTurnState = null
         }
+        // Cancel agent session if running
+        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+        sessionManager.stopSession(effectiveChatId)
         responseJobs.forEach { it.cancel() }
         responseJobs.clear()
         _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
@@ -550,14 +567,27 @@ class ChatViewModel @Inject constructor(
                 return@forEachIndexed
             }
             val platformWithChatModel = resolvePlatformModel(platform)
-            val job = viewModelScope.launch {
-                if (shouldUseAgentMode(platformWithChatModel)) {
-                    runAgentLoop(
-                        platform = platformWithChatModel,
-                        platformIndex = idx,
-                        diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-                    )
-                } else {
+            if (shouldUseAgentMode(platformWithChatModel)) {
+                // Delegate to AgentSessionManager — survives ViewModel destruction
+                val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+                sessionManager.startSession(
+                    chatId = effectiveChatId,
+                    projectId = _currentProjectId.value,
+                    platform = platformWithChatModel,
+                    userMessages = _groupedMessages.value.userMessages,
+                    assistantMessages = _groupedMessages.value.assistantMessages,
+                    systemPrompt = platformWithChatModel.systemPrompt,
+                    diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
+                    chatRoom = _chatRoom.value,
+                    chatPlatformModels = _chatPlatformModels.value,
+                )
+                // Observe the session's message state (source of truth)
+                val observeJob = viewModelScope.launch {
+                    observeAgentSessionState(effectiveChatId)
+                }
+                responseJobs.add(observeJob)
+            } else {
+                val job = viewModelScope.launch {
                     chatRepository.completeChat(
                         _groupedMessages.value.userMessages,
                         _groupedMessages.value.assistantMessages,
@@ -571,8 +601,8 @@ class ChatViewModel @Inject constructor(
                         }
                     )
                 }
+                responseJobs.add(job)
             }
-            responseJobs.add(job)
         }
     }
 
@@ -747,46 +777,84 @@ class ChatViewModel @Inject constructor(
             _currentProjectId.value != null
     }
 
-    private suspend fun runAgentLoop(
-        platform: PlatformV2,
-        platformIndex: Int,
-        diagnosticContext: DiagnosticContext,
-    ) {
-        agentLoopCoordinator.run(
-            AgentLoopRequest(
-                chatId = chatRoomId,
-                projectId = _currentProjectId.value,
-                diagnosticContext = diagnosticContext,
-                platform = platform,
-                userMessages = _groupedMessages.value.userMessages,
-                assistantMessages = _groupedMessages.value.assistantMessages,
-                systemPrompt = platform.systemPrompt,
-                tools = agentToolRegistry.listDefinitions(),
-            ),
-        ).collect { event ->
-            when (event) {
-                is AgentLoopEvent.ThinkingDelta -> appendAssistantThought(platformIndex, event.delta)
-                is AgentLoopEvent.OutputDelta -> appendAssistantContent(platformIndex, event.delta)
-                is AgentLoopEvent.ToolExecutionStarted -> appendAssistantThought(
-                    platformIndex,
-                    "\n[Tool] ${event.call.name}\n",
-                )
+    /**
+     * Observe the session manager's message StateFlow, which is the source of truth
+     * while a session is running. This works both for newly started sessions and
+     * for reconnecting after ViewModel recreation.
+     */
+    private suspend fun observeAgentSessionState(sessionChatId: Int) {
+        val stateFlow = sessionManager.getMessageState(sessionChatId) ?: return
 
-                is AgentLoopEvent.ToolExecutionFinished -> appendAssistantThought(
-                    platformIndex,
-                    "\n[Tool Result] ${event.result.toolName}: ${if (event.result.isError) "error" else "ok"}\n",
-                )
-
-                is AgentLoopEvent.LoopCompleted -> finishAssistantMessage(
-                    platformIndex = platformIndex,
-                    fallbackText = event.finalText.ifBlank { "Build completed." },
-                )
-                is AgentLoopEvent.LoopFailed -> failAssistantMessage(platformIndex, event.message)
-                else -> Unit
+        // Also watch session status to detect completion
+        val statusJob = viewModelScope.launch {
+            sessionManager.getSessionStatus(sessionChatId)?.collect { status ->
+                if (status != AgentSessionStatus.RUNNING) {
+                    // Session finished — set loading to idle so observeStateChanges() can trigger save
+                    _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
+                    // Refresh project name in case the agent called rename_project
+                    _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+                }
             }
         }
-        // Refresh project name in case the agent called rename_project during this turn.
-        _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+
+        try {
+            stateFlow.collect { sessionState ->
+                // Mirror the session's message state into the ViewModel's UI state
+                _groupedMessages.update {
+                    GroupedMessages(
+                        userMessages = sessionState.userMessages,
+                        assistantMessages = sessionState.assistantMessages,
+                    )
+                }
+                // Keep indexStates in sync
+                val expectedSize = sessionState.userMessages.size
+                if (_indexStates.value.size != expectedSize) {
+                    _indexStates.update { List(expectedSize) { 0 } }
+                }
+            }
+        } finally {
+            statusJob.cancel()
+        }
+    }
+
+    /**
+     * If an agent session is already running for this chat (e.g. user navigated away and came back),
+     * reconnect to it and resume UI updates from the session's current state.
+     */
+    private fun reconnectToExistingSession() {
+        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+
+        // Check if there's an active session OR a recently completed session with state
+        val hasActiveSession = sessionManager.isSessionRunning(effectiveChatId)
+        val hasMessageState = sessionManager.getMessageState(effectiveChatId) != null
+
+        if (!hasActiveSession && !hasMessageState) return
+
+        Log.d("ChatViewModel", "Reconnecting to agent session for chatId=$effectiveChatId (active=$hasActiveSession)")
+
+        // Restore message state immediately from session manager
+        val currentState = sessionManager.getMessageState(effectiveChatId)?.value
+        if (currentState != null) {
+            _groupedMessages.update {
+                GroupedMessages(
+                    userMessages = currentState.userMessages,
+                    assistantMessages = currentState.assistantMessages,
+                )
+            }
+            _indexStates.update { List(currentState.userMessages.size) { 0 } }
+            _isLoaded.update { true }
+        }
+
+        if (hasActiveSession) {
+            _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Loading } }
+            val job = viewModelScope.launch {
+                observeAgentSessionState(effectiveChatId)
+            }
+            responseJobs.add(job)
+        } else {
+            // Session completed while we were away — just set idle to trigger save
+            _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
+        }
     }
 
     private fun startTurn(message: MessageV2, platformUids: List<String> = _enabledPlatformsInChat.value): ActiveTurnState {
@@ -865,75 +933,6 @@ class ChatViewModel @Inject constructor(
 
     private fun sanitizeForFileName(input: String): String {
         return input.replace(Regex("[^a-zA-Z0-9._-]+"), "_").trim('_').ifBlank { "chat" }
-    }
-
-    private fun appendAssistantThought(
-        platformIndex: Int,
-        delta: String,
-    ) {
-        _groupedMessages.update { groupedMessages ->
-            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
-            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
-                thoughts = updatedMessages[platformIndex].thoughts + delta,
-            )
-            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
-            assistantMessages[assistantMessages.lastIndex] = updatedMessages
-            groupedMessages.copy(assistantMessages = assistantMessages)
-        }
-    }
-
-    private fun appendAssistantContent(
-        platformIndex: Int,
-        delta: String,
-    ) {
-        _groupedMessages.update { groupedMessages ->
-            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
-            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
-                content = updatedMessages[platformIndex].content + delta,
-            )
-            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
-            assistantMessages[assistantMessages.lastIndex] = updatedMessages
-            groupedMessages.copy(assistantMessages = assistantMessages)
-        }
-    }
-
-    private fun finishAssistantMessage(
-        platformIndex: Int,
-        fallbackText: String,
-    ) {
-        _groupedMessages.update { groupedMessages ->
-            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
-            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
-                content = updatedMessages[platformIndex].content.ifBlank { fallbackText },
-                createdAt = System.currentTimeMillis() / 1000,
-            )
-            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
-            assistantMessages[assistantMessages.lastIndex] = updatedMessages
-            groupedMessages.copy(assistantMessages = assistantMessages)
-        }
-        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
-    }
-
-    private fun failAssistantMessage(
-        platformIndex: Int,
-        error: String,
-    ) {
-        _groupedMessages.update { groupedMessages ->
-            val updatedMessages = groupedMessages.assistantMessages.last().toMutableList()
-            updatedMessages[platformIndex] = updatedMessages[platformIndex].copy(
-                content = if (updatedMessages[platformIndex].content.isBlank()) {
-                    "Error: $error"
-                } else {
-                    updatedMessages[platformIndex].content
-                },
-                thoughts = updatedMessages[platformIndex].thoughts + "\n[Agent Error] $error",
-                createdAt = System.currentTimeMillis() / 1000,
-            )
-            val assistantMessages = groupedMessages.assistantMessages.toMutableList()
-            assistantMessages[assistantMessages.lastIndex] = updatedMessages
-            groupedMessages.copy(assistantMessages = assistantMessages)
-        }
-        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
     }
 
     private fun ungroupedMessages(): List<MessageV2> {

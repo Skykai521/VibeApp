@@ -7,6 +7,7 @@ import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
+import com.vibe.app.feature.agent.service.BuildMutex
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.build.engine.model.BuildResult
 import javax.inject.Inject
@@ -208,6 +209,7 @@ class CleanBuildCacheTool @Inject constructor(
 @Singleton
 class RunBuildPipelineTool @Inject constructor(
     private val projectManager: ProjectManager,
+    private val buildMutex: BuildMutex,
 ) : AgentTool {
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
@@ -218,7 +220,9 @@ class RunBuildPipelineTool @Inject constructor(
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         val workspace = projectManager.openWorkspace(context.projectId)
-        val result = workspace.buildProject()
+        val result = buildMutex.withBuildLock {
+            workspace.buildProject()
+        }
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
