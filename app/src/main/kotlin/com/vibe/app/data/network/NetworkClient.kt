@@ -30,7 +30,9 @@ class NetworkClient @Inject constructor(
             install(SSE)
 
             install(HttpTimeout) {
-                requestTimeoutMillis = TIMEOUT.toLong()
+                requestTimeoutMillis = TIMEOUT
+                connectTimeoutMillis = TIMEOUT
+                socketTimeoutMillis = TIMEOUT
             }
 
             install(DefaultRequest) {
@@ -42,7 +44,7 @@ class NetworkClient @Inject constructor(
     operator fun invoke(): HttpClient = client
 
     companion object {
-        private const val TIMEOUT = 1_000 * 60 * 5
+        private const val TIMEOUT = 1_000L * 60 * 5
 
         // Default JSON config (used for most APIs)
         val json = Json {
