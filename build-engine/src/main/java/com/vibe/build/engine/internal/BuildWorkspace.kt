@@ -2,8 +2,10 @@ package com.vibe.build.engine.internal
 
 import com.tyron.builder.BuildModule
 import com.vibe.build.engine.model.BuildArtifact
+import com.vibe.build.engine.model.BuildMode
 import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.CompileInput
+import com.vibe.build.engine.shadow.ShadowAndroidxTransformer
 import java.io.File
 
 data class BuildWorkspace(
@@ -59,6 +61,14 @@ data class BuildWorkspace(
             val unsignedApk = File(binDir, "generated.apk")
             val signedApk = File(binDir, "signed.apk")
 
+            val androidxJar = BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() }
+            val effectiveAndroidxJar = if (input.buildMode == BuildMode.PLUGIN && androidxJar != null) {
+                val cacheDir = File(BuildModule.getContext().filesDir, "shadow-cache")
+                ShadowAndroidxTransformer.getOrTransform(androidxJar, cacheDir)
+            } else {
+                androidxJar
+            }
+
             return BuildWorkspace(
                 rootDir = rootDir,
                 sourceDir = sourceDir,
@@ -78,7 +88,7 @@ data class BuildWorkspace(
                 signedApk = signedApk,
                 bootstrapJar = BuildModule.getAndroidJar(),
                 lambdaStubsJar = BuildModule.getLambdaStubs(),
-                androidxClassesJar = BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() },
+                androidxClassesJar = effectiveAndroidxJar,
                 androidxResCompiledDir = BuildModule.getAndroidxResCompiledDir()?.takeIf { it.exists() && it.isDirectory },
             )
         }

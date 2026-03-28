@@ -40,4 +40,6 @@ dependencies {
     implementation(project(":build-tools:javac"))
     implementation(project(":build-tools:logging"))
     implementation("com.android.tools.build:apksig:9.1.0")
+    implementation(libs.asm)
+    implementation(libs.asm.commons)
 }

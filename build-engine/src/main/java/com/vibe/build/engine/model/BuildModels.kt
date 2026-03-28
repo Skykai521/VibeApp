@@ -29,6 +29,11 @@ enum class EngineBuildType {
     RELEASE,
 }
 
+enum class BuildMode {
+    STANDALONE,
+    PLUGIN,
+}
+
 data class SigningConfig(
     val privateKeyPk8Path: String? = null,
     val certificatePemPath: String? = null,
@@ -52,6 +57,7 @@ data class CompileInput(
     val buildType: EngineBuildType = EngineBuildType.DEBUG,
     val cleanOutput: Boolean = true,
     val signingConfig: SigningConfig = SigningConfig(),
+    val buildMode: BuildMode = BuildMode.STANDALONE,
 )
 
 data class BuildArtifact(
