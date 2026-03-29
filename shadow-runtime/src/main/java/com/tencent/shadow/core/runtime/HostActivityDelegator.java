@@ -12,7 +12,6 @@ import android.view.WindowManager;
 public interface HostActivityDelegator {
     Context getHostContext();
     Resources getHostResources();
-    Resources.Theme getHostTheme();
     LayoutInflater getHostLayoutInflater();
     Window getHostWindow();
     WindowManager getHostWindowManager();
