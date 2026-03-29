@@ -7,23 +7,20 @@ import android.content.res.Resources
 object PluginResourceLoader {
 
     /**
-     * Adds the plugin APK to the host's existing AssetManager so plugin layouts
-     * and drawables are findable via the host's Resources. This avoids creating
-     * a separate Resources object (which causes 0x7f resource ID collisions).
+     * Creates Resources with PLUGIN APK first, HOST APK second.
      *
-     * Safe because each plugin slot runs in its own process.
+     * Order matters: resource ID lookup checks tables in insertion order.
+     * Plugin-first ensures plugin R.layout/R.id values resolve to plugin
+     * resources (not colliding host resources). Host-second provides theme
+     * attribute definitions (colorPrimary, actionBarSize, etc.) that
+     * Material Components views need during inflation.
      */
-    fun addPluginAssets(hostContext: Context, apkPath: String) {
-        val addAssetPath = AssetManager::class.java.getDeclaredMethod("addAssetPath", String::class.java)
-        addAssetPath.isAccessible = true
-        addAssetPath.invoke(hostContext.resources.assets, apkPath)
-    }
-
     fun loadPluginResources(hostContext: Context, apkPath: String): Resources {
         val assetManager = AssetManager::class.java.getDeclaredConstructor().newInstance()
         val addAssetPath = AssetManager::class.java.getDeclaredMethod("addAssetPath", String::class.java)
         addAssetPath.isAccessible = true
-        addAssetPath.invoke(assetManager, apkPath)
+        addAssetPath.invoke(assetManager, apkPath) // Plugin APK first (R.layout/R.id priority)
+        addAssetPath.invoke(assetManager, hostContext.applicationInfo.sourceDir) // Host APK second (theme attrs)
         return Resources(
             assetManager,
             hostContext.resources.displayMetrics,

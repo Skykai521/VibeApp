@@ -56,15 +56,16 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 apkPath = apkPath,
                 parentClassLoader = ShadowActivity::class.java.classLoader!!,
             )
-            // Add plugin APK to the host's existing AssetManager.
-            // This avoids resource ID collisions that happen when creating a separate
-            // AssetManager with two 0x7f-package APKs. Each plugin slot runs in its own
-            // process, so this modification is isolated and safe.
-            PluginResourceLoader.addPluginAssets(this, apkPath)
-            pluginResources = resources // Use host Resources (has theme + now has plugin assets)
+            // Create merged Resources: plugin APK first (so plugin R values have priority),
+            // host APK second (so theme attrs like ?attr/colorPrimary are available).
+            pluginResources = PluginResourceLoader.loadPluginResources(this, apkPath)
+            val pluginTheme = pluginResources!!.newTheme()
+            pluginTheme.setTo(theme) // Copy host Material Components theme
 
             pluginLayoutInflater = LayoutInflater.from(this).cloneInContext(object : android.content.ContextWrapper(this) {
+                override fun getResources(): Resources = pluginResources!!
                 override fun getClassLoader(): ClassLoader = pluginClassLoader!!
+                override fun getTheme(): Resources.Theme = pluginTheme
             })
 
             // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
