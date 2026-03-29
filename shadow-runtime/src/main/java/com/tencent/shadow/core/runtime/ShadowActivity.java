@@ -1,7 +1,12 @@
 package com.tencent.shadow.core.runtime;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -166,7 +171,10 @@ public class ShadowActivity extends AppCompatActivity {
         return super.getSupportActionBar();
     }
 
-    // --- Resource and context delegation ---
+    // --- Context delegation ---
+    // In plugin mode the ShadowActivity was never system-attached (mBase is null).
+    // Every ContextWrapper method that touches mBase must be overridden to
+    // delegate to the host context, otherwise it will NPE.
 
     @Override
     public Resources getResources() {
@@ -178,6 +186,54 @@ public class ShadowActivity extends AppCompatActivity {
     public Context getApplicationContext() {
         if (hostDelegator != null) return hostDelegator.getHostContext().getApplicationContext();
         return super.getApplicationContext();
+    }
+
+    @Override
+    public Object getSystemService(String name) {
+        if (hostDelegator != null) return hostDelegator.getHostContext().getSystemService(name);
+        return super.getSystemService(name);
+    }
+
+    @Override
+    public String getSystemServiceName(Class<?> serviceClass) {
+        if (hostDelegator != null) return hostDelegator.getHostContext().getSystemServiceName(serviceClass);
+        return super.getSystemServiceName(serviceClass);
+    }
+
+    @Override
+    public ApplicationInfo getApplicationInfo() {
+        if (hostDelegator != null) return hostDelegator.getHostContext().getApplicationInfo();
+        return super.getApplicationInfo();
+    }
+
+    @Override
+    public ContentResolver getContentResolver() {
+        if (hostDelegator != null) return hostDelegator.getHostContext().getContentResolver();
+        return super.getContentResolver();
+    }
+
+    @Override
+    public PackageManager getPackageManager() {
+        if (hostDelegator != null) return hostDelegator.getHostContext().getPackageManager();
+        return super.getPackageManager();
+    }
+
+    @Override
+    public SharedPreferences getSharedPreferences(String name, int mode) {
+        if (hostDelegator != null) return hostDelegator.getHostContext().getSharedPreferences(name, mode);
+        return super.getSharedPreferences(name, mode);
+    }
+
+    @Override
+    public AssetManager getAssets() {
+        if (hostDelegator != null) return hostDelegator.getHostResources().getAssets();
+        return super.getAssets();
+    }
+
+    @Override
+    public Resources.Theme getTheme() {
+        if (hostDelegator != null) return hostDelegator.getHostResources().newTheme();
+        return super.getTheme();
     }
 
     @Override

@@ -78,6 +78,14 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 override fun getResources(): Resources = pluginResources!!
                 override fun getClassLoader(): ClassLoader = pluginClassLoader!!
                 override fun getTheme(): Resources.Theme = pluginTheme
+                override fun getSystemService(name: String): Any? {
+                    // Views inflated with this context may later request a
+                    // LayoutInflater (e.g. Snackbar.make). Return the plugin
+                    // inflater so it uses plugin resources/ClassLoader, not
+                    // the host's AppCompat inflater which causes ID collisions.
+                    if (name == LAYOUT_INFLATER_SERVICE) return pluginLayoutInflater
+                    return super.getSystemService(name)
+                }
             })
 
             // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
