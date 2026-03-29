@@ -30,13 +30,13 @@ object PluginResourceLoader {
      * Creates a ClassLoader for plugin APKs.
      *
      * [ShadowBridgeClassLoader] sits between boot and DexClassLoader:
-     * - com.tencent.shadow.core.runtime.* → host (shared class identity)
-     * - androidx.* / com.google.android.material.* → host (shared AndroidX, no conflict)
+     * - com.tencent.shadow.core.runtime.* → host (shared class identity for delegation)
      * - everything else → boot classloader (framework only)
      *
-     * Since we don't ASM-transform AndroidX, host and plugin use identical
-     * AndroidX classes, so sharing them avoids ClassCastException and reduces
-     * plugin DEX size.
+     * AndroidX / Material classes are loaded from the plugin DEX (not shared
+     * with the host) so that their R-class constants match the plugin's own
+     * resource table. This avoids the resource-ID mismatch that causes
+     * Material view inflation crashes in plugin mode.
      */
     fun createPluginClassLoader(
         context: Context,
@@ -65,7 +65,9 @@ object PluginResourceLoader {
 
 /**
  * Bridge ClassLoader between boot and DexClassLoader.
- * Routes shadow runtime + AndroidX + Material classes to the host.
+ * Routes shadow runtime classes to the host (shared class identity for delegation).
+ * AndroidX / Material classes are NOT routed to the host — they load from the
+ * plugin DEX so their R-class IDs match the plugin's own resource table.
  */
 private class ShadowBridgeClassLoader(
     private val hostLoader: ClassLoader,
@@ -80,8 +82,11 @@ private class ShadowBridgeClassLoader(
     }
 
     private fun shouldLoadFromHost(name: String): Boolean {
-        return name.startsWith("com.tencent.shadow.core.runtime.") ||
-            name.startsWith("androidx.") ||
-            name.startsWith("com.google.android.material.")
+        // Only share Shadow runtime classes (delegation interfaces).
+        // AndroidX / Material must load from the plugin's own DEX so that
+        // their R-class constants match the plugin's resource table.
+        // Sharing them with the host causes resource-ID mismatches because
+        // the host's R.attr.* IDs differ from the plugin's.
+        return name.startsWith("com.tencent.shadow.core.runtime.")
     }
 }

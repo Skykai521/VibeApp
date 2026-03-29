@@ -68,7 +68,13 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 pluginTheme.applyStyle(themeResId, true)
             }
 
-            pluginLayoutInflater = LayoutInflater.from(this).cloneInContext(object : android.content.ContextWrapper(this) {
+            // Use the base context's LayoutInflater (system PhoneLayoutInflater)
+            // instead of AppCompatActivity's to avoid the AppCompat Factory2
+            // creating views from the host ClassLoader. Plugin views must come
+            // from pluginClassLoader so their types match the plugin's own
+            // AndroidX/Material classes (loaded from plugin DEX, not host).
+            val baseInflater = baseContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+            pluginLayoutInflater = baseInflater.cloneInContext(object : android.content.ContextWrapper(this) {
                 override fun getResources(): Resources = pluginResources!!
                 override fun getClassLoader(): ClassLoader = pluginClassLoader!!
                 override fun getTheme(): Resources.Theme = pluginTheme

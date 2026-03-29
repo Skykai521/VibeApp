@@ -9,7 +9,9 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
 /**
  * Base class for all generated Activities.
@@ -145,6 +147,23 @@ public class ShadowActivity extends AppCompatActivity {
         if (!pluginLifecycleActive) {
             super.onDestroy();
         }
+    }
+
+    // --- AppCompat overrides: no-op in plugin mode ---
+    // In plugin mode the Activity was never system-attached (no attachBaseContext),
+    // so AppCompatDelegate has no context and any call into it will NPE.
+    // These overrides prevent generated plugin code from triggering that path.
+
+    @Override
+    public void setSupportActionBar(Toolbar toolbar) {
+        if (hostDelegator != null) return; // no-op in plugin mode
+        super.setSupportActionBar(toolbar);
+    }
+
+    @Override
+    public ActionBar getSupportActionBar() {
+        if (hostDelegator != null) return null;
+        return super.getSupportActionBar();
     }
 
     // --- Resource and context delegation ---
