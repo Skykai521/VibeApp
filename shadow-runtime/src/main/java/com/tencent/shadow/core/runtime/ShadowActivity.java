@@ -13,6 +13,7 @@ import android.view.WindowManager;
 public class ShadowActivity extends Activity {
 
     private HostActivityDelegator hostDelegator;
+    private boolean inPluginLifecycle;
 
     public void setHostDelegator(HostActivityDelegator delegator) {
         this.hostDelegator = delegator;
@@ -26,24 +27,71 @@ public class ShadowActivity extends Activity {
         return hostDelegator != null;
     }
 
+    // --- Plugin lifecycle entry points (called by PluginContainerActivity) ---
+    // These set a flag so the overridden on* methods skip super calls that
+    // would crash (the plugin ShadowActivity is not a real system Activity).
+
     public void performCreate(Bundle savedInstanceState) {
+        inPluginLifecycle = true;
         onCreate(savedInstanceState);
     }
 
     public void performResume() {
+        inPluginLifecycle = true;
         onResume();
     }
 
     public void performPause() {
+        inPluginLifecycle = true;
         onPause();
     }
 
     public void performStop() {
+        inPluginLifecycle = true;
         onStop();
     }
 
     public void performDestroy() {
+        inPluginLifecycle = true;
         onDestroy();
+    }
+
+    // --- Lifecycle overrides: skip super in plugin mode ---
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        if (!inPluginLifecycle) {
+            super.onCreate(savedInstanceState);
+        }
+        // Subclass onCreate will run after this
+    }
+
+    @Override
+    protected void onResume() {
+        if (!inPluginLifecycle) {
+            super.onResume();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        if (!inPluginLifecycle) {
+            super.onPause();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (!inPluginLifecycle) {
+            super.onStop();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (!inPluginLifecycle) {
+            super.onDestroy();
+        }
     }
 
     @Override
