@@ -1,6 +1,5 @@
 package com.vibe.app.plugin
 
-import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,7 +10,7 @@ import javax.inject.Singleton
 
 /**
  * Manages plugin lifecycle with 5 process-isolated slots (plugin0..plugin4).
- * Uses LRU eviction: when all 5 slots are occupied, the oldest is killed.
+ * Uses LRU eviction: when all 5 slots are occupied, the oldest is replaced.
  */
 @Singleton
 class PluginManager @Inject constructor(
@@ -32,10 +31,6 @@ class PluginManager @Inject constructor(
         PluginSlot4::class.java,
     )
 
-    private val slotProcessNames = arrayOf(
-        ":plugin0", ":plugin1", ":plugin2", ":plugin3", ":plugin4",
-    )
-
     fun launchPlugin(apkPath: String, packageName: String, projectId: String = apkPath) {
         val mainClassName = findMainActivity(apkPath, packageName)
         val slotIndex = allocateSlot(projectId)
@@ -46,8 +41,14 @@ class PluginManager @Inject constructor(
             putExtra(PluginContainerActivity.EXTRA_MAIN_CLASS, mainClassName)
             putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, packageName.substringAfterLast('.'))
             putExtra(PluginContainerActivity.EXTRA_SLOT_INDEX, slotIndex)
-            // Separate task from VibeApp + show in recent apps
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+            // NEW_TASK: separate task stack from VibeApp
+            // NEW_DOCUMENT: show as separate entry in recent apps
+            // CLEAR_TASK: if this slot already has a running plugin, replace it
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                    or Intent.FLAG_ACTIVITY_NEW_DOCUMENT
+                    or Intent.FLAG_ACTIVITY_CLEAR_TASK,
+            )
         }
         context.startActivity(intent)
     }
@@ -56,14 +57,13 @@ class PluginManager @Inject constructor(
      * Allocates a process slot. Strategy:
      * 1. Reuse slot already assigned to this projectId
      * 2. Use first empty slot
-     * 3. Evict the oldest (LRU) slot
+     * 3. Evict the oldest (LRU) slot — CLEAR_TASK flag replaces the old Activity
      */
     private fun allocateSlot(projectId: String): Int {
         // 1. Check if this project already has a slot
         for (i in slots.indices) {
             if (slots[i]?.projectId == projectId) {
                 slots[i] = SlotInfo(projectId, System.currentTimeMillis())
-                killProcessForSlot(i)
                 return i
             }
         }
@@ -76,19 +76,11 @@ class PluginManager @Inject constructor(
             }
         }
 
-        // 3. Evict oldest (LRU)
+        // 3. Evict oldest (LRU) — CLEAR_TASK flag will replace the old Activity
         val oldestIndex = slots.indices.minBy { slots[it]!!.launchTime }
         Log.d(TAG, "All slots occupied, evicting slot $oldestIndex (project=${slots[oldestIndex]?.projectId})")
-        killProcessForSlot(oldestIndex)
         slots[oldestIndex] = SlotInfo(projectId, System.currentTimeMillis())
         return oldestIndex
-    }
-
-    private fun killProcessForSlot(slotIndex: Int) {
-        val processName = "${context.packageName}${slotProcessNames[slotIndex]}"
-        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        @Suppress("DEPRECATION")
-        am.killBackgroundProcesses(processName)
     }
 
     private fun findMainActivity(apkPath: String, packageName: String): String {
