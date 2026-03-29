@@ -47,7 +47,7 @@ class ShadowClassRemapperTest {
     }
 
     @Test
-    fun `remaps Application superclass to ShadowApplication`() {
+    fun `does not remap Application`() {
         val cw = ClassWriter(0)
         cw.visit(
             Opcodes.V1_8,
@@ -77,47 +77,8 @@ class ShadowClassRemapperTest {
             }
         }, 0)
 
-        assertEquals(
-            "com/tencent/shadow/core/runtime/ShadowApplication",
-            superName,
-        )
-    }
-
-    @Test
-    fun `remaps ActivityLifecycleCallbacks interface`() {
-        val cw = ClassWriter(0)
-        cw.visit(
-            Opcodes.V1_8,
-            Opcodes.ACC_PUBLIC,
-            "com/example/MyCallbacks",
-            null,
-            "java/lang/Object",
-            arrayOf("android/app/Application\$ActivityLifecycleCallbacks"),
-        )
-        cw.visitEnd()
-        val original = cw.toByteArray()
-
-        val reader = ClassReader(original)
-        val writer = ClassWriter(0)
-        val remapper = ShadowClassRemapper(writer)
-        reader.accept(remapper, 0)
-        val transformed = writer.toByteArray()
-
-        val verifyReader = ClassReader(transformed)
-        var interfaces: Array<out String>? = null
-        verifyReader.accept(object : ClassVisitor(Opcodes.ASM9) {
-            override fun visit(
-                version: Int, access: Int, name: String?,
-                signature: String?, superName: String?, interfacesParam: Array<out String>?,
-            ) {
-                interfaces = interfacesParam
-            }
-        }, 0)
-
-        assertEquals(
-            "com/tencent/shadow/core/runtime/ShadowActivityLifecycleCallbacks",
-            interfaces?.firstOrNull(),
-        )
+        // Application must NOT be remapped — it would break method signatures
+        assertEquals("android/app/Application", superName)
     }
 
     @Test
