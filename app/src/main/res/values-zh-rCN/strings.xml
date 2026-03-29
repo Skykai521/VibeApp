@@ -149,14 +149,14 @@
     <string name="default_mode">默认</string>
     <string name="ai_generated">AI 生成（Beta）</string>
     <string name="update">修改</string>
-    <string name="untitled_chat">未命名会话</string>
+    <string name="untitled_chat">未命名聊天</string>
     <string name="title_length_limit">标题长度限制:%1$s/50</string>
     <string name="apply_generated_title">使用 AI 生成标题</string>
     <string name="retry_ai_title">重新生成</string>
     <string name="token_input_warning">注意：OpenA I和 Anthropic 使用预付费计费，因此在使用之前，您必须确保账户剩有余额。否则将返回错误。</string>
     <string name="edit_question">编辑用户信息</string>
     <string name="user_message">用户消息</string>
-    <string name="export_chat">导出会话</string>
+    <string name="export_chat">导出聊天记录</string>
     <string name="more_options">更多选项</string>
     <string name="not_set">未设置</string>
     <string name="migration_assistant">迁移助手</string>
@@ -266,4 +266,5 @@
     <string name="deleted_projects">已删除 %d 个项目.</string>
     <string name="project_initializing">初始化项目中</string>
     <string name="no_projects_yet">还没有项目</string>
+    <string name="install_apk">安装应用</string>
 </resources>
