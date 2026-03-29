@@ -28,6 +28,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     private var pluginResources: Resources? = null
     private var pluginClassLoader: ClassLoader? = null
     private var pluginLayoutInflater: LayoutInflater? = null
+    private var pluginReady = false // true after performCreate — guards getSystemService
     private var projectId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,6 +100,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 Log.d(TAG, "Plugin activity loaded: $mainClass")
                 try {
                     instance.performCreate(savedInstanceState)
+                    pluginReady = true
                 } catch (e: Exception) {
                     Log.e(TAG, "Plugin crashed during onCreate", e)
                     writeCrashLog(e)
@@ -171,8 +173,11 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     // Return the plugin LayoutInflater for any code that obtains one via
     // LayoutInflater.from(context). This covers views whose context is the
     // host Activity itself (e.g. android.R.id.content used by Snackbar).
+    // Guard with pluginReady: during performCreate, AppCompat's ensureSubDecor
+    // must use the host inflater so its internal views (ContentFrameLayout etc.)
+    // come from the host ClassLoader, not the plugin's.
     override fun getSystemService(name: String): Any? {
-        if (name == LAYOUT_INFLATER_SERVICE && pluginLayoutInflater != null) {
+        if (name == LAYOUT_INFLATER_SERVICE && pluginReady && pluginLayoutInflater != null) {
             return pluginLayoutInflater
         }
         return super.getSystemService(name)
