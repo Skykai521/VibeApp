@@ -8,7 +8,6 @@ import com.vibe.app.data.dto.qwen.request.QwenTool
 import com.vibe.app.data.dto.qwen.request.QwenToolCall
 import com.vibe.app.data.dto.qwen.request.qwenTextContent
 import com.vibe.app.data.network.OpenAIAPI
-import com.vibe.app.feature.agent.AgentConversationItem
 import com.vibe.app.feature.agent.AgentMessageRole
 import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
@@ -52,7 +51,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 providerType = request.platform.compatibleType.toDiagnosticProviderType(),
                 apiFamily = "chat_completions",
                 model = request.platform.model,
-                stream = false,
+                stream = true,
                 reasoningEnabled = request.platform.reasoning,
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
@@ -61,7 +60,17 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
             )
         }
-        val response = openAIAPI.completeQwenChatCompletion(
+
+        data class ToolCallAccumulator(
+            var id: String = "",
+            var name: String = "",
+            val arguments: StringBuilder = StringBuilder(),
+        )
+        val toolCallAccumulators = mutableMapOf<Int, ToolCallAccumulator>()
+        var finishReason: String? = null
+        var streamError: String? = null
+
+        openAIAPI.streamQwenChatCompletion(
             QwenChatCompletionRequest(
                 model = request.platform.model,
                 messages = messages,
@@ -75,47 +84,66 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                     )
                 },
                 toolChoice = request.policy.toolChoiceMode.name.lowercase(),
-                stream = false,
+                stream = true,
             ),
             diagnosticContext = requestContext,
             trace = trace,
-        )
+        ).collect { chunk ->
+            if (chunk.error != null) {
+                streamError = chunk.error.message
+                trace.markFailed(chunk.error.type ?: "provider_error", chunk.error.message)
+                return@collect
+            }
 
-        if (response.error != null) {
-            trace.markFailed(response.error.type ?: "provider_error", response.error.message)
+            val choice = chunk.choices?.firstOrNull() ?: return@collect
+            finishReason = choice.finishReason ?: finishReason
+
+            // Stream text content
+            choice.delta.content?.takeIf { it.isNotEmpty() }?.let { delta ->
+                trace.markOutput(delta)
+                emit(AgentModelEvent.OutputDelta(delta))
+            }
+
+            // Stream reasoning/thinking content
+            choice.delta.reasoningContent?.takeIf { it.isNotEmpty() }?.let { delta ->
+                emit(AgentModelEvent.ThinkingDelta(delta))
+            }
+
+            // Accumulate tool call deltas
+            choice.delta.toolCalls?.forEach { deltaToolCall ->
+                val acc = toolCallAccumulators.getOrPut(deltaToolCall.index) { ToolCallAccumulator() }
+                deltaToolCall.id?.let { acc.id = it }
+                deltaToolCall.function?.name?.let { acc.name = it }
+                deltaToolCall.function?.arguments?.let { acc.arguments.append(it) }
+            }
+        }
+
+        streamError?.let { error ->
             if (requestContext != null) {
                 diagnosticLogger.logModelResponse(requestContext, trace, success = false)
                 diagnosticLogger.logLatencyBreakdown(requestContext, trace)
             }
-            emit(AgentModelEvent.Failed(response.error.message))
+            emit(AgentModelEvent.Failed(error))
             return@flow
         }
 
-        val choice = response.choices?.firstOrNull()
-        if (choice == null) {
-            trace.markFailed("provider_error", "Qwen chat completion returned no choices")
-            if (requestContext != null) {
-                diagnosticLogger.logModelResponse(requestContext, trace, success = false)
-                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
-            }
-            emit(AgentModelEvent.Failed("Qwen chat completion returned no choices"))
-            return@flow
-        }
-
-        trace.finishReason = choice.finishReason
-        choice.message.content
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                trace.markOutput(it)
-                emit(AgentModelEvent.OutputDelta(it))
-            }
-
-        choice.message.toolCalls.orEmpty().forEach { toolCall ->
+        // Emit accumulated tool calls
+        toolCallAccumulators.entries.sortedBy { it.key }.forEach { (_, acc) ->
             trace.markToolCall()
-            emit(AgentModelEvent.ToolCallReady(toolCall.toAgentToolCall(json)))
+            val arguments = runCatching {
+                json.parseToJsonElement(acc.arguments.toString())
+            }.getOrElse {
+                buildJsonObject { put("raw", JsonPrimitive(acc.arguments.toString())) }
+            }
+            emit(
+                AgentModelEvent.ToolCallReady(
+                    AgentToolCall(id = acc.id, name = acc.name, arguments = arguments),
+                ),
+            )
         }
 
-        trace.markCompleted(choice.finishReason)
+        trace.finishReason = finishReason
+        trace.markCompleted(finishReason)
         if (requestContext != null) {
             diagnosticLogger.logModelResponse(requestContext, trace, success = true)
             diagnosticLogger.logLatencyBreakdown(requestContext, trace)

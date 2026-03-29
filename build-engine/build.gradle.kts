@@ -2,6 +2,17 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+val copyShadowRuntime by tasks.registering(Copy::class) {
+    dependsOn(":shadow-runtime:bundleLibCompileToJarRelease")
+    from(project(":shadow-runtime").layout.buildDirectory.file("intermediates/compile_library_classes_jar/release/bundleLibCompileToJarRelease/classes.jar"))
+    into(layout.projectDirectory.dir("src/main/assets"))
+    rename { "shadow-runtime.jar" }
+}
+
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn(copyShadowRuntime)
+}
+
 android {
     namespace = "com.vibe.build.engine"
     compileSdk {

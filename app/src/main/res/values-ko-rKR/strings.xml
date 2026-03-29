@@ -164,9 +164,24 @@
     <string name="image_input_not_supported">이미지 선택은 OpenAI, Anthropic, Kimi 채팅에서만 지원됩니다.</string>
     <string name="supported_image_formats">현재 png, jpeg, webp, gif 이미지만 지원합니다.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
-    <string name="tool_calling">Calling %s</string>
-    <string name="tool_result_ok">%s completed</string>
-    <string name="tool_result_error">%s failed</string>
+    <string name="view_thinking">도구 호출 보기</string>
+    <string name="hide_thinking">도구 호출 숨기기</string>
+    <string name="tool_calling">%s 호출 중</string>
+    <string name="tool_result_ok">%s 완료</string>
+    <string name="tool_result_error">%s 실패</string>
+    <string name="tool_name_read_project_file">파일 읽기</string>
+    <string name="tool_name_write_project_file">파일 쓰기</string>
+    <string name="tool_name_delete_project_file">파일 삭제</string>
+    <string name="tool_name_list_project_files">파일 목록</string>
+    <string name="tool_name_clean_build_cache">캐시 정리</string>
+    <string name="tool_name_run_build_pipeline">빌드 실행</string>
+    <string name="tool_name_rename_project">프로젝트 이름 변경</string>
+    <string name="tool_name_update_project_icon">아이콘 업데이트</string>
+    <string name="tool_name_read_runtime_log">앱 로그 읽기</string>
+    <string name="tool_name_fix_crash_guide">충돌 진단</string>
+    <string name="crash_detected_title">앱 충돌 발생</string>
+    <string name="crash_auto_fix">자동 수정</string>
+    <string name="crash_dismiss">무시</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

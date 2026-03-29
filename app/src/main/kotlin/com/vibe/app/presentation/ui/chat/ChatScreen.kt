@@ -121,6 +121,7 @@ fun ChatScreen(
     val groupedMessages by chatViewModel.groupedMessages.collectAsStateWithLifecycle()
     val indexStates by chatViewModel.indexStates.collectAsStateWithLifecycle()
     val loadingStates by chatViewModel.loadingStates.collectAsStateWithLifecycle()
+    val crashPrompt by chatViewModel.crashPrompt.collectAsStateWithLifecycle()
     val isProjectNameDialogOpen by chatViewModel.isProjectNameDialogOpen.collectAsStateWithLifecycle()
     val isEditQuestionDialogOpen by chatViewModel.isEditQuestionDialogOpen.collectAsStateWithLifecycle()
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
@@ -152,8 +153,9 @@ fun ChatScreen(
     val imageInputNotSupportedText = stringResource(R.string.image_input_not_supported)
 
     val scope = rememberCoroutineScope()
-    // +1 for the bottom spacer item appended to LazyColumn
-    val bottomSpacerIndex = groupedMessages.userMessages.size * 2
+    // +1 for the bottom spacer item appended to LazyColumn, +1 if crash prompt visible
+    val crashPromptCount = if (crashPrompt != null) 1 else 0
+    val bottomSpacerIndex = groupedMessages.userMessages.size * 2 + crashPromptCount
 
     LaunchedEffect(isIdle) {
         listState.scrollToItem(bottomSpacerIndex)
@@ -167,6 +169,13 @@ fun ChatScreen(
     val messageCount = groupedMessages.userMessages.size
     LaunchedEffect(messageCount) {
         if (messageCount > 0) {
+            listState.animateScrollToItem(bottomSpacerIndex)
+        }
+    }
+
+    // Auto-scroll when crash prompt appears
+    LaunchedEffect(crashPrompt) {
+        if (crashPrompt != null) {
             listState.animateScrollToItem(bottomSpacerIndex)
         }
     }
@@ -190,12 +199,13 @@ fun ChatScreen(
         }
     }
 
-    // Re-sync platforms when returning from settings screen
+    // Re-sync platforms and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 chatViewModel.refreshPlatforms()
+                chatViewModel.checkForNewCrashLog()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -222,6 +232,7 @@ fun ChatScreen(
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
                 chatViewModel::runBuild,
+                onInstallApkClick = { chatViewModel.installBuild() },
                 onExportChatItemClick = {
                     scope.launch {
                         exportChat(context, chatViewModel)
@@ -337,6 +348,16 @@ fun ChatScreen(
                             }
                         }
                     }
+                    // Crash auto-fix prompt (shown when plugin crash is detected)
+                    if (crashPrompt != null) {
+                        item {
+                            CrashAutoFixCard(
+                                crashSummary = crashPrompt!!.crashSummary,
+                                onAutoFix = { chatViewModel.autoFixCrash() },
+                                onDismiss = { chatViewModel.dismissCrashPrompt() },
+                            )
+                        }
+                    }
                     // Bottom spacer so scrolling to this item reveals the full last message
                     item {
                         Spacer(modifier = Modifier.height(1.dp))
@@ -433,6 +454,7 @@ private fun ChatTopBar(
     scrollBehavior: TopAppBarScrollBehavior,
     onUpdateProjectNameClick: () -> Unit,
     onRunClick: () -> Unit,
+    onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit
@@ -475,6 +497,10 @@ private fun ChatTopBar(
                         onUpdateProjectNameClick.invoke()
                         isDropDownMenuExpanded = false
                     },
+                    onInstallApkClick = {
+                        onInstallApkClick()
+                        isDropDownMenuExpanded = false
+                    },
                     onExportChatItemClick = onExportChatItemClick,
                     onExportSourceCodeItemClick = {
                         onExportSourceCodeItemClick()
@@ -508,6 +534,7 @@ fun ChatDropdownMenu(
     isProjectMenuEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onUpdateProjectNameClick: () -> Unit,
+    onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit
@@ -521,6 +548,11 @@ fun ChatDropdownMenu(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.update_project_name)) },
             onClick = onUpdateProjectNameClick
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.install_apk)) },
+            onClick = onInstallApkClick
         )
         DropdownMenuItem(
             enabled = isChatMenuEnabled,

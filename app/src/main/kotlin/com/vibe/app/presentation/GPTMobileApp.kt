@@ -2,6 +2,7 @@ package com.vibe.app.presentation
 
 import android.app.Application
 import android.content.Context
+import com.vibe.app.feature.agent.service.AgentNotificationHelper
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -12,4 +13,12 @@ class GPTMobileApp : Application() {
     @Inject
     @ApplicationContext
     lateinit var context: Context
+
+    @Inject
+    lateinit var notificationHelper: AgentNotificationHelper
+
+    override fun onCreate() {
+        super.onCreate()
+        notificationHelper.createChannels()
+    }
 }

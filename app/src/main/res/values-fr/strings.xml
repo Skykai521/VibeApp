@@ -11,9 +11,24 @@
     <string name="image_input_not_supported">La sélection d\'images n\'est prise en charge que pour les chats OpenAI, Anthropic et Kimi.</string>
     <string name="supported_image_formats">Seuls les formats png, jpeg, webp et gif sont actuellement pris en charge.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
-    <string name="tool_calling">Calling %s</string>
-    <string name="tool_result_ok">%s completed</string>
-    <string name="tool_result_error">%s failed</string>
+    <string name="view_thinking">Voir les appels d\'outils</string>
+    <string name="hide_thinking">Masquer les appels d\'outils</string>
+    <string name="tool_calling">Appel de %s</string>
+    <string name="tool_result_ok">%s terminé</string>
+    <string name="tool_result_error">%s échoué</string>
+    <string name="tool_name_read_project_file">Lire fichier</string>
+    <string name="tool_name_write_project_file">Écrire fichier</string>
+    <string name="tool_name_delete_project_file">Supprimer fichier</string>
+    <string name="tool_name_list_project_files">Lister fichiers</string>
+    <string name="tool_name_clean_build_cache">Vider le cache</string>
+    <string name="tool_name_run_build_pipeline">Lancer la compilation</string>
+    <string name="tool_name_rename_project">Renommer le projet</string>
+    <string name="tool_name_update_project_icon">Mettre à jour l\'icône</string>
+    <string name="tool_name_read_runtime_log">Lire le journal</string>
+    <string name="tool_name_fix_crash_guide">Diagnostiquer le crash</string>
+    <string name="crash_detected_title">L\'application a planté</string>
+    <string name="crash_auto_fix">Réparation auto</string>
+    <string name="crash_dismiss">Ignorer</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

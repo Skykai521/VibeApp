@@ -27,6 +27,7 @@ data class BuildWorkspace(
     val lambdaStubsJar: File,
     val androidxClassesJar: File?,
     val androidxResCompiledDir: File?,
+    val shadowRuntimeJar: File?,
 ) {
     fun allJavaSources(): List<File> {
         return collectFiles(sourceDir, ".java") + collectFiles(generatedSourcesDir, ".java")
@@ -59,6 +60,10 @@ data class BuildWorkspace(
             val unsignedApk = File(binDir, "generated.apk")
             val signedApk = File(binDir, "signed.apk")
 
+            // shadow-runtime.jar is always on classpath — generated apps extend
+            // ShadowActivity which delegates to Activity in standalone mode.
+            val shadowRuntimeJar = BuildModule.getShadowRuntimeJar()?.takeIf { it.exists() }
+
             return BuildWorkspace(
                 rootDir = rootDir,
                 sourceDir = sourceDir,
@@ -80,6 +85,7 @@ data class BuildWorkspace(
                 lambdaStubsJar = BuildModule.getLambdaStubs(),
                 androidxClassesJar = BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() },
                 androidxResCompiledDir = BuildModule.getAndroidxResCompiledDir()?.takeIf { it.exists() && it.isDirectory },
+                shadowRuntimeJar = shadowRuntimeJar,
             )
         }
 

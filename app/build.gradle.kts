@@ -18,8 +18,8 @@ android {
         applicationId = "com.vibe.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.3.0"
+        versionCode = 9
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -81,6 +81,8 @@ configurations.all {
 
 dependencies {
     // Android
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -132,6 +134,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     implementation(project(":build-engine"))
+    implementation(project(":shadow-runtime"))
 
     // Test
     testImplementation(libs.junit)

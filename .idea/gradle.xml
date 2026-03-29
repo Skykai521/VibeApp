@@ -27,6 +27,7 @@
             <option value="$PROJECT_DIR$/build-tools/manifmerger" />
             <option value="$PROJECT_DIR$/build-tools/project" />
             <option value="$PROJECT_DIR$/build-tools/snapshots" />
+            <option value="$PROJECT_DIR$/shadow-runtime" />
           </set>
         </option>
       </GradleProjectSettings>

@@ -1,9 +1,9 @@
 package $packagename;
 
-import androidx.appcompat.app.AppCompatActivity;
+import com.tencent.shadow.core.runtime.ShadowActivity;
 import android.os.Bundle;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends ShadowActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

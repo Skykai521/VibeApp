@@ -161,9 +161,24 @@
     <string name="image_input_not_supported">Pemilihan gambar hanya didukung untuk obrolan OpenAI, Anthropic, dan Kimi.</string>
     <string name="supported_image_formats">Saat ini hanya mendukung gambar png, jpeg, webp, dan gif.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
-    <string name="tool_calling">Calling %s</string>
-    <string name="tool_result_ok">%s completed</string>
-    <string name="tool_result_error">%s failed</string>
+    <string name="view_thinking">Lihat panggilan alat</string>
+    <string name="hide_thinking">Sembunyikan panggilan alat</string>
+    <string name="tool_calling">Memanggil %s</string>
+    <string name="tool_result_ok">%s selesai</string>
+    <string name="tool_result_error">%s gagal</string>
+    <string name="tool_name_read_project_file">Baca file</string>
+    <string name="tool_name_write_project_file">Tulis file</string>
+    <string name="tool_name_delete_project_file">Hapus file</string>
+    <string name="tool_name_list_project_files">Daftar file</string>
+    <string name="tool_name_clean_build_cache">Bersihkan cache</string>
+    <string name="tool_name_run_build_pipeline">Jalankan build</string>
+    <string name="tool_name_rename_project">Ganti nama proyek</string>
+    <string name="tool_name_update_project_icon">Perbarui ikon</string>
+    <string name="tool_name_read_runtime_log">Baca log aplikasi</string>
+    <string name="tool_name_fix_crash_guide">Diagnosis error</string>
+    <string name="crash_detected_title">Aplikasi error</string>
+    <string name="crash_auto_fix">Perbaiki otomatis</string>
+    <string name="crash_dismiss">Abaikan</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

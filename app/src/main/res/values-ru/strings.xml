@@ -161,9 +161,24 @@
     <string name="image_input_not_supported">Выбор изображений поддерживается только в чатах OpenAI, Anthropic и Kimi.</string>
     <string name="supported_image_formats">В настоящее время поддерживаются только изображения png, jpeg, webp и gif.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
-    <string name="tool_calling">Calling %s</string>
-    <string name="tool_result_ok">%s completed</string>
-    <string name="tool_result_error">%s failed</string>
+    <string name="view_thinking">Показать вызовы инструментов</string>
+    <string name="hide_thinking">Скрыть вызовы инструментов</string>
+    <string name="tool_calling">Вызов %s</string>
+    <string name="tool_result_ok">%s завершён</string>
+    <string name="tool_result_error">%s не удался</string>
+    <string name="tool_name_read_project_file">Чтение файла</string>
+    <string name="tool_name_write_project_file">Запись файла</string>
+    <string name="tool_name_delete_project_file">Удаление файла</string>
+    <string name="tool_name_list_project_files">Список файлов</string>
+    <string name="tool_name_clean_build_cache">Очистка кэша</string>
+    <string name="tool_name_run_build_pipeline">Запуск сборки</string>
+    <string name="tool_name_rename_project">Переименование проекта</string>
+    <string name="tool_name_update_project_icon">Обновление иконки</string>
+    <string name="tool_name_read_runtime_log">Чтение лога приложения</string>
+    <string name="tool_name_fix_crash_guide">Диагностика сбоя</string>
+    <string name="crash_detected_title">Приложение упало</string>
+    <string name="crash_auto_fix">Автоисправление</string>
+    <string name="crash_dismiss">Закрыть</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

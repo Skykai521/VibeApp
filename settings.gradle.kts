@@ -37,4 +37,5 @@ include(":build-tools:project")
 include(":build-tools:snapshots")
 include(":build-tools:jaxp:jaxp-internal")
 include(":build-tools:jaxp:xml")
+include(":shadow-runtime")
 

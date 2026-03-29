@@ -160,9 +160,24 @@
     <string name="image_input_not_supported">படத் தேர்வு OpenAI, Anthropic மற்றும் Kimi அரட்டைகளில் மட்டுமே ஆதரிக்கப்படுகிறது.</string>
     <string name="supported_image_formats">தற்போது png, jpeg, webp மற்றும் gif படங்கள் மட்டுமே ஆதரிக்கப்படுகின்றன.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
-    <string name="tool_calling">Calling %s</string>
-    <string name="tool_result_ok">%s completed</string>
-    <string name="tool_result_error">%s failed</string>
+    <string name="view_thinking">கருவி அழைப்புகளைக் காண்க</string>
+    <string name="hide_thinking">கருவி அழைப்புகளை மறை</string>
+    <string name="tool_calling">%s அழைக்கப்படுகிறது</string>
+    <string name="tool_result_ok">%s நிறைவடைந்தது</string>
+    <string name="tool_result_error">%s தோல்வியடைந்தது</string>
+    <string name="tool_name_read_project_file">கோப்பு வாசிப்பு</string>
+    <string name="tool_name_write_project_file">கோப்பு எழுதுதல்</string>
+    <string name="tool_name_delete_project_file">கோப்பு நீக்குதல்</string>
+    <string name="tool_name_list_project_files">கோப்புகள் பட்டியல்</string>
+    <string name="tool_name_clean_build_cache">தற்காலிக சேமிப்பு அழிப்பு</string>
+    <string name="tool_name_run_build_pipeline">உருவாக்கம் இயக்கு</string>
+    <string name="tool_name_rename_project">திட்டம் மறுபெயரிடுதல்</string>
+    <string name="tool_name_update_project_icon">சின்னம் புதுப்பிப்பு</string>
+    <string name="tool_name_read_runtime_log">ஆப் பதிவை படிக்கவும்</string>
+    <string name="tool_name_fix_crash_guide">செயலிழப்பு கண்டறிதல்</string>
+    <string name="crash_detected_title">ஆப் செயலிழந்தது</string>
+    <string name="crash_auto_fix">தானியங்கி சரிசெய்</string>
+    <string name="crash_dismiss">நிராகரி</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

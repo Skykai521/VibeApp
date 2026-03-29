@@ -207,7 +207,7 @@ class SetupViewModelV2 @Inject constructor(
     private fun getDefaultModel(clientType: ClientType): String = when (clientType) {
         ClientType.OPENAI -> "gpt-4o"
         ClientType.ANTHROPIC -> "claude-3-5-sonnet-20240620"
-        ClientType.QWEN -> "qwen3-coder-plus"
+        ClientType.QWEN -> "qwen3-max"
         ClientType.KIMI -> "kimi-k2.5"
         else -> ""
     }
