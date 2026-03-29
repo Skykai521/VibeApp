@@ -187,9 +187,14 @@ VibeApp/
 |   |   |   +-- agent/                   # Agent loop, gateway, tool registry
 |   |   |   |   +-- loop/
 |   |   |   |   +-- tool/
+|   |   |   |   +-- service/
 |   |   |   +-- project/                 # ProjectManager / Workspace abstraction
 |   |   |   +-- projecticon/             # Launcher icon generation
 |   |   |   +-- projectinit/             # Template project init, build entry
+|   |   +-- plugin/                      # Plugin runtime host
+|   |   |   +-- PluginContainerActivity  # Proxy Activity (5 process-isolated slots)
+|   |   |   +-- PluginManager            # Slot allocation, LRU eviction
+|   |   |   +-- PluginResourceLoader     # DexClassLoader + AssetManager resource loading
 |   |   +-- data/                        # Persistence, network, DTO, repository
 |   |   |   +-- database/
 |   |   |   |   +-- dao/
@@ -214,6 +219,7 @@ VibeApp/
 |       +-- pipeline/                    # BuildPipeline / DefaultBuildPipeline
 |       +-- resource/                    # AAPT2 resource compilation and linking
 |       +-- sign/                        # Debug signing
++-- shadow-runtime/                      # Plugin runtime classes (ShadowActivity etc.)
 +-- build-tools/                         # Bundled build toolchain dependencies
 |   +-- android-stubs/
 |   +-- common/
@@ -254,10 +260,10 @@ VibeApp/
 
 > Goal: Make the generation process visible, controllable, and iterable
 
+- [x] Multi-project management + version snapshots
+- [x] Multi-model switching (GPT-4o / Qwen / Ollama)
+- [x] Plugin system — run generated apps inside VibeApp without installation (Shadow-based, 5 process-isolated slots)
 - [ ] XML static preview (instant rendering without compilation)
-- [ ] Dynamic preview (DexClassLoader in-device execution)
-- [ ] Multi-project management + version snapshots
-- [ ] Multi-model switching (GPT-4o / Qwen / Ollama)
 - [ ] Build cache + incremental compilation
 - [ ] Multi-turn conversation iteration optimization
 - [ ] AI multimodal support
@@ -268,6 +274,7 @@ VibeApp/
 
 - [ ] Kotlin + Jetpack Compose support
 - [ ] Full build pipeline with third-party library support
+- [ ] Plugin system enhancements — AndroidX/Material Components support in plugin mode
 - [ ] Local termux and git support
 - [ ] Community template marketplace
 - [ ] Internationalization (i18n)
@@ -282,6 +289,7 @@ VibeApp stands on the shoulders of these excellent open-source projects:
 |---------|-------------|
 | [gpt_mobile](https://github.com/Taewan-P/gpt_mobile) | AI Chat UI reference |
 | [CodeAssist](https://github.com/tyron12233/CodeAssist/) | On-device full Android IDE, proving the end-to-end feasibility |
+| [Shadow](https://github.com/Tencent/Shadow) | Tencent's plugin framework — inspired the host-delegation pattern for running generated apps inside VibeApp without installation |
 
 ---
 

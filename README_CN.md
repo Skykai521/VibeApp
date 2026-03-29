@@ -188,10 +188,15 @@ VibeApp/
 │   │   ├── feature/                     # 核心业务编排
 │   │   │   ├── agent/                   # Agent loop、gateway、tool registry
 │   │   │   │   ├── loop/
-│   │   │   │   └── tool/
+│   │   │   │   ├── tool/
+│   │   │   │   └── service/
 │   │   │   ├── project/                 # ProjectManager / Workspace abstraction
 │   │   │   ├── projecticon/             # 启动图标生成
 │   │   │   └── projectinit/             # 模板工程初始化、构建入口
+│   │   ├── plugin/                      # 插件运行时宿主
+│   │   │   ├── PluginContainerActivity  # 代理 Activity（5 个进程隔离槽位）
+│   │   │   ├── PluginManager            # 槽位分配、LRU 淘汰
+│   │   │   └── PluginResourceLoader     # DexClassLoader + AssetManager 资源加载
 │   │   ├── data/                        # 持久化、网络、DTO、repository
 │   │   │   ├── database/
 │   │   │   │   ├── dao/
@@ -216,6 +221,7 @@ VibeApp/
 │       ├── pipeline/                    # BuildPipeline / DefaultBuildPipeline
 │       ├── resource/                    # AAPT2 资源编译与链接
 │       └── sign/                        # Debug 签名
+├── shadow-runtime/                      # 插件运行时类（ShadowActivity 等）
 ├── build-tools/                         # 打包进应用的编译工具链依赖
 │   ├── android-stubs/
 │   ├── common/
@@ -256,10 +262,10 @@ VibeApp/
 
 > 目标：让生成过程可见、可控、可迭代
 
+- [x] 多项目管理 + 版本快照
+- [x] 多模型切换支持（GPT-4o / Qwen / Ollama）
+- [x] 插件系统 — 生成的应用可直接在 VibeApp 内运行，无需安装（基于 Shadow 方案，5 个进程隔离槽位）
 - [ ] XML 静态预览（无需编译的即时渲染）
-- [ ] 动态预览（DexClassLoader 设备内运行）
-- [ ] 多项目管理 + 版本快照
-- [ ] 多模型切换支持（GPT-4o / Qwen / Ollama）
 - [ ] 编译缓存 + 增量编译
 - [ ] 多轮对话迭代优化
 - [ ] 支持 AI 多模态
@@ -270,6 +276,7 @@ VibeApp/
 
 - [ ] Kotlin + Jetpack Compose 支持
 - [ ] 支持完整编译流程，支持引入第三方库
+- [ ] 插件系统增强 — 插件模式下支持 AndroidX/Material Components
 - [ ] 支持本地 termux，git
 - [ ] 社区模板市场
 - [ ] 国际化（i18n）
@@ -284,6 +291,7 @@ VibeApp 站在以下优秀开源项目的肩膀上：
 |------|------|
 | [gpt_mobile](https://github.com/Taewan-P/gpt_mobile) | AI Chat UI 参考 |
 | [CodeAssist](https://github.com/tyron12233/CodeAssist/) | 设备端完整 Android IDE，验证了全链路可行性 |
+| [Shadow](https://github.com/Tencent/Shadow) | 腾讯插件化框架 — 启发了宿主委托模式，实现生成应用免安装直接在 VibeApp 内运行 |
 
 ---
 
