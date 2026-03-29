@@ -246,14 +246,22 @@
     <string name="disabled">Disabled</string>
     <string name="delete_platform">Delete Platform</string>
     <string name="delete_platform_confirmation">Are you sure you want to delete this platform? This action cannot be undone.</string>
-    <string name="view_thinking">View thinking process</string>
-    <string name="hide_thinking">Hide thinking</string>
+    <string name="view_thinking">View tool calls</string>
+    <string name="hide_thinking">Hide tool calls</string>
     <string name="thinking_in_progress">Thinking…</string>
     <string name="expand">Expand</string>
     <string name="collapse">Collapse</string>
     <string name="tool_calling">Calling %s</string>
     <string name="tool_result_ok">%s completed</string>
     <string name="tool_result_error">%s failed</string>
+    <string name="tool_name_read_project_file">Read file</string>
+    <string name="tool_name_write_project_file">Write file</string>
+    <string name="tool_name_delete_project_file">Delete file</string>
+    <string name="tool_name_list_project_files">List files</string>
+    <string name="tool_name_clean_build_cache">Clean cache</string>
+    <string name="tool_name_run_build_pipeline">Run build</string>
+    <string name="tool_name_rename_project">Rename project</string>
+    <string name="tool_name_update_project_icon">Update icon</string>
     <string name="extended_thinking">Extended Thinking</string>
     <string name="extended_thinking_description">Enable for reasoning models (o1, o3, Claude with thinking, Gemini thinking)</string>
 

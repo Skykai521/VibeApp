@@ -60,8 +60,18 @@ fun ThinkingBlock(
     val toolCallingFmt = stringResource(R.string.tool_calling)
     val toolOkFmt = stringResource(R.string.tool_result_ok)
     val toolErrorFmt = stringResource(R.string.tool_result_error)
-    val formattedThoughts = remember(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt) {
-        formatToolLines(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt)
+    val resolvedToolNames = mapOf(
+        "read_project_file" to stringResource(R.string.tool_name_read_project_file),
+        "write_project_file" to stringResource(R.string.tool_name_write_project_file),
+        "delete_project_file" to stringResource(R.string.tool_name_delete_project_file),
+        "list_project_files" to stringResource(R.string.tool_name_list_project_files),
+        "clean_build_cache" to stringResource(R.string.tool_name_clean_build_cache),
+        "run_build_pipeline" to stringResource(R.string.tool_name_run_build_pipeline),
+        "rename_project" to stringResource(R.string.tool_name_rename_project),
+        "update_project_icon" to stringResource(R.string.tool_name_update_project_icon),
+    )
+    val formattedThoughts = remember(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt, resolvedToolNames) {
+        formatToolLines(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt, resolvedToolNames)
     }
 
     Column(
@@ -177,6 +187,7 @@ private fun formatToolLines(
     toolCallingFmt: String,
     toolOkFmt: String,
     toolErrorFmt: String,
+    toolNameMap: Map<String, String> = emptyMap(),
 ): String = thoughts.lines().joinToString("\n") { line ->
     val trimmed = line.trim()
     val toolMatch = TOOL_LINE_REGEX.matchEntire(trimmed)
@@ -184,16 +195,18 @@ private fun formatToolLines(
     when {
         resultMatch != null -> {
             val name = resultMatch.groupValues[1]
+            val displayName = toolNameMap[name] ?: name
             val status = resultMatch.groupValues[2]
             if (status == "ok") {
-                "\u2705 ${toolOkFmt.format(name)}"
+                "\u2705 ${toolOkFmt.format(displayName)}"
             } else {
-                "\u274C ${toolErrorFmt.format(name)}"
+                "\u274C ${toolErrorFmt.format(displayName)}"
             }
         }
         toolMatch != null -> {
             val name = toolMatch.groupValues[1]
-            "\uD83D\uDD27 ${toolCallingFmt.format(name)}"
+            val displayName = toolNameMap[name] ?: name
+            "\uD83D\uDD27 ${toolCallingFmt.format(displayName)}"
         }
         else -> line
     }

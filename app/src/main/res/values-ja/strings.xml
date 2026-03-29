@@ -161,9 +161,19 @@
     <string name="image_input_not_supported">画像選択はOpenAI、Anthropic、Kimiのチャットでのみサポートされています。</string>
     <string name="supported_image_formats">現在、png、jpeg、webp、gif画像のみサポートしています。</string>
     <string name="failed_to_select_image">Failed to select image.</string>
-    <string name="tool_calling">Calling %s</string>
-    <string name="tool_result_ok">%s completed</string>
-    <string name="tool_result_error">%s failed</string>
+    <string name="view_thinking">ツール呼び出しを表示</string>
+    <string name="hide_thinking">ツール呼び出しを非表示</string>
+    <string name="tool_calling">%s を呼び出し中</string>
+    <string name="tool_result_ok">%s 完了</string>
+    <string name="tool_result_error">%s 失敗</string>
+    <string name="tool_name_read_project_file">ファイル読み取り</string>
+    <string name="tool_name_write_project_file">ファイル書き込み</string>
+    <string name="tool_name_delete_project_file">ファイル削除</string>
+    <string name="tool_name_list_project_files">ファイル一覧</string>
+    <string name="tool_name_clean_build_cache">キャッシュ削除</string>
+    <string name="tool_name_run_build_pipeline">ビルド実行</string>
+    <string name="tool_name_rename_project">プロジェクト名変更</string>
+    <string name="tool_name_update_project_icon">アイコン更新</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>
