@@ -33,10 +33,12 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
         }
 
         try {
+            // Use host classloader as parent so ShadowActivity class identity
+            // is shared between host and plugin — enabling `is ShadowActivity`.
             pluginClassLoader = PluginResourceLoader.createPluginClassLoader(
                 context = this,
                 apkPath = apkPath,
-                parentClassLoader = classLoader,
+                parentClassLoader = ShadowActivity::class.java.classLoader!!,
             )
             pluginResources = PluginResourceLoader.loadPluginResources(this, apkPath)
             pluginLayoutInflater = LayoutInflater.from(this).cloneInContext(object : android.content.ContextWrapper(this) {
@@ -45,19 +47,34 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
             })
 
             val clazz = pluginClassLoader!!.loadClass(mainClass)
+            Log.d(TAG, "Loaded class: $mainClass, superclass chain: ${getSuperclassChain(clazz)}")
             val instance = clazz.getDeclaredConstructor().newInstance()
             if (instance is ShadowActivity) {
                 pluginActivity = instance
                 instance.setHostDelegator(this)
+                Log.d(TAG, "Plugin activity loaded: $mainClass")
                 instance.performCreate(savedInstanceState)
             } else {
+                // Log detailed classloader info for debugging
                 Log.e(TAG, "$mainClass is not a ShadowActivity subclass")
+                Log.e(TAG, "instance class: ${instance.javaClass.name}, loader: ${instance.javaClass.classLoader}")
+                Log.e(TAG, "expected ShadowActivity loader: ${ShadowActivity::class.java.classLoader}")
                 finish()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load plugin", e)
             finish()
         }
+    }
+
+    private fun getSuperclassChain(clazz: Class<*>): String {
+        val chain = mutableListOf<String>()
+        var c: Class<*>? = clazz
+        while (c != null) {
+            chain.add("${c.name}@${c.classLoader?.javaClass?.simpleName ?: "bootstrap"}")
+            c = c.superclass
+        }
+        return chain.joinToString(" → ")
     }
 
     override fun onResume() {
