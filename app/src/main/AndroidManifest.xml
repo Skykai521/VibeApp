@@ -59,7 +59,7 @@
             android:documentLaunchMode="always"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Light.NoTitleBar" />
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
             android:name="com.vibe.app.plugin.PluginSlot1"
             android:process=":plugin1"
@@ -67,7 +67,7 @@
             android:documentLaunchMode="always"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Light.NoTitleBar" />
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
             android:name="com.vibe.app.plugin.PluginSlot2"
             android:process=":plugin2"
@@ -75,7 +75,7 @@
             android:documentLaunchMode="always"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Light.NoTitleBar" />
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
             android:name="com.vibe.app.plugin.PluginSlot3"
             android:process=":plugin3"
@@ -83,7 +83,7 @@
             android:documentLaunchMode="always"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Light.NoTitleBar" />
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
             android:name="com.vibe.app.plugin.PluginSlot4"
             android:process=":plugin4"
@@ -91,7 +91,7 @@
             android:documentLaunchMode="always"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.Light.NoTitleBar" />
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
     </application>
 
 </manifest>

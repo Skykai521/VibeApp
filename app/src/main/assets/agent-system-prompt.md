@@ -15,22 +15,25 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER add dependencies or libraries beyond what is bundled
 - NEVER use android:cx, android:cy, or android:r attributes — they do not exist in the Android SDK
 - NEVER use DarkActionBar theme with setSupportActionBar() — this causes a fatal crash
-- NEVER extend AppCompatActivity, FragmentActivity, or ComponentActivity — they are NOT compatible with the plugin runtime
-- NEVER use Fragments (androidx.fragment.app.Fragment) — they require FragmentActivity which is not available
 
 ### ALWAYS do these:
-- ALWAYS extend ShadowActivity (from com.tencent.shadow.core.runtime.ShadowActivity) for ALL Activities
+- ALWAYS extend AppCompatActivity (from androidx.appcompat.app.AppCompatActivity)
 - ALWAYS keep package {{PACKAGE_NAME}} in all Java files
 - ALWAYS import {{PACKAGE_NAME}}.R when referencing XML resources
 - ALWAYS use Theme.MaterialComponents.DayNight.NoActionBar as the parent theme in styles.xml. If you need a Toolbar, add a MaterialToolbar in your XML layout and call setSupportActionBar(toolbar) in your Activity
 - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 
-### Bundled libraries (available without build.gradle):
-- com.tencent.shadow.core.runtime.ShadowActivity (use as base class for ALL Activities)
-- com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, Snackbar, etc. (use in XML layouts, inflate programmatically)
+### Bundled AndroidX & Material libraries (available without build.gradle):
+- androidx.appcompat.app.AppCompatActivity (use instead of android.app.Activity)
+- com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, MaterialToolbar, BottomNavigationView, TabLayout, Chip, Snackbar, etc.
+- androidx.coordinatorlayout.widget.CoordinatorLayout
+- androidx.constraintlayout.widget.ConstraintLayout
 - androidx.recyclerview.widget.RecyclerView, LinearLayoutManager, GridLayoutManager
 - androidx.cardview.widget.CardView
+- androidx.viewpager2.widget.ViewPager2
+- androidx.fragment.app.Fragment, FragmentManager
 - androidx.core.content.ContextCompat, androidx.core.widget.*, etc.
+- androidx.lifecycle.* (ViewModel, LiveData, etc.)
 - androidx.drawerlayout.widget.DrawerLayout
 
 All standard Android SDK APIs (android.widget.*, android.view.*, android.graphics.*, android.animation.*, etc.) and standard Material Component styles (@style/Widget.MaterialComponents.*) are also available. Do NOT use any library beyond what is listed above.

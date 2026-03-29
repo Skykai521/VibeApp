@@ -21,17 +21,14 @@ object PluginResourceLoader {
     /**
      * Creates a ClassLoader for plugin APKs.
      *
-     * Generated apps extend ShadowActivity directly (not AppCompatActivity).
-     * The plugin APK's DEX contains ShadowActivity from shadow-runtime.jar,
-     * but we need the host's ShadowActivity for shared class identity
-     * (so `instanceof` works in PluginContainerActivity).
-     *
      * [ShadowBridgeClassLoader] sits between boot and DexClassLoader:
-     * - com.tencent.shadow.core.runtime.* → host classloader (shared identity)
+     * - com.tencent.shadow.core.runtime.* → host (shared class identity)
+     * - androidx.* / com.google.android.material.* → host (shared AndroidX, no conflict)
      * - everything else → boot classloader (framework only)
      *
-     * DexClassLoader's parent-first delegation finds ShadowActivity via the
-     * bridge (host's version), while plugin's own classes are loaded from DEX.
+     * Since we don't ASM-transform AndroidX, host and plugin use identical
+     * AndroidX classes, so sharing them avoids ClassCastException and reduces
+     * plugin DEX size.
      */
     fun createPluginClassLoader(
         context: Context,
@@ -60,7 +57,7 @@ object PluginResourceLoader {
 
 /**
  * Bridge ClassLoader between boot and DexClassLoader.
- * Routes shadow runtime classes to the host for shared class identity.
+ * Routes shadow runtime + AndroidX + Material classes to the host.
  */
 private class ShadowBridgeClassLoader(
     private val hostLoader: ClassLoader,
@@ -68,9 +65,15 @@ private class ShadowBridgeClassLoader(
 ) : ClassLoader(bootParent) {
 
     override fun loadClass(name: String, resolve: Boolean): Class<*> {
-        if (name.startsWith("com.tencent.shadow.core.runtime.")) {
+        if (shouldLoadFromHost(name)) {
             return hostLoader.loadClass(name)
         }
         return super.loadClass(name, resolve)
+    }
+
+    private fun shouldLoadFromHost(name: String): Boolean {
+        return name.startsWith("com.tencent.shadow.core.runtime.") ||
+            name.startsWith("androidx.") ||
+            name.startsWith("com.google.android.material.")
     }
 }

@@ -1,6 +1,5 @@
 package com.vibe.app.plugin
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
@@ -10,18 +9,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import androidx.appcompat.app.AppCompatActivity
 import com.tencent.shadow.core.runtime.HostActivityDelegator
 import com.tencent.shadow.core.runtime.ShadowActivity
 
 /**
- * Base proxy Activity that hosts a plugin. Subclassed by PluginSlot0..4,
- * each declared in a separate process (:plugin0..:plugin4) in the manifest.
+ * Base proxy Activity that hosts a plugin. Extends AppCompatActivity so
+ * the plugin gets full Material/AppCompat support (themes, toolbar, etc.).
  *
- * Receives the plugin APK path and main class name via Intent extras,
- * loads plugin classes and resources, and delegates lifecycle to the
- * plugin's ShadowActivity.
+ * Subclassed by PluginSlot0..4, each in a separate process.
  */
-open class PluginContainerActivity : Activity(), HostActivityDelegator {
+open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator {
 
     private var pluginActivity: ShadowActivity? = null
     private var pluginResources: Resources? = null

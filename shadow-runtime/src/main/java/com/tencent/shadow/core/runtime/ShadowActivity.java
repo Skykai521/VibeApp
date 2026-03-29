@@ -1,6 +1,5 @@
 package com.tencent.shadow.core.runtime;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -10,10 +9,25 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
-public class ShadowActivity extends Activity {
+import androidx.appcompat.app.AppCompatActivity;
+
+/**
+ * Base class for all generated Activities.
+ *
+ * Extends AppCompatActivity so generated apps get full Material/AppCompat support.
+ *
+ * <ul>
+ *   <li><b>Standalone mode</b> (hostDelegator == null): behaves as a normal
+ *       AppCompatActivity — all calls go to super.</li>
+ *   <li><b>Plugin mode</b> (hostDelegator != null): resource/view/navigation
+ *       calls are redirected to the host PluginContainerActivity. Lifecycle
+ *       super calls still run because the host container is a real
+ *       AppCompatActivity that provides the AppCompat environment.</li>
+ * </ul>
+ */
+public class ShadowActivity extends AppCompatActivity {
 
     private HostActivityDelegator hostDelegator;
-    private boolean inPluginLifecycle;
 
     public void setHostDelegator(HostActivityDelegator delegator) {
         this.hostDelegator = delegator;
@@ -28,71 +42,112 @@ public class ShadowActivity extends Activity {
     }
 
     // --- Plugin lifecycle entry points (called by PluginContainerActivity) ---
-    // These set a flag so the overridden on* methods skip super calls that
-    // would crash (the plugin ShadowActivity is not a real system Activity).
+    // In plugin mode, the ShadowActivity is not started by the system.
+    // These methods are called by the host container to drive the plugin lifecycle.
+    // We do NOT call super lifecycle methods here because the plugin Activity
+    // was never attached to the Android Activity system (no Application, no
+    // ActivityThread registration). The host container handles the real lifecycle.
 
     public void performCreate(Bundle savedInstanceState) {
-        inPluginLifecycle = true;
-        onCreate(savedInstanceState);
+        // Only call the user's onCreate — skip super chain (AppCompatActivity/Activity)
+        // which would crash due to missing system attachment.
+        onPluginCreate(savedInstanceState);
     }
 
     public void performResume() {
-        inPluginLifecycle = true;
-        onResume();
+        onPluginResume();
     }
 
     public void performPause() {
-        inPluginLifecycle = true;
-        onPause();
+        onPluginPause();
     }
 
     public void performStop() {
-        inPluginLifecycle = true;
-        onStop();
+        onPluginStop();
     }
 
     public void performDestroy() {
-        inPluginLifecycle = true;
-        onDestroy();
+        onPluginDestroy();
     }
+
+    /**
+     * Called in plugin mode instead of onCreate. Subclasses override onCreate
+     * as normal — this method calls it only when NOT in plugin mode (standalone).
+     * In plugin mode, the subclass's onCreate is called directly.
+     */
+    protected void onPluginCreate(Bundle savedInstanceState) {
+        // Default: call the subclass's onCreate which may call super.onCreate.
+        // In plugin mode, super.onCreate (this class) will be a no-op.
+        pluginLifecycleActive = true;
+        onCreate(savedInstanceState);
+        pluginLifecycleActive = false;
+    }
+
+    protected void onPluginResume() {
+        pluginLifecycleActive = true;
+        onResume();
+        pluginLifecycleActive = false;
+    }
+
+    protected void onPluginPause() {
+        pluginLifecycleActive = true;
+        onPause();
+        pluginLifecycleActive = false;
+    }
+
+    protected void onPluginStop() {
+        pluginLifecycleActive = true;
+        onStop();
+        pluginLifecycleActive = false;
+    }
+
+    protected void onPluginDestroy() {
+        pluginLifecycleActive = true;
+        onDestroy();
+        pluginLifecycleActive = false;
+    }
+
+    // Flag: when true, lifecycle super calls are skipped
+    private boolean pluginLifecycleActive;
 
     // --- Lifecycle overrides: skip super in plugin mode ---
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        if (!inPluginLifecycle) {
+        if (!pluginLifecycleActive) {
             super.onCreate(savedInstanceState);
         }
-        // Subclass onCreate will run after this
     }
 
     @Override
     protected void onResume() {
-        if (!inPluginLifecycle) {
+        if (!pluginLifecycleActive) {
             super.onResume();
         }
     }
 
     @Override
     protected void onPause() {
-        if (!inPluginLifecycle) {
+        if (!pluginLifecycleActive) {
             super.onPause();
         }
     }
 
     @Override
     protected void onStop() {
-        if (!inPluginLifecycle) {
+        if (!pluginLifecycleActive) {
             super.onStop();
         }
     }
 
     @Override
     protected void onDestroy() {
-        if (!inPluginLifecycle) {
+        if (!pluginLifecycleActive) {
             super.onDestroy();
         }
     }
+
+    // --- Resource and context delegation ---
 
     @Override
     public Resources getResources() {
