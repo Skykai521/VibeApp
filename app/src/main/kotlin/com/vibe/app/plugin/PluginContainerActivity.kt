@@ -86,11 +86,12 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
             }
             pluginContext = pCtx
 
-            // Use the base context's LayoutInflater (system PhoneLayoutInflater)
-            // instead of AppCompatActivity's to avoid the AppCompat Factory2
-            // creating views from the host ClassLoader.
-            val baseInflater = baseContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-            pluginLayoutInflater = baseInflater.cloneInContext(pCtx)
+            // Get a clean LayoutInflater from applicationContext — guaranteed to
+            // have NO AppCompat Factory2 (which replaces <view>/<TextView> with
+            // host-ClassLoader types). Clone it with the plugin context so it
+            // uses plugin resources, theme, and ClassLoader for inflation.
+            val cleanInflater = applicationContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+            pluginLayoutInflater = cleanInflater.cloneInContext(pCtx)
 
             // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
             initPluginLogger(mainClass)
