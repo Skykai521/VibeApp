@@ -1,8 +1,0 @@
-com.tencent.shadow.core.runtime.shadow-runtime-pngs-0 /Users/skykai/Documents/work/VibeApp/shadow-runtime/build/generated/res/pngs/release
-com.tencent.shadow.core.runtime.shadow-runtime-updated_navigation_xml-1 /Users/skykai/Documents/work/VibeApp/shadow-runtime/build/generated/updated_navigation_xml/release
-com.tencent.shadow.core.runtime.shadow-runtime-mergeReleaseResources-2 /Users/skykai/Documents/work/VibeApp/shadow-runtime/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
-com.tencent.shadow.core.runtime.shadow-runtime-mergeReleaseResources-3 /Users/skykai/Documents/work/VibeApp/shadow-runtime/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
-com.tencent.shadow.core.runtime.shadow-runtime-release-4 /Users/skykai/Documents/work/VibeApp/shadow-runtime/build/intermediates/merged_res/release/mergeReleaseResources
-com.tencent.shadow.core.runtime.shadow-runtime-release-5 /Users/skykai/Documents/work/VibeApp/shadow-runtime/build/intermediates/packaged_res/release/packageReleaseResources
-com.tencent.shadow.core.runtime.shadow-runtime-main-6 /Users/skykai/Documents/work/VibeApp/shadow-runtime/src/main/res
-com.tencent.shadow.core.runtime.shadow-runtime-release-7 /Users/skykai/Documents/work/VibeApp/shadow-runtime/src/release/res
