@@ -25,6 +25,12 @@ interface OpenAIAPI {
         trace: ModelExecutionTrace? = null,
     ): Flow<ResponsesStreamEvent>
 
+    fun streamQwenChatCompletion(
+        request: QwenChatCompletionRequest,
+        diagnosticContext: ModelRequestDiagnosticContext? = null,
+        trace: ModelExecutionTrace? = null,
+    ): Flow<ChatCompletionChunk>
+
     suspend fun completeQwenChatCompletion(
         request: QwenChatCompletionRequest,
         diagnosticContext: ModelRequestDiagnosticContext? = null,

@@ -65,7 +65,7 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
                 providerType = request.platform.compatibleType.toDiagnosticProviderType(),
                 apiFamily = "chat_completions",
                 model = request.platform.model,
-                stream = false,
+                stream = true,
                 reasoningEnabled = request.platform.reasoning,
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
@@ -76,7 +76,19 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
                 imageCount = request.fullConversation.sumOf { it.attachments.size }.takeIf { it > 0 },
             )
         }
-        val response = openAIAPI.completeQwenChatCompletion(
+
+        // Accumulators for streaming tool call deltas
+        data class ToolCallAccumulator(
+            var id: String = "",
+            var name: String = "",
+            val arguments: StringBuilder = StringBuilder(),
+        )
+        val toolCallAccumulators = mutableMapOf<Int, ToolCallAccumulator>()
+        var finishReason: String? = null
+        val reasoningBuilder = StringBuilder()
+        var streamError: String? = null
+
+        openAIAPI.streamQwenChatCompletion(
             QwenChatCompletionRequest(
                 model = request.platform.model,
                 messages = messages,
@@ -90,53 +102,74 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
                     )
                 },
                 toolChoice = if (request.tools.isNotEmpty()) "auto" else null,
-                stream = false,
+                stream = true,
             ),
             diagnosticContext = requestContext,
             trace = trace,
-        )
+        ).collect { chunk ->
+            if (chunk.error != null) {
+                streamError = chunk.error.message
+                trace.markFailed(chunk.error.type ?: "provider_error", chunk.error.message)
+                return@collect
+            }
 
-        if (response.error != null) {
-            trace.markFailed(response.error.type ?: "provider_error", response.error.message)
+            val choice = chunk.choices?.firstOrNull() ?: return@collect
+            finishReason = choice.finishReason ?: finishReason
+
+            // Stream text content
+            choice.delta.content?.takeIf { it.isNotEmpty() }?.let { delta ->
+                trace.markOutput(delta)
+                emit(AgentModelEvent.OutputDelta(delta))
+            }
+
+            // Stream reasoning/thinking content
+            choice.delta.reasoningContent?.takeIf { it.isNotEmpty() }?.let { delta ->
+                reasoningBuilder.append(delta)
+                emit(AgentModelEvent.ThinkingDelta(delta))
+            }
+
+            // Accumulate tool call deltas
+            choice.delta.toolCalls?.forEach { deltaToolCall ->
+                val acc = toolCallAccumulators.getOrPut(deltaToolCall.index) { ToolCallAccumulator() }
+                deltaToolCall.id?.let { acc.id = it }
+                deltaToolCall.function?.name?.let { acc.name = it }
+                deltaToolCall.function?.arguments?.let { acc.arguments.append(it) }
+            }
+        }
+
+        if (streamError != null) {
             if (requestContext != null) {
                 diagnosticLogger.logModelResponse(requestContext, trace, success = false)
                 diagnosticLogger.logLatencyBreakdown(requestContext, trace)
             }
-            emit(AgentModelEvent.Failed(response.error.message))
+            emit(AgentModelEvent.Failed(streamError!!))
             return@flow
         }
 
-        val choice = response.choices?.firstOrNull()
-        if (choice == null) {
-            trace.markFailed("provider_error", "Kimi chat completion returned no choices")
-            if (requestContext != null) {
-                diagnosticLogger.logModelResponse(requestContext, trace, success = false)
-                diagnosticLogger.logLatencyBreakdown(requestContext, trace)
-            }
-            emit(AgentModelEvent.Failed("Kimi chat completion returned no choices"))
-            return@flow
-        }
-
-        trace.finishReason = choice.finishReason
-        choice.message.content
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                trace.markOutput(it)
-                emit(AgentModelEvent.OutputDelta(it))
-            }
-
-        choice.message.toolCalls.orEmpty().forEach { toolCall ->
+        // Emit accumulated tool calls
+        toolCallAccumulators.entries.sortedBy { it.key }.forEach { (_, acc) ->
             trace.markToolCall()
-            emit(AgentModelEvent.ToolCallReady(toolCall.toAgentToolCall(json)))
+            val arguments = runCatching {
+                json.parseToJsonElement(acc.arguments.toString())
+            }.getOrElse {
+                buildJsonObject { put("raw", JsonPrimitive(acc.arguments.toString())) }
+            }
+            emit(
+                AgentModelEvent.ToolCallReady(
+                    AgentToolCall(id = acc.id, name = acc.name, arguments = arguments),
+                ),
+            )
         }
 
-        choice.message.reasoningContent?.let { trace.markThinking(it) }
-        trace.markCompleted(choice.finishReason)
+        val reasoningContent = reasoningBuilder.toString().takeIf { it.isNotBlank() }
+        reasoningContent?.let { trace.markThinking(it) }
+        trace.finishReason = finishReason
+        trace.markCompleted(finishReason)
         if (requestContext != null) {
             diagnosticLogger.logModelResponse(requestContext, trace, success = true)
             diagnosticLogger.logLatencyBreakdown(requestContext, trace)
         }
-        emit(AgentModelEvent.Completed(reasoningContent = choice.message.reasoningContent))
+        emit(AgentModelEvent.Completed(reasoningContent = reasoningContent))
     }
 
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {

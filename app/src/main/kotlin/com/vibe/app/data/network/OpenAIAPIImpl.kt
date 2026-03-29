@@ -46,6 +46,95 @@ class OpenAIAPIImpl @Inject constructor(
         this.apiUrl = url
     }
 
+    override fun streamQwenChatCompletion(
+        request: QwenChatCompletionRequest,
+        diagnosticContext: ModelRequestDiagnosticContext?,
+        trace: ModelExecutionTrace?,
+    ): Flow<ChatCompletionChunk> = flow {
+        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
+        val requestStartedAt = System.currentTimeMillis()
+        trace?.markRequestStarted(requestStartedAt)
+        diagnosticContext?.let {
+            diagnosticLogger.logModelRequest(
+                context = it,
+                endpointUrl = endpoint,
+                requestBodyBytesApprox = requestBody.toByteArray().size,
+                startedAt = requestStartedAt,
+            )
+        }
+        logOpenAiRequest(endpoint, requestBody)
+
+        try {
+            val startTime = requestStartedAt
+            networkClient().preparePost(endpoint) {
+                contentType(ContentType.Application.Json)
+                setBody(requestBody)
+                accept(ContentType.Text.EventStream)
+                token?.let { bearerAuth(it) }
+            }.execute { response ->
+                trace?.markFirstByte(response.status.value)
+                NetworkLogcatLogger.logResponse(
+                    method = "POST",
+                    url = endpoint,
+                    statusCode = response.status.value,
+                    statusText = response.status.description,
+                    headers = response.headers.entries().associate { it.key to it.value },
+                    bodyContentType = response.headers[HttpHeaders.ContentType],
+                    durationMillis = System.currentTimeMillis() - startTime,
+                    streamedBody = response.status.isSuccess(),
+                )
+
+                if (!response.status.isSuccess()) {
+                    val errorBody = response.body<String>()
+                    trace?.updateStatusCode(response.status.value)
+                    emit(
+                        ChatCompletionChunk(
+                            error = ErrorDetail(
+                                message = errorBody,
+                                type = "http_error",
+                                code = response.status.value.toString(),
+                            ),
+                        ),
+                    )
+                    return@execute
+                }
+
+                val channel = response.bodyAsChannel()
+                val eventLines = mutableListOf<String>()
+                while (!channel.isClosedForRead) {
+                    val line = channel.readUTF8Line() ?: break
+                    if (line.isBlank()) {
+                        val shouldStop = handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                        eventLines.clear()
+                        if (shouldStop) break
+                        continue
+                    }
+                    eventLines += line
+                }
+
+                if (eventLines.isNotEmpty()) {
+                    handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                }
+            }
+        } catch (e: Exception) {
+            NetworkLogcatLogger.logNetworkError("POST", endpoint, e)
+            val errorMessage = when (e) {
+                is java.net.UnknownHostException -> "Network error: Unable to resolve host."
+                is java.nio.channels.UnresolvedAddressException -> "Network error: Unable to resolve address."
+                is java.net.ConnectException -> "Network error: Connection refused."
+                is java.net.SocketTimeoutException -> "Network error: Connection timed out."
+                is javax.net.ssl.SSLException -> "Network error: SSL/TLS connection failed."
+                else -> e.message ?: "Unknown network error"
+            }
+            emit(
+                ChatCompletionChunk(
+                    error = ErrorDetail(message = errorMessage, type = "network_error"),
+                ),
+            )
+        }
+    }
+
     override suspend fun completeQwenChatCompletion(
         request: QwenChatCompletionRequest,
         diagnosticContext: ModelRequestDiagnosticContext?,
