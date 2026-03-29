@@ -13,7 +13,15 @@ import android.view.WindowManager
 import com.tencent.shadow.core.runtime.HostActivityDelegator
 import com.tencent.shadow.core.runtime.ShadowActivity
 
-class PluginContainerActivity : Activity(), HostActivityDelegator {
+/**
+ * Base proxy Activity that hosts a plugin. Subclassed by PluginSlot0..4,
+ * each declared in a separate process (:plugin0..:plugin4) in the manifest.
+ *
+ * Receives the plugin APK path and main class name via Intent extras,
+ * loads plugin classes and resources, and delegates lifecycle to the
+ * plugin's ShadowActivity.
+ */
+open class PluginContainerActivity : Activity(), HostActivityDelegator {
 
     private var pluginActivity: ShadowActivity? = null
     private var pluginResources: Resources? = null
@@ -25,6 +33,7 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
 
         val apkPath = intent.getStringExtra(EXTRA_APK_PATH)
         val mainClass = intent.getStringExtra(EXTRA_MAIN_CLASS)
+        val pluginLabel = intent.getStringExtra(EXTRA_PLUGIN_LABEL)
 
         if (apkPath == null || mainClass == null) {
             Log.e(TAG, "Missing apkPath or mainClass in intent")
@@ -32,9 +41,12 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
             return
         }
 
+        // Set task label for recent apps
+        if (pluginLabel != null) {
+            setTaskDescription(android.app.ActivityManager.TaskDescription(pluginLabel))
+        }
+
         try {
-            // Use host classloader as parent so ShadowActivity class identity
-            // is shared between host and plugin — enabling `is ShadowActivity`.
             pluginClassLoader = PluginResourceLoader.createPluginClassLoader(
                 context = this,
                 apkPath = apkPath,
@@ -47,7 +59,6 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
             })
 
             val clazz = pluginClassLoader!!.loadClass(mainClass)
-            Log.d(TAG, "Loaded class: $mainClass, superclass chain: ${getSuperclassChain(clazz)}")
             val instance = clazz.getDeclaredConstructor().newInstance()
             if (instance is ShadowActivity) {
                 pluginActivity = instance
@@ -55,26 +66,13 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
                 Log.d(TAG, "Plugin activity loaded: $mainClass")
                 instance.performCreate(savedInstanceState)
             } else {
-                // Log detailed classloader info for debugging
                 Log.e(TAG, "$mainClass is not a ShadowActivity subclass")
-                Log.e(TAG, "instance class: ${instance.javaClass.name}, loader: ${instance.javaClass.classLoader}")
-                Log.e(TAG, "expected ShadowActivity loader: ${ShadowActivity::class.java.classLoader}")
                 finish()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load plugin", e)
             finish()
         }
-    }
-
-    private fun getSuperclassChain(clazz: Class<*>): String {
-        val chain = mutableListOf<String>()
-        var c: Class<*>? = clazz
-        while (c != null) {
-            chain.add("${c.name}@${c.classLoader?.javaClass?.simpleName ?: "bootstrap"}")
-            c = c.superclass
-        }
-        return chain.joinToString(" → ")
     }
 
     override fun onResume() {
@@ -100,7 +98,10 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        pluginActivity?.onBackPressed() ?: super.onBackPressed()
+        // Don't call super.onBackPressed() — it accesses FragmentManager
+        // which is not initialized (plugin is not a real system Activity).
+        // Just finish the container.
+        finish()
     }
 
     // --- HostActivityDelegator ---
@@ -128,15 +129,14 @@ class PluginContainerActivity : Activity(), HostActivityDelegator {
         private const val TAG = "PluginContainer"
         const val EXTRA_APK_PATH = "plugin_apk_path"
         const val EXTRA_MAIN_CLASS = "plugin_main_class"
-
-        fun createLaunchIntent(
-            context: Context,
-            apkPath: String,
-            mainClassName: String,
-        ): Intent = Intent(context, PluginContainerActivity::class.java).apply {
-            putExtra(EXTRA_APK_PATH, apkPath)
-            putExtra(EXTRA_MAIN_CLASS, mainClassName)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        const val EXTRA_PLUGIN_LABEL = "plugin_label"
+        const val EXTRA_SLOT_INDEX = "plugin_slot_index"
     }
 }
+
+// 5 process-isolated slots — each declared in manifest with its own process
+class PluginSlot0 : PluginContainerActivity()
+class PluginSlot1 : PluginContainerActivity()
+class PluginSlot2 : PluginContainerActivity()
+class PluginSlot3 : PluginContainerActivity()
+class PluginSlot4 : PluginContainerActivity()

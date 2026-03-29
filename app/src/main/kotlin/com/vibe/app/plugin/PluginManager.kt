@@ -1,25 +1,94 @@
 package com.vibe.app.plugin
 
+import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Manages plugin lifecycle with 5 process-isolated slots (plugin0..plugin4).
+ * Uses LRU eviction: when all 5 slots are occupied, the oldest is killed.
+ */
 @Singleton
 class PluginManager @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    fun launchPlugin(apkPath: String, packageName: String) {
+    private data class SlotInfo(
+        val projectId: String,
+        val launchTime: Long,
+    )
+
+    private val slots = arrayOfNulls<SlotInfo>(MAX_SLOTS)
+
+    private val slotActivities: Array<Class<*>> = arrayOf(
+        PluginSlot0::class.java,
+        PluginSlot1::class.java,
+        PluginSlot2::class.java,
+        PluginSlot3::class.java,
+        PluginSlot4::class.java,
+    )
+
+    private val slotProcessNames = arrayOf(
+        ":plugin0", ":plugin1", ":plugin2", ":plugin3", ":plugin4",
+    )
+
+    fun launchPlugin(apkPath: String, packageName: String, projectId: String = apkPath) {
         val mainClassName = findMainActivity(apkPath, packageName)
-        Log.d(TAG, "Launching plugin: apk=$apkPath, main=$mainClassName")
-        val intent = PluginContainerActivity.createLaunchIntent(
-            context = context,
-            apkPath = apkPath,
-            mainClassName = mainClassName,
-        )
+        val slotIndex = allocateSlot(projectId)
+        Log.d(TAG, "Launching plugin in slot $slotIndex: apk=$apkPath, main=$mainClassName")
+
+        val intent = Intent(context, slotActivities[slotIndex]).apply {
+            putExtra(PluginContainerActivity.EXTRA_APK_PATH, apkPath)
+            putExtra(PluginContainerActivity.EXTRA_MAIN_CLASS, mainClassName)
+            putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, packageName.substringAfterLast('.'))
+            putExtra(PluginContainerActivity.EXTRA_SLOT_INDEX, slotIndex)
+            // Separate task from VibeApp + show in recent apps
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+        }
         context.startActivity(intent)
+    }
+
+    /**
+     * Allocates a process slot. Strategy:
+     * 1. Reuse slot already assigned to this projectId
+     * 2. Use first empty slot
+     * 3. Evict the oldest (LRU) slot
+     */
+    private fun allocateSlot(projectId: String): Int {
+        // 1. Check if this project already has a slot
+        for (i in slots.indices) {
+            if (slots[i]?.projectId == projectId) {
+                slots[i] = SlotInfo(projectId, System.currentTimeMillis())
+                killProcessForSlot(i)
+                return i
+            }
+        }
+
+        // 2. Find first empty slot
+        for (i in slots.indices) {
+            if (slots[i] == null) {
+                slots[i] = SlotInfo(projectId, System.currentTimeMillis())
+                return i
+            }
+        }
+
+        // 3. Evict oldest (LRU)
+        val oldestIndex = slots.indices.minBy { slots[it]!!.launchTime }
+        Log.d(TAG, "All slots occupied, evicting slot $oldestIndex (project=${slots[oldestIndex]?.projectId})")
+        killProcessForSlot(oldestIndex)
+        slots[oldestIndex] = SlotInfo(projectId, System.currentTimeMillis())
+        return oldestIndex
+    }
+
+    private fun killProcessForSlot(slotIndex: Int) {
+        val processName = "${context.packageName}${slotProcessNames[slotIndex]}"
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        am.killBackgroundProcesses(processName)
     }
 
     private fun findMainActivity(apkPath: String, packageName: String): String {
@@ -35,5 +104,6 @@ class PluginManager @Inject constructor(
 
     companion object {
         private const val TAG = "PluginManager"
+        const val MAX_SLOTS = 5
     }
 }
