@@ -168,6 +168,16 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         finish()
     }
 
+    // Return the plugin LayoutInflater for any code that obtains one via
+    // LayoutInflater.from(context). This covers views whose context is the
+    // host Activity itself (e.g. android.R.id.content used by Snackbar).
+    override fun getSystemService(name: String): Any? {
+        if (name == LAYOUT_INFLATER_SERVICE && pluginLayoutInflater != null) {
+            return pluginLayoutInflater
+        }
+        return super.getSystemService(name)
+    }
+
     // --- HostActivityDelegator ---
 
     override fun getHostContext(): Context = this

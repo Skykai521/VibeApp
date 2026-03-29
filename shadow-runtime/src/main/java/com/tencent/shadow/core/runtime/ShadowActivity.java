@@ -191,6 +191,14 @@ public class ShadowActivity extends AppCompatActivity {
     }
 
     @Override
+    public Object getSystemService(String name) {
+        if (hostDelegator != null && LAYOUT_INFLATER_SERVICE.equals(name)) {
+            return hostDelegator.getHostLayoutInflater();
+        }
+        return super.getSystemService(name);
+    }
+
+    @Override
     public LayoutInflater getLayoutInflater() {
         if (hostDelegator != null) return hostDelegator.getHostLayoutInflater();
         return super.getLayoutInflater();
