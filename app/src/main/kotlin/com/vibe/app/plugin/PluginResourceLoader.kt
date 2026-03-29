@@ -82,16 +82,32 @@ private class ShadowBridgeClassLoader(
     }
 
     private fun shouldLoadFromHost(name: String): Boolean {
-        // Share Shadow runtime (delegation interfaces) and androidx.appcompat.*
-        // with the host. AppCompat classes appear in ShadowActivity's class
-        // hierarchy method signatures (ActionBar, Toolbar, FragmentManager etc.).
-        // If loaded from plugin DEX they'd be a different class identity than
-        // the host's → VerifyError. Sharing keeps type consistency.
+        // Share Shadow runtime + specific androidx API packages that appear in
+        // the Activity class hierarchy's method signatures (ActionBar, Toolbar,
+        // FragmentManager, Lifecycle, etc.). Without sharing, the ART verifier
+        // sees two different class identities for the same type → VerifyError.
         //
-        // com.google.android.material.* is NOT shared — it stays in the plugin
-        // DEX so its R-class constants match the plugin's resource table,
-        // preventing layout inflation crashes (e.g. Snackbar).
-        return name.startsWith("com.tencent.shadow.core.runtime.") ||
-            name.startsWith("androidx.")
+        // Widget/view packages (cardview, coordinatorlayout, recyclerview, etc.)
+        // must NOT be shared — their constructors use R.styleable with host IDs
+        // that don't match the plugin resource table, causing InflateException.
+        //
+        // com.google.android.material.* is also NOT shared — Material classes
+        // inflate layouts and need plugin R-class IDs.
+        if (name.startsWith("com.tencent.shadow.core.runtime.")) return true
+        if (!name.startsWith("androidx.")) return false
+
+        // API packages: types used in AppCompatActivity / FragmentActivity /
+        // ComponentActivity method signatures — share for type consistency
+        if (name.startsWith("androidx.appcompat.app.")) return true
+        if (name.startsWith("androidx.appcompat.view.")) return true
+        if (name.startsWith("androidx.fragment.app.")) return true
+        if (name.startsWith("androidx.activity.")) return true
+        if (name.startsWith("androidx.lifecycle.")) return true
+        if (name.startsWith("androidx.savedstate.")) return true
+        // Toolbar specifically — parameter of setSupportActionBar()
+        if (name.startsWith("androidx.appcompat.widget.Toolbar")) return true
+
+        // Everything else in androidx.* — load from plugin DEX
+        return false
     }
 }
