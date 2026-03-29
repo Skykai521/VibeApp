@@ -137,12 +137,12 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
             }
         }
 
-        if (streamError != null) {
+        streamError?.let { error ->
             if (requestContext != null) {
                 diagnosticLogger.logModelResponse(requestContext, trace, success = false)
                 diagnosticLogger.logLatencyBreakdown(requestContext, trace)
             }
-            emit(AgentModelEvent.Failed(streamError!!))
+            emit(AgentModelEvent.Failed(error))
             return@flow
         }
 
