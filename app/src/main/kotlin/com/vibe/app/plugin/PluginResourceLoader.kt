@@ -82,11 +82,16 @@ private class ShadowBridgeClassLoader(
     }
 
     private fun shouldLoadFromHost(name: String): Boolean {
-        // Only share Shadow runtime classes (delegation interfaces).
-        // AndroidX / Material must load from the plugin's own DEX so that
-        // their R-class constants match the plugin's resource table.
-        // Sharing them with the host causes resource-ID mismatches because
-        // the host's R.attr.* IDs differ from the plugin's.
-        return name.startsWith("com.tencent.shadow.core.runtime.")
+        // Share Shadow runtime (delegation interfaces) and androidx.appcompat.*
+        // with the host. AppCompat classes appear in ShadowActivity's class
+        // hierarchy method signatures (ActionBar, Toolbar, FragmentManager etc.).
+        // If loaded from plugin DEX they'd be a different class identity than
+        // the host's → VerifyError. Sharing keeps type consistency.
+        //
+        // com.google.android.material.* is NOT shared — it stays in the plugin
+        // DEX so its R-class constants match the plugin's resource table,
+        // preventing layout inflation crashes (e.g. Snackbar).
+        return name.startsWith("com.tencent.shadow.core.runtime.") ||
+            name.startsWith("androidx.")
     }
 }
