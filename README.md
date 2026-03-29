@@ -10,7 +10,7 @@
 [**中文文档**](README_CN.md)
 
 <p align="center">
-  <img src="docs/assets/banner.png" alt="VibeApp Banner" width="1850"/>
+  <img src="docs/assets/banner.png" alt="VibeApp Banner" width="1650"/>
 </p>
 
 ---
