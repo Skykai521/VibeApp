@@ -19,32 +19,30 @@ object PluginResourceLoader {
     }
 
     /**
-     * Creates a child-first ClassLoader for plugin APKs.
+     * Creates a ClassLoader for plugin APKs with correct class resolution.
      *
-     * The plugin APK contains shadow-transformed AndroidX classes where the
-     * superclass chain ends at ShadowActivity instead of android.app.Activity.
-     * A standard parent-first DexClassLoader would skip these and load the
-     * host's original (untransformed) AndroidX from the parent, breaking the
-     * ShadowActivity inheritance chain.
+     * The plugin APK contains shadow-transformed AndroidX where the superclass
+     * chain is: AppCompatActivity → ... → ShadowActivity → Activity.
      *
-     * This ClassLoader loads classes from the plugin first, except:
-     * - java.* / android.* / dalvik.* — always from parent (framework)
-     * - com.tencent.shadow.core.runtime.* — always from parent (shared class identity)
-     */
-    /**
-     * Creates a child-first ClassLoader for plugin APKs.
+     * Key challenge: when DexClassLoader resolves superclasses internally, it
+     * uses its own parent chain. If the parent doesn't have ShadowActivity,
+     * DexClassLoader loads it from the plugin DEX — creating a different Class
+     * object than the host's ShadowActivity, breaking `instanceof`.
      *
-     * The plugin APK contains shadow-transformed AndroidX classes where the
-     * superclass chain ends at ShadowActivity instead of android.app.Activity.
+     * Solution: insert a [ShadowBridgeClassLoader] between boot and DexClassLoader:
      *
-     * The inner DexClassLoader uses the **boot classloader** as parent (not
-     * the host app's classloader). This prevents it from finding the host's
-     * original untransformed AndroidX classes via parent-first delegation.
+     * ```
+     * DexClassLoader (plugin APK)
+     *   └── ShadowBridgeClassLoader
+     *         ├── com.tencent.shadow.core.runtime.* → host classloader
+     *         └── everything else → boot classloader
+     * ```
      *
-     * The outer PluginChildFirstClassLoader controls routing:
-     * - Plugin's own classes + transformed AndroidX → from inner DexClassLoader
-     * - Framework classes (android/java/dalvik) → from boot classloader
-     * - Shadow runtime classes → from host classloader (shared class identity)
+     * This way, when DexClassLoader resolves ShadowActivity via parent-first
+     * delegation, the bridge intercepts it and returns the host's version.
+     * AndroidX classes are NOT in boot or bridge, so DexClassLoader loads
+     * them from its own DEX (the shadow-transformed versions). The returned
+     * DexClassLoader can be used directly — no outer wrapper needed.
      */
     fun createPluginClassLoader(
         context: Context,
@@ -54,55 +52,43 @@ object PluginResourceLoader {
         val dexOutputDir = context.getDir("plugin_dex", Context.MODE_PRIVATE)
         dexOutputDir.listFiles()?.forEach { it.delete() }
 
-        // Use boot classloader as the DexClassLoader's parent so it cannot
-        // find the host's untransformed AndroidX classes.
         val bootClassLoader = ClassLoader.getSystemClassLoader().parent
             ?: ClassLoader.getSystemClassLoader()
 
-        val innerLoader = dalvik.system.DexClassLoader(
+        val bridgeLoader = ShadowBridgeClassLoader(
+            hostLoader = parentClassLoader,
+            bootParent = bootClassLoader,
+        )
+
+        return dalvik.system.DexClassLoader(
             apkPath,
             dexOutputDir.absolutePath,
             null,
-            bootClassLoader,
+            bridgeLoader,
         )
-
-        return PluginChildFirstClassLoader(innerLoader, parentClassLoader)
     }
 }
 
 /**
- * Child-first ClassLoader:
- * 1. Shadow runtime classes → parent (host), for shared class identity
- * 2. Everything else → try inner DexClassLoader first (plugin APK)
- * 3. Fallback → parent (host)
+ * Bridge ClassLoader that sits between boot and DexClassLoader.
  *
- * The inner DexClassLoader's parent is the boot classloader, so it only
- * finds framework classes + plugin DEX classes (including shadow-transformed
- * AndroidX). It will NOT find the host's original AndroidX.
+ * Intercepts `com.tencent.shadow.core.runtime.*` and loads them from the
+ * host classloader (for shared class identity). Everything else delegates
+ * to the boot classloader (framework classes only).
+ *
+ * This ensures that when DexClassLoader resolves the superclass chain
+ * `AppCompatActivity → ... → ShadowActivity`, it finds the HOST's
+ * ShadowActivity (via this bridge), not a duplicate from the plugin DEX.
  */
-private class PluginChildFirstClassLoader(
-    private val pluginLoader: ClassLoader,
-    parent: ClassLoader,
-) : ClassLoader(parent) {
+private class ShadowBridgeClassLoader(
+    private val hostLoader: ClassLoader,
+    bootParent: ClassLoader,
+) : ClassLoader(bootParent) {
 
     override fun loadClass(name: String, resolve: Boolean): Class<*> {
-        // Check if already loaded by this classloader
-        findLoadedClass(name)?.let { return it }
-
-        // Shadow runtime must come from the host for shared class identity
         if (name.startsWith("com.tencent.shadow.core.runtime.")) {
-            return parent.loadClass(name)
+            return hostLoader.loadClass(name)
         }
-
-        // Try plugin first — the inner DexClassLoader will find:
-        // - Plugin's own classes (com.vibe.generated.*)
-        // - Shadow-transformed AndroidX (androidx.*)
-        // - Framework classes via boot classloader (android.*, java.*)
-        return try {
-            pluginLoader.loadClass(name)
-        } catch (_: ClassNotFoundException) {
-            // Fallback to host for anything not in plugin
-            parent.loadClass(name)
-        }
+        return super.loadClass(name, resolve)
     }
 }
