@@ -173,6 +173,13 @@ fun ChatScreen(
         }
     }
 
+    // Auto-scroll when crash prompt appears
+    LaunchedEffect(crashPrompt) {
+        if (crashPrompt != null) {
+            listState.animateScrollToItem(bottomSpacerIndex)
+        }
+    }
+
     // Auto-scroll to bottom when keyboard opens
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     LaunchedEffect(imeVisible) {

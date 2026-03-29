@@ -61,14 +61,16 @@ fun CrashAutoFixCard(
                 text = crashSummary,
                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
-                maxLines = 6,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(modifier = Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.size(width = 100.dp, height = 36.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                     ),
