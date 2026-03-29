@@ -7,20 +7,18 @@ import android.content.res.Resources
 object PluginResourceLoader {
 
     /**
-     * Creates Resources with PLUGIN APK first, HOST APK second.
+     * Creates Resources backed by the plugin APK only.
      *
-     * Order matters: resource ID lookup checks tables in insertion order.
-     * Plugin-first ensures plugin R.layout/R.id values resolve to plugin
-     * resources (not colliding host resources). Host-second provides theme
-     * attribute definitions (colorPrimary, actionBarSize, etc.) that
-     * Material Components views need during inflation.
+     * The plugin APK already contains AndroidX/Material Components resources
+     * (compiled in via AAPT2 -R overlay). A theme must be applied separately
+     * via [Resources.newTheme] + [Resources.Theme.applyStyle] to make
+     * ?attr/ references resolvable.
      */
     fun loadPluginResources(hostContext: Context, apkPath: String): Resources {
         val assetManager = AssetManager::class.java.getDeclaredConstructor().newInstance()
         val addAssetPath = AssetManager::class.java.getDeclaredMethod("addAssetPath", String::class.java)
         addAssetPath.isAccessible = true
-        addAssetPath.invoke(assetManager, apkPath) // Plugin APK first (R.layout/R.id priority)
-        addAssetPath.invoke(assetManager, hostContext.applicationInfo.sourceDir) // Host APK second (theme attrs)
+        addAssetPath.invoke(assetManager, apkPath)
         return Resources(
             assetManager,
             hostContext.resources.displayMetrics,

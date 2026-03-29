@@ -56,11 +56,17 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 apkPath = apkPath,
                 parentClassLoader = ShadowActivity::class.java.classLoader!!,
             )
-            // Create merged Resources: plugin APK first (so plugin R values have priority),
-            // host APK second (so theme attrs like ?attr/colorPrimary are available).
+            // Plugin APK already contains AndroidX/Material resources (via AAPT2 -R overlay).
+            // We just need to apply the plugin's own Theme.MyApplication so ?attr/ resolves.
             pluginResources = PluginResourceLoader.loadPluginResources(this, apkPath)
             val pluginTheme = pluginResources!!.newTheme()
-            pluginTheme.setTo(theme) // Copy host Material Components theme
+            val pluginPackage = mainClass!!.substringBeforeLast('.')
+            val themeResId = pluginResources!!.getIdentifier(
+                "Theme.MyApplication", "style", pluginPackage,
+            )
+            if (themeResId != 0) {
+                pluginTheme.applyStyle(themeResId, true)
+            }
 
             pluginLayoutInflater = LayoutInflater.from(this).cloneInContext(object : android.content.ContextWrapper(this) {
                 override fun getResources(): Resources = pluginResources!!
