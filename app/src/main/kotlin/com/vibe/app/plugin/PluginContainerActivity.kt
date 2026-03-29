@@ -57,9 +57,15 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 parentClassLoader = ShadowActivity::class.java.classLoader!!,
             )
             pluginResources = PluginResourceLoader.loadPluginResources(this, apkPath)
+
+            // Apply host theme to merged resources so ?attr/colorPrimary etc. resolve
+            val pluginTheme = pluginResources!!.newTheme()
+            pluginTheme.setTo(theme)
+
             pluginLayoutInflater = LayoutInflater.from(this).cloneInContext(object : android.content.ContextWrapper(this) {
                 override fun getResources(): Resources = pluginResources!!
                 override fun getClassLoader(): ClassLoader = pluginClassLoader!!
+                override fun getTheme(): Resources.Theme = pluginTheme
             })
 
             // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
