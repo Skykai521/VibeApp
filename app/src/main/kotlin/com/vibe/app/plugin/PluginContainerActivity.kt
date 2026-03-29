@@ -1,5 +1,6 @@
 package com.vibe.app.plugin
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
@@ -165,6 +166,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         super.onDestroy()
     }
 
+    @SuppressLint("MissingSuperCall")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         // Don't call super.onBackPressed() — it accesses FragmentManager
