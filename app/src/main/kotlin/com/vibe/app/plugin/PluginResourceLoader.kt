@@ -7,16 +7,23 @@ import android.content.res.Resources
 object PluginResourceLoader {
 
     /**
-     * Creates merged Resources containing both host and plugin assets.
-     * Host APK is added first so its theme attributes (colorPrimary, actionBarSize, etc.)
-     * are available. Plugin APK is added second so its layouts/drawables overlay.
+     * Adds the plugin APK to the host's existing AssetManager so plugin layouts
+     * and drawables are findable via the host's Resources. This avoids creating
+     * a separate Resources object (which causes 0x7f resource ID collisions).
+     *
+     * Safe because each plugin slot runs in its own process.
      */
+    fun addPluginAssets(hostContext: Context, apkPath: String) {
+        val addAssetPath = AssetManager::class.java.getDeclaredMethod("addAssetPath", String::class.java)
+        addAssetPath.isAccessible = true
+        addAssetPath.invoke(hostContext.resources.assets, apkPath)
+    }
+
     fun loadPluginResources(hostContext: Context, apkPath: String): Resources {
         val assetManager = AssetManager::class.java.getDeclaredConstructor().newInstance()
         val addAssetPath = AssetManager::class.java.getDeclaredMethod("addAssetPath", String::class.java)
         addAssetPath.isAccessible = true
-        addAssetPath.invoke(assetManager, hostContext.applicationInfo.sourceDir) // Host APK (theme attrs)
-        addAssetPath.invoke(assetManager, apkPath) // Plugin APK (layouts, drawables)
+        addAssetPath.invoke(assetManager, apkPath)
         return Resources(
             assetManager,
             hostContext.resources.displayMetrics,
