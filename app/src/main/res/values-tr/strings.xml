@@ -212,6 +212,9 @@
     <string name="tool_name_rename_project">Projeyi yeniden adlandır</string>
     <string name="tool_name_update_project_icon">Simgeyi güncelle</string>
     <string name="tool_name_read_runtime_log">Uygulama günlüğü oku</string>
+    <string name="crash_detected_title">Uygulama çöktü</string>
+    <string name="crash_auto_fix">Otomatik onar</string>
+    <string name="crash_dismiss">Kapat</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

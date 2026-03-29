@@ -32,7 +32,9 @@ import com.vibe.build.engine.model.BuildMode
 import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.BuildStatus
 import com.vibe.build.engine.pipeline.BuildProgressListener
+import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +44,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -79,6 +82,10 @@ class ChatViewModel @Inject constructor(
         val isVisible: Boolean = false,
         val progress: Float = 0f,
         val currentStage: BuildStage? = null,
+    )
+
+    data class CrashPrompt(
+        val crashSummary: String,
     )
 
     data class ChatExportBundle(
@@ -174,6 +181,11 @@ class ChatViewModel @Inject constructor(
     private val _selectedText = MutableStateFlow("")
     val selectedText = _selectedText.asStateFlow()
 
+    // Crash auto-fix prompt shown in the chat list
+    private val _crashPrompt = MutableStateFlow<CrashPrompt?>(null)
+    val crashPrompt = _crashPrompt.asStateFlow()
+    private var lastKnownCrashLogSize: Long = 0L
+
     // State for the message loading state (From the database)
     private val _isLoaded = MutableStateFlow(false)
     val isLoaded = _isLoaded.asStateFlow()
@@ -194,6 +206,13 @@ class ChatViewModel @Inject constructor(
                 val project = projectRepository.fetchProjectByChatId(chatRoomId)
                 _currentProjectId.update { project?.projectId }
                 _projectName.update { project?.name }
+                // Snapshot current crash log size so we only detect new crashes
+                if (project != null) {
+                    withContext(Dispatchers.IO) {
+                        val crashFile = File(appContext.filesDir, "projects/${project.projectId}/logs/crash.log")
+                        lastKnownCrashLogSize = if (crashFile.exists()) crashFile.length() else 0L
+                    }
+                }
             }
         }
     }
@@ -336,6 +355,48 @@ class ChatViewModel @Inject constructor(
             .filter { it.level == BuildLogLevel.ERROR }
             .joinToString("\n") { it.message }
         return if (baseError.isNotBlank()) baseError else errorLogs
+    }
+
+    /**
+     * Called from ChatScreen's ON_RESUME. Checks if crash.log has grown since the last check.
+     * If so, shows a crash prompt in the chat list.
+     */
+    fun checkForNewCrashLog() {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            val crashInfo = withContext(Dispatchers.IO) {
+                val crashFile = File(appContext.filesDir, "projects/$projectId/logs/crash.log")
+                if (!crashFile.exists()) return@withContext null
+                val currentSize = crashFile.length()
+                if (currentSize <= lastKnownCrashLogSize) return@withContext null
+                lastKnownCrashLogSize = currentSize
+                // Read the last crash entry
+                val lines = crashFile.readLines()
+                val lastCrashIdx = lines.indexOfLast { it.startsWith("--- CRASH") }
+                if (lastCrashIdx < 0) return@withContext null
+                lines.drop(lastCrashIdx).take(15).joinToString("\n")
+            } ?: return@launch
+            _crashPrompt.update { CrashPrompt(crashSummary = crashInfo) }
+        }
+    }
+
+    fun dismissCrashPrompt() {
+        _crashPrompt.update { null }
+    }
+
+    fun autoFixCrash() {
+        val prompt = _crashPrompt.value ?: return
+        _crashPrompt.update { null }
+        val content = "The app crashed at runtime. Please call read_runtime_log to read the crash log, " +
+            "analyze the root cause, fix the code, and rebuild.\n\nCrash summary:\n${prompt.crashSummary}"
+        val userMessage = MessageV2(
+            chatId = chatRoomId,
+            content = content,
+            platformType = null,
+            createdAt = currentTimeStamp,
+        )
+        addMessage(userMessage)
+        completeChat(startTurn(userMessage))
     }
 
     private fun sendBuildErrorToChat(errorMessage: String) {

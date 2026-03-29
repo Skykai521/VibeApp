@@ -175,6 +175,9 @@
     <string name="tool_name_rename_project">プロジェクト名変更</string>
     <string name="tool_name_update_project_icon">アイコン更新</string>
     <string name="tool_name_read_runtime_log">アプリログ読み取り</string>
+    <string name="crash_detected_title">アプリがクラッシュしました</string>
+    <string name="crash_auto_fix">自動修復</string>
+    <string name="crash_dismiss">閉じる</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

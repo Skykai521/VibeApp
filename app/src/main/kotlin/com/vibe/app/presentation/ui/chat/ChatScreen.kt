@@ -121,6 +121,7 @@ fun ChatScreen(
     val groupedMessages by chatViewModel.groupedMessages.collectAsStateWithLifecycle()
     val indexStates by chatViewModel.indexStates.collectAsStateWithLifecycle()
     val loadingStates by chatViewModel.loadingStates.collectAsStateWithLifecycle()
+    val crashPrompt by chatViewModel.crashPrompt.collectAsStateWithLifecycle()
     val isProjectNameDialogOpen by chatViewModel.isProjectNameDialogOpen.collectAsStateWithLifecycle()
     val isEditQuestionDialogOpen by chatViewModel.isEditQuestionDialogOpen.collectAsStateWithLifecycle()
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
@@ -152,8 +153,9 @@ fun ChatScreen(
     val imageInputNotSupportedText = stringResource(R.string.image_input_not_supported)
 
     val scope = rememberCoroutineScope()
-    // +1 for the bottom spacer item appended to LazyColumn
-    val bottomSpacerIndex = groupedMessages.userMessages.size * 2
+    // +1 for the bottom spacer item appended to LazyColumn, +1 if crash prompt visible
+    val crashPromptCount = if (crashPrompt != null) 1 else 0
+    val bottomSpacerIndex = groupedMessages.userMessages.size * 2 + crashPromptCount
 
     LaunchedEffect(isIdle) {
         listState.scrollToItem(bottomSpacerIndex)
@@ -190,12 +192,13 @@ fun ChatScreen(
         }
     }
 
-    // Re-sync platforms when returning from settings screen
+    // Re-sync platforms and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 chatViewModel.refreshPlatforms()
+                chatViewModel.checkForNewCrashLog()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -336,6 +339,16 @@ fun ChatScreen(
                                     onRetryClick = { chatViewModel.retryChat(platformIndexState) }
                                 )
                             }
+                        }
+                    }
+                    // Crash auto-fix prompt (shown when plugin crash is detected)
+                    if (crashPrompt != null) {
+                        item {
+                            CrashAutoFixCard(
+                                crashSummary = crashPrompt!!.crashSummary,
+                                onAutoFix = { chatViewModel.autoFixCrash() },
+                                onDismiss = { chatViewModel.dismissCrashPrompt() },
+                            )
                         }
                     }
                     // Bottom spacer so scrolling to this item reveals the full last message
