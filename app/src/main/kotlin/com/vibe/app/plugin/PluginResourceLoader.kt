@@ -3,6 +3,7 @@ package com.vibe.app.plugin
 import android.content.Context
 import android.content.res.AssetManager
 import android.content.res.Resources
+import java.io.File
 
 object PluginResourceLoader {
 
@@ -53,6 +54,9 @@ object PluginResourceLoader {
             hostLoader = parentClassLoader,
             bootParent = bootClassLoader,
         )
+
+        // Android 10+ requires DEX files to be non-writable
+        File(apkPath).setReadOnly()
 
         return dalvik.system.DexClassLoader(
             apkPath,
