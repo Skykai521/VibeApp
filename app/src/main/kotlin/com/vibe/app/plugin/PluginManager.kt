@@ -1,5 +1,6 @@
 package com.vibe.app.plugin
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -36,18 +37,19 @@ class PluginManager @Inject constructor(
         val slotIndex = allocateSlot(projectId)
         Log.d(TAG, "Launching plugin in slot $slotIndex: apk=$apkPath, main=$mainClassName")
 
+        // Kill old plugin process in this slot (if still alive) before re-launching
+        killPluginProcess(slotIndex)
+
         val intent = Intent(context, slotActivities[slotIndex]).apply {
             putExtra(PluginContainerActivity.EXTRA_APK_PATH, apkPath)
             putExtra(PluginContainerActivity.EXTRA_MAIN_CLASS, mainClassName)
             putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, packageName.substringAfterLast('.'))
             putExtra(PluginContainerActivity.EXTRA_SLOT_INDEX, slotIndex)
             putExtra(PluginContainerActivity.EXTRA_PROJECT_ID, projectId)
-            // NEW_TASK: separate task stack from VibeApp
-            // NEW_DOCUMENT: show as separate entry in recent apps
-            // CLEAR_TASK: if this slot already has a running plugin, replace it
+            // NEW_TASK: separate task (taskAffinity gives each slot its own)
+            // CLEAR_TASK: replace any leftover task state in this slot
             addFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK
-                    or Intent.FLAG_ACTIVITY_NEW_DOCUMENT
                     or Intent.FLAG_ACTIVITY_CLEAR_TASK,
             )
         }
@@ -82,6 +84,21 @@ class PluginManager @Inject constructor(
         Log.d(TAG, "All slots occupied, evicting slot $oldestIndex (project=${slots[oldestIndex]?.projectId})")
         slots[oldestIndex] = SlotInfo(projectId, System.currentTimeMillis())
         return oldestIndex
+    }
+
+    /**
+     * Kills the plugin process running in the given slot, if any.
+     * Plugin processes share the same UID as the host, so killProcess is permitted.
+     */
+    private fun killPluginProcess(slotIndex: Int) {
+        val processName = "${context.packageName}:plugin$slotIndex"
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        am.runningAppProcesses?.forEach { info ->
+            if (info.processName == processName) {
+                Log.d(TAG, "Killing old plugin process: $processName (pid=${info.pid})")
+                android.os.Process.killProcess(info.pid)
+            }
+        }
     }
 
     private fun findMainActivity(apkPath: String, packageName: String): String {

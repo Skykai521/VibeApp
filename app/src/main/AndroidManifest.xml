@@ -56,7 +56,7 @@
             android:name="com.vibe.app.plugin.PluginSlot0"
             android:process=":plugin0"
             android:taskAffinity="com.vibe.app.plugin0"
-            android:documentLaunchMode="always"
+            android:launchMode="singleTask"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
@@ -64,7 +64,7 @@
             android:name="com.vibe.app.plugin.PluginSlot1"
             android:process=":plugin1"
             android:taskAffinity="com.vibe.app.plugin1"
-            android:documentLaunchMode="always"
+            android:launchMode="singleTask"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
@@ -72,7 +72,7 @@
             android:name="com.vibe.app.plugin.PluginSlot2"
             android:process=":plugin2"
             android:taskAffinity="com.vibe.app.plugin2"
-            android:documentLaunchMode="always"
+            android:launchMode="singleTask"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
@@ -80,7 +80,7 @@
             android:name="com.vibe.app.plugin.PluginSlot3"
             android:process=":plugin3"
             android:taskAffinity="com.vibe.app.plugin3"
-            android:documentLaunchMode="always"
+            android:launchMode="singleTask"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
@@ -88,7 +88,7 @@
             android:name="com.vibe.app.plugin.PluginSlot4"
             android:process=":plugin4"
             android:taskAffinity="com.vibe.app.plugin4"
-            android:documentLaunchMode="always"
+            android:launchMode="singleTask"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
