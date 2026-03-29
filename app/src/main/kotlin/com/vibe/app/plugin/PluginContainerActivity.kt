@@ -177,6 +177,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
 
     override fun getHostContext(): Context = this
     override fun getHostResources(): Resources = pluginResources ?: super.getResources()
+    override fun getHostTheme(): Resources.Theme = pluginTheme ?: super.getTheme()
     override fun getHostLayoutInflater(): LayoutInflater = pluginLayoutInflater ?: layoutInflater
     override fun getHostWindow(): Window = window
     override fun getHostWindowManager(): WindowManager = windowManager

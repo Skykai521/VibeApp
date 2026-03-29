@@ -184,11 +184,11 @@ public class ShadowActivity extends AppCompatActivity {
         return super.getResources();
     }
 
-    // NOTE: getTheme() is intentionally NOT overridden for plugin mode.
-    // After attachBaseContext(hostContext), super.getTheme() returns the host
-    // Activity's Material theme. This is needed for AppCompat internals (Dialog,
-    // SubDecor) which check host R.attr IDs against the theme.
-    // Plugin layout inflation uses pluginContext.getTheme() (pluginTheme) instead.
+    @Override
+    public Resources.Theme getTheme() {
+        if (hostDelegator != null) return hostDelegator.getHostTheme();
+        return super.getTheme();
+    }
 
     @Override
     public Context getApplicationContext() {

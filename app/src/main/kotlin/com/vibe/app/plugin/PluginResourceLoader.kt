@@ -94,20 +94,17 @@ private class ShadowBridgeClassLoader(
         // com.google.android.material.* is also NOT shared — Material classes
         // inflate layouts and need plugin R-class IDs.
         if (name.startsWith("com.tencent.shadow.core.runtime.")) return true
-        if (!name.startsWith("androidx.")) return false
 
-        // API packages: types used in AppCompatActivity / FragmentActivity /
-        // ComponentActivity method signatures — share for type consistency
-        if (name.startsWith("androidx.appcompat.app.")) return true
-        if (name.startsWith("androidx.appcompat.view.")) return true
-        if (name.startsWith("androidx.fragment.app.")) return true
-        if (name.startsWith("androidx.activity.")) return true
-        if (name.startsWith("androidx.lifecycle.")) return true
-        if (name.startsWith("androidx.savedstate.")) return true
-        // Toolbar specifically — parameter of setSupportActionBar()
-        if (name.startsWith("androidx.appcompat.widget.Toolbar")) return true
+        // Share ONLY the specific types that appear in AppCompatActivity
+        // method signatures — minimum set to prevent VerifyError.
+        //
+        // Do NOT share entire packages (e.g. appcompat.app.*) because
+        // AppCompatDelegateImpl uses R.attr IDs for theme checks, and it
+        // MUST use plugin R.attr IDs with the plugin theme. Sharing it
+        // would make it use host R.attr IDs → theme check fails.
+        if (name.startsWith("androidx.appcompat.app.ActionBar")) return true  // getSupportActionBar() return type
+        if (name.startsWith("androidx.appcompat.widget.Toolbar")) return true // setSupportActionBar() param
 
-        // Everything else in androidx.* — load from plugin DEX
         return false
     }
 }
