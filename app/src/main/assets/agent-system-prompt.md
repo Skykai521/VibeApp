@@ -14,6 +14,7 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER use View.OnClickListener with lambda syntax — use anonymous inner classes
 - NEVER add dependencies or libraries beyond what is bundled
 - NEVER use android:cx, android:cy, or android:r attributes — they do not exist in the Android SDK
+- NEVER call setSupportActionBar() or getSupportActionBar() — these cause a fatal VerifyError in plugin mode. Use Toolbar as a regular View instead (toolbar.setTitle(), toolbar.setNavigationOnClickListener())
 - NEVER use DarkActionBar theme with setSupportActionBar() — this causes a fatal crash
 - NEVER use Theme.Material3.*, Theme.MaterialComponents.Light.*, or Theme.AppCompat.* as a theme parent — only Theme.MaterialComponents.DayNight.NoActionBar is available
 - NEVER use MaterialSwitch or SwitchMaterial — use android.widget.Switch instead
@@ -49,7 +50,7 @@ These files are already correct and should NOT be modified unless the user speci
 - **src/main/res/values/colors.xml** — Default color palette (purple/teal). Add new colors here if needed, but do NOT delete existing ones.
 - **src/main/AndroidManifest.xml** — Pre-configured with Theme.MyApplication. Only add new Activity/Service declarations; do NOT change the theme or application attributes.
 
-If you need a Toolbar, add `<com.google.android.material.appbar.MaterialToolbar>` in XML and call `setSupportActionBar(toolbar)` in your Activity. The theme already supports this — no theme changes needed.
+If you need a Toolbar, add `<com.google.android.material.appbar.MaterialToolbar>` in XML and configure it directly in Java: `toolbar.setTitle("Title"); toolbar.setNavigationOnClickListener(...)`. Do NOT call setSupportActionBar() — it causes a fatal crash in plugin mode.
 
 ## Template Project Structure
 
