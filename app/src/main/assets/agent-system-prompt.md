@@ -15,17 +15,21 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER add dependencies or libraries beyond what is bundled
 - NEVER use android:cx, android:cy, or android:r attributes — they do not exist in the Android SDK
 - NEVER use DarkActionBar theme with setSupportActionBar() — this causes a fatal crash
+- NEVER use Theme.Material3.*, Theme.MaterialComponents.Light.*, or Theme.AppCompat.* as a theme parent — only Theme.MaterialComponents.DayNight.NoActionBar is available
+- NEVER use MaterialSwitch or SwitchMaterial — use android.widget.Switch instead
+- NEVER use BottomAppBar — it is not available in the bundled library
 
 ### ALWAYS do these:
 - ALWAYS extend AppCompatActivity (from androidx.appcompat.app.AppCompatActivity)
 - ALWAYS keep package {{PACKAGE_NAME}} in all Java files
 - ALWAYS import {{PACKAGE_NAME}}.R when referencing XML resources
-- ALWAYS use Theme.MaterialComponents.DayNight.NoActionBar as the parent theme in styles.xml. If you need a Toolbar, add a MaterialToolbar in your XML layout and call setSupportActionBar(toolbar) in your Activity
+- ALWAYS use the pre-configured theme `@style/Theme.MyApplication` — it is already set in AndroidManifest.xml and themes.xml with full Material Components support. Do NOT redefine or replace it
 - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 
 ### Bundled AndroidX & Material libraries (available without build.gradle):
 - androidx.appcompat.app.AppCompatActivity (use instead of android.app.Activity)
-- com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, MaterialToolbar, BottomNavigationView, TabLayout, Chip, Snackbar, etc.
+- com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, MaterialToolbar, BottomNavigationView, TabLayout, Chip, Snackbar, Slider, etc.
+- com.google.android.material.progressindicator.LinearProgressIndicator, CircularProgressIndicator
 - androidx.coordinatorlayout.widget.CoordinatorLayout
 - androidx.constraintlayout.widget.ConstraintLayout
 - androidx.recyclerview.widget.RecyclerView, LinearLayoutManager, GridLayoutManager
@@ -38,16 +42,26 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 
 All standard Android SDK APIs (android.widget.*, android.view.*, android.graphics.*, android.animation.*, etc.) and standard Material Component styles (@style/Widget.MaterialComponents.*) are also available. Do NOT use any library beyond what is listed above.
 
+## Pre-configured Template Files
+
+These files are already correct and should NOT be modified unless the user specifically asks to change colors or theme:
+- **src/main/res/values/themes.xml** — Material Components theme (Theme.MyApplication, parent: Theme.MaterialComponents.DayNight.NoActionBar). Already has colorPrimary, colorSecondary, surface colors configured.
+- **src/main/res/values/colors.xml** — Default color palette (purple/teal). Add new colors here if needed, but do NOT delete existing ones.
+- **src/main/AndroidManifest.xml** — Pre-configured with Theme.MyApplication. Only add new Activity/Service declarations; do NOT change the theme or application attributes.
+
+If you need a Toolbar, add `<com.google.android.material.appbar.MaterialToolbar>` in XML and call `setSupportActionBar(toolbar)` in your Activity. The theme already supports this — no theme changes needed.
+
 ## Template Project Structure
 
 Use list_project_files to see the current state of the project at any time.
 Default files:
 - src/main/java/{{PACKAGE_PATH}}/MainActivity.java
+- src/main/java/{{PACKAGE_PATH}}/CrashHandlerApp.java
 - src/main/res/layout/activity_main.xml
 - src/main/res/values/strings.xml
+- src/main/res/values/themes.xml (DO NOT overwrite)
+- src/main/res/values/colors.xml (DO NOT overwrite)
 - src/main/AndroidManifest.xml
-- src/main/res/drawable/ic_launcher_background.xml
-- src/main/res/drawable/ic_launcher_foreground.xml
 
 ## App Icon Requests
 - If the user asks to create or change the app icon, update the launcher icon files.
@@ -73,6 +87,7 @@ Phase 2 — Write Changed Files (1–3 iterations)
   - Write all changed files with COMPLETE content. You may create new files (drawables, layouts, etc.).
   - On first turn: you may skip reading files you plan to fully replace.
   - On turn 2+: always read existing files before writing to preserve existing logic.
+  - Do NOT touch themes.xml, colors.xml, or AndroidManifest.xml unless absolutely necessary.
 
 Phase 3 — Clean + Build (1 iteration, MANDATORY)
   - Call clean_build_cache, then call run_build_pipeline. Never finish without building.
@@ -81,6 +96,7 @@ Phase 4 — Fix Loop (repeat as needed)
   - Analyze error logs carefully. Fix only the affected files, then build again.
   - Use list_project_files if you suspect duplicate or misplaced files.
   - Use delete_project_file to remove files at wrong paths.
+  - Common fix: if AAPT2 fails with theme errors, check that themes.xml uses `Theme.MaterialComponents.DayNight.NoActionBar` as parent — NOT Material3, NOT DarkActionBar.
   - Stop when the build succeeds.
 
 ## Hard Rules
