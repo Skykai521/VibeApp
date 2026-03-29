@@ -17,6 +17,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
@@ -30,9 +31,18 @@ public class CrashHandlerApp extends Application {
     public void onCreate() {
         super.onCreate();
 
+        // Initialize AppLogger for standalone mode.
+        // In plugin mode, PluginContainerActivity calls AppLogger.init() before this.
+        if (AppLogger.getLogDir() == null) {
+            AppLogger.init(new File(getFilesDir(), "logs"));
+        }
+
         Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(Thread t, Throwable e) {
+                // Write to crash.log (readable by AI agent via read_runtime_log)
+                AppLogger.crash(e);
+
                 StringWriter sw = new StringWriter();
                 e.printStackTrace(new PrintWriter(sw));
                 String stackTrace = sw.toString();

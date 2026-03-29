@@ -262,6 +262,7 @@
     <string name="tool_name_run_build_pipeline">Run build</string>
     <string name="tool_name_rename_project">Rename project</string>
     <string name="tool_name_update_project_icon">Update icon</string>
+    <string name="tool_name_read_runtime_log">Read app log</string>
     <string name="extended_thinking">Extended Thinking</string>
     <string name="extended_thinking_description">Enable for reasoning models (o1, o3, Claude with thinking, Gemini thinking)</string>
 

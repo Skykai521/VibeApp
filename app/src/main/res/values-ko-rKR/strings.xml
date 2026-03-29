@@ -177,6 +177,7 @@
     <string name="tool_name_run_build_pipeline">빌드 실행</string>
     <string name="tool_name_rename_project">프로젝트 이름 변경</string>
     <string name="tool_name_update_project_icon">아이콘 업데이트</string>
+    <string name="tool_name_read_runtime_log">앱 로그 읽기</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

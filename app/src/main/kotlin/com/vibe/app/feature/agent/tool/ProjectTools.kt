@@ -1,5 +1,6 @@
 package com.vibe.app.feature.agent.tool
 
+import android.content.Context
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.agent.AgentTool
 import com.vibe.app.feature.agent.AgentToolCall
@@ -10,6 +11,8 @@ import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.service.BuildMutex
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.build.engine.model.BuildResult
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.JsonArray
@@ -29,6 +32,7 @@ private const val CLEAN_BUILD_CACHE = "clean_build_cache"
 private const val RUN_BUILD_PIPELINE = "run_build_pipeline"
 private const val RENAME_PROJECT = "rename_project"
 private const val UPDATE_PROJECT_ICON = "update_project_icon"
+private const val READ_RUNTIME_LOG = "read_runtime_log"
 private const val ICON_BACKGROUND_PATH = "src/main/res/drawable/ic_launcher_background.xml"
 private const val ICON_FOREGROUND_PATH = "src/main/res/drawable/ic_launcher_foreground.xml"
 
@@ -351,6 +355,85 @@ class UpdateProjectIconTool @Inject constructor(
 }
 
 @Singleton
+class ReadRuntimeLogTool @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = READ_RUNTIME_LOG,
+        description = "Read runtime logs from the generated app. " +
+            "Returns app logs (written by AppLogger) and/or crash stack traces " +
+            "produced during the app's execution.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "log_type",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("string"))
+                            put(
+                                "enum",
+                                buildJsonArray {
+                                    add(JsonPrimitive("app"))
+                                    add(JsonPrimitive("crash"))
+                                    add(JsonPrimitive("all"))
+                                },
+                            )
+                            put(
+                                "description",
+                                JsonPrimitive(
+                                    "Type of log to read: 'app' for runtime logs, " +
+                                        "'crash' for crash stack traces, 'all' for everything. Defaults to 'all'.",
+                                ),
+                            )
+                        },
+                    )
+                    put(
+                        "tail",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("integer"))
+                            put(
+                                "description",
+                                JsonPrimitive("Number of most recent lines to return. Defaults to 200."),
+                            )
+                        },
+                    )
+                },
+            )
+            put("required", buildJsonArray {})
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val logType = call.arguments.jsonObject["log_type"]?.jsonPrimitive?.content ?: "all"
+        val tail = call.arguments.jsonObject["tail"]?.jsonPrimitive?.content?.toIntOrNull() ?: 200
+        val logDir = File(this.context.filesDir, "projects/${context.projectId}/logs")
+
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                if (logType == "app" || logType == "all") {
+                    put("app_log", JsonPrimitive(readTail(File(logDir, "app.log"), tail)))
+                }
+                if (logType == "crash" || logType == "all") {
+                    put("crash_log", JsonPrimitive(readTail(File(logDir, "crash.log"), tail)))
+                }
+                put("log_dir_exists", JsonPrimitive(logDir.exists()))
+            },
+        )
+    }
+
+    private fun readTail(file: File, maxLines: Int): String {
+        if (!file.exists()) return ""
+        val lines = file.readLines()
+        return lines.takeLast(maxLines).joinToString("\n")
+    }
+}
+
+@Singleton
 class DefaultAgentToolRegistry @Inject constructor(
     readProjectFileTool: ReadProjectFileTool,
     writeProjectFileTool: WriteProjectFileTool,
@@ -360,6 +443,7 @@ class DefaultAgentToolRegistry @Inject constructor(
     runBuildPipelineTool: RunBuildPipelineTool,
     renameProjectTool: RenameProjectTool,
     updateProjectIconTool: UpdateProjectIconTool,
+    readRuntimeLogTool: ReadRuntimeLogTool,
 ) : AgentToolRegistry {
 
     private val tools = listOf(
@@ -371,6 +455,7 @@ class DefaultAgentToolRegistry @Inject constructor(
         runBuildPipelineTool,
         renameProjectTool,
         updateProjectIconTool,
+        readRuntimeLogTool,
     )
 
     override fun listDefinitions(): List<AgentToolDefinition> = tools.map { it.definition }

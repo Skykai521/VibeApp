@@ -173,6 +173,7 @@
     <string name="tool_name_run_build_pipeline">உருவாக்கம் இயக்கு</string>
     <string name="tool_name_rename_project">திட்டம் மறுபெயரிடுதல்</string>
     <string name="tool_name_update_project_icon">சின்னம் புதுப்பிப்பு</string>
+    <string name="tool_name_read_runtime_log">ஆப் பதிவை படிக்கவும்</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>

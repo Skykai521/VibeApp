@@ -12,6 +12,9 @@ import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import com.tencent.shadow.core.runtime.HostActivityDelegator
 import com.tencent.shadow.core.runtime.ShadowActivity
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /**
  * Base proxy Activity that hosts a plugin. Extends AppCompatActivity so
@@ -25,6 +28,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     private var pluginResources: Resources? = null
     private var pluginClassLoader: ClassLoader? = null
     private var pluginLayoutInflater: LayoutInflater? = null
+    private var projectId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +36,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         val apkPath = intent.getStringExtra(EXTRA_APK_PATH)
         val mainClass = intent.getStringExtra(EXTRA_MAIN_CLASS)
         val pluginLabel = intent.getStringExtra(EXTRA_PLUGIN_LABEL)
+        projectId = intent.getStringExtra(EXTRA_PROJECT_ID)
 
         if (apkPath == null || mainClass == null) {
             Log.e(TAG, "Missing apkPath or mainClass in intent")
@@ -56,40 +61,72 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 override fun getClassLoader(): ClassLoader = pluginClassLoader!!
             })
 
+            // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
+            initPluginLogger(mainClass)
+
             val clazz = pluginClassLoader!!.loadClass(mainClass)
             val instance = clazz.getDeclaredConstructor().newInstance()
             if (instance is ShadowActivity) {
                 pluginActivity = instance
                 instance.setHostDelegator(this)
                 Log.d(TAG, "Plugin activity loaded: $mainClass")
-                instance.performCreate(savedInstanceState)
+                try {
+                    instance.performCreate(savedInstanceState)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Plugin crashed during onCreate", e)
+                    writeCrashLog(e)
+                    finish()
+                    return
+                }
             } else {
                 Log.e(TAG, "$mainClass is not a ShadowActivity subclass")
                 finish()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load plugin", e)
+            writeCrashLog(e)
             finish()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        pluginActivity?.performResume()
+        try {
+            pluginActivity?.performResume()
+        } catch (e: Exception) {
+            Log.e(TAG, "Plugin crashed during onResume", e)
+            writeCrashLog(e)
+            finish()
+        }
     }
 
     override fun onPause() {
-        pluginActivity?.performPause()
+        try {
+            pluginActivity?.performPause()
+        } catch (e: Exception) {
+            Log.e(TAG, "Plugin crashed during onPause", e)
+            writeCrashLog(e)
+        }
         super.onPause()
     }
 
     override fun onStop() {
-        pluginActivity?.performStop()
+        try {
+            pluginActivity?.performStop()
+        } catch (e: Exception) {
+            Log.e(TAG, "Plugin crashed during onStop", e)
+            writeCrashLog(e)
+        }
         super.onStop()
     }
 
     override fun onDestroy() {
-        pluginActivity?.performDestroy()
+        try {
+            pluginActivity?.performDestroy()
+        } catch (e: Exception) {
+            Log.e(TAG, "Plugin crashed during onDestroy", e)
+            writeCrashLog(e)
+        }
         pluginActivity = null
         super.onDestroy()
     }
@@ -123,12 +160,45 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     override fun setPluginResult(resultCode: Int, data: Intent?) = setResult(resultCode, data)
     override fun getHostIntent(): Intent = intent
 
+    private fun initPluginLogger(mainClass: String) {
+        val pid = projectId ?: return
+        val cl = pluginClassLoader ?: return
+        val logDir = File(filesDir, "projects/$pid/logs")
+        logDir.mkdirs()
+        try {
+            val packageName = mainClass.substringBeforeLast('.')
+            val loggerClass = cl.loadClass("$packageName.AppLogger")
+            loggerClass.getMethod("init", File::class.java).invoke(null, logDir)
+            Log.d(TAG, "AppLogger initialized for project $pid")
+        } catch (_: ClassNotFoundException) {
+            Log.d(TAG, "Plugin has no AppLogger, skipping log init")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to init AppLogger for plugin", e)
+        }
+    }
+
+    private fun writeCrashLog(throwable: Throwable) {
+        val pid = projectId ?: return
+        try {
+            val logDir = File(filesDir, "projects/$pid/logs")
+            logDir.mkdirs()
+            val crashFile = File(logDir, "crash.log")
+            val timestamp = SimpleDateFormat("MM-dd HH:mm:ss.SSS").format(Date())
+            crashFile.appendText(
+                "--- CRASH $timestamp ---\n${Log.getStackTraceString(throwable)}\n",
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write crash log", e)
+        }
+    }
+
     companion object {
         private const val TAG = "PluginContainer"
         const val EXTRA_APK_PATH = "plugin_apk_path"
         const val EXTRA_MAIN_CLASS = "plugin_main_class"
         const val EXTRA_PLUGIN_LABEL = "plugin_label"
         const val EXTRA_SLOT_INDEX = "plugin_slot_index"
+        const val EXTRA_PROJECT_ID = "plugin_project_id"
     }
 }
 

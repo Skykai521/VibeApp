@@ -69,6 +69,7 @@ fun ThinkingBlock(
         "run_build_pipeline" to stringResource(R.string.tool_name_run_build_pipeline),
         "rename_project" to stringResource(R.string.tool_name_rename_project),
         "update_project_icon" to stringResource(R.string.tool_name_update_project_icon),
+        "read_runtime_log" to stringResource(R.string.tool_name_read_runtime_log),
     )
     val formattedThoughts = remember(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt, resolvedToolNames) {
         formatToolLines(thoughts, toolCallingFmt, toolOkFmt, toolErrorFmt, resolvedToolNames)

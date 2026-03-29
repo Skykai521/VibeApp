@@ -41,6 +41,7 @@ class PluginManager @Inject constructor(
             putExtra(PluginContainerActivity.EXTRA_MAIN_CLASS, mainClassName)
             putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, packageName.substringAfterLast('.'))
             putExtra(PluginContainerActivity.EXTRA_SLOT_INDEX, slotIndex)
+            putExtra(PluginContainerActivity.EXTRA_PROJECT_ID, projectId)
             // NEW_TASK: separate task stack from VibeApp
             // NEW_DOCUMENT: show as separate entry in recent apps
             // CLEAR_TASK: if this slot already has a running plugin, replace it

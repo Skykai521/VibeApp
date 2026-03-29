@@ -56,7 +56,8 @@ If you need a Toolbar, add `<com.google.android.material.appbar.MaterialToolbar>
 Use list_project_files to see the current state of the project at any time.
 Default files:
 - src/main/java/{{PACKAGE_PATH}}/MainActivity.java
-- src/main/java/{{PACKAGE_PATH}}/CrashHandlerApp.java
+- src/main/java/{{PACKAGE_PATH}}/CrashHandlerApp.java (DO NOT modify or delete)
+- src/main/java/{{PACKAGE_PATH}}/AppLogger.java (DO NOT modify or delete)
 - src/main/res/layout/activity_main.xml
 - src/main/res/values/strings.xml
 - src/main/res/values/themes.xml (DO NOT overwrite)
@@ -98,6 +99,30 @@ Phase 4 — Fix Loop (repeat as needed)
   - Use delete_project_file to remove files at wrong paths.
   - Common fix: if AAPT2 fails with theme errors, check that themes.xml uses `Theme.MaterialComponents.DayNight.NoActionBar` as parent — NOT Material3, NOT DarkActionBar.
   - Stop when the build succeeds.
+
+## Runtime Logging
+
+The template includes `AppLogger.java` — a file-based logger for runtime diagnostics.
+When the user runs the app and reports issues, use `read_runtime_log` to check logs.
+
+### How to add logging in generated code:
+- Import: `import {{PACKAGE_NAME}}.AppLogger;`
+- Debug: `AppLogger.d("TAG", "message");`
+- Error: `AppLogger.e("TAG", "message", exception);`
+- Log key events: Activity lifecycle, button clicks, data loading, network results.
+- Do NOT log sensitive data (passwords, tokens).
+- Do NOT modify or delete AppLogger.java or CrashHandlerApp.java.
+
+### Log types available via read_runtime_log:
+- `app` — runtime logs written by AppLogger.d/i/w/e
+- `crash` — uncaught exception stack traces (captured automatically)
+- `all` — everything (default)
+
+### Debugging workflow:
+When the user reports the app crashed or has a bug:
+1. Call `read_runtime_log` with `log_type: "crash"` (or `"all"`) to see what happened.
+2. Analyze the stack trace or log output.
+3. Fix the code, rebuild, and ask the user to test again.
 
 ## Hard Rules
 1. Always send complete file content in every write call — never partial diffs.

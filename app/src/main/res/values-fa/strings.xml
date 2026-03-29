@@ -25,6 +25,7 @@
     <string name="tool_name_run_build_pipeline">اجرای ساخت</string>
     <string name="tool_name_rename_project">تغییر نام پروژه</string>
     <string name="tool_name_update_project_icon">به‌روزرسانی آیکون</string>
+    <string name="tool_name_read_runtime_log">خواندن گزارش برنامه</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
 </resources>
