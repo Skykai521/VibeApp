@@ -40,6 +40,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
 
         if (apkPath == null || mainClass == null) {
             Log.e(TAG, "Missing apkPath or mainClass in intent")
+            writeErrorLog("Missing apkPath or mainClass in intent")
             finish()
             return
         }
@@ -79,7 +80,9 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                     return
                 }
             } else {
-                Log.e(TAG, "$mainClass is not a ShadowActivity subclass")
+                val error = "$mainClass is not a ShadowActivity subclass"
+                Log.e(TAG, error)
+                writeErrorLog(error)
                 finish()
             }
         } catch (e: Exception) {
@@ -178,6 +181,10 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     }
 
     private fun writeCrashLog(throwable: Throwable) {
+        writeErrorLog(Log.getStackTraceString(throwable))
+    }
+
+    private fun writeErrorLog(message: String) {
         val pid = projectId ?: return
         try {
             val logDir = File(filesDir, "projects/$pid/logs")
@@ -185,7 +192,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
             val crashFile = File(logDir, "crash.log")
             val timestamp = SimpleDateFormat("MM-dd HH:mm:ss.SSS").format(Date())
             crashFile.appendText(
-                "--- CRASH $timestamp ---\n${Log.getStackTraceString(throwable)}\n",
+                "--- CRASH $timestamp ---\n$message\n",
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to write crash log", e)
