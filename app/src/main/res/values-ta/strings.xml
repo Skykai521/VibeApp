@@ -174,6 +174,7 @@
     <string name="tool_name_rename_project">திட்டம் மறுபெயரிடுதல்</string>
     <string name="tool_name_update_project_icon">சின்னம் புதுப்பிப்பு</string>
     <string name="tool_name_read_runtime_log">ஆப் பதிவை படிக்கவும்</string>
+    <string name="tool_name_fix_crash_guide">செயலிழப்பு கண்டறிதல்</string>
     <string name="crash_detected_title">ஆப் செயலிழந்தது</string>
     <string name="crash_auto_fix">தானியங்கி சரிசெய்</string>
     <string name="crash_dismiss">நிராகரி</string>

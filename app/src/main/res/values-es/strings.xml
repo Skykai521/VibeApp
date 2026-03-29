@@ -175,6 +175,7 @@
     <string name="tool_name_rename_project">Renombrar proyecto</string>
     <string name="tool_name_update_project_icon">Actualizar icono</string>
     <string name="tool_name_read_runtime_log">Leer registro de app</string>
+    <string name="tool_name_fix_crash_guide">Diagnosticar error</string>
     <string name="crash_detected_title">La app se cerró inesperadamente</string>
     <string name="crash_auto_fix">Reparar automáticamente</string>
     <string name="crash_dismiss">Ignorar</string>

@@ -387,8 +387,8 @@ class ChatViewModel @Inject constructor(
     fun autoFixCrash() {
         val prompt = _crashPrompt.value ?: return
         _crashPrompt.update { null }
-        val content = "The app crashed at runtime. Please call read_runtime_log to read the crash log, " +
-            "analyze the root cause, fix the code, and rebuild.\n\nCrash summary:\n${prompt.crashSummary}"
+        val content = "The app crashed at runtime. Please call fix_crash_guide to diagnose the crash " +
+            "and get step-by-step fix instructions, then follow them to fix the code and rebuild.\n\nCrash summary:\n${prompt.crashSummary}"
         val userMessage = MessageV2(
             chatId = chatRoomId,
             content = content,

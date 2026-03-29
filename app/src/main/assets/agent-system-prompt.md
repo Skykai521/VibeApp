@@ -20,14 +20,14 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER use BottomAppBar — it is not available in the bundled library
 
 ### ALWAYS do these:
-- ALWAYS extend AppCompatActivity (from androidx.appcompat.app.AppCompatActivity)
+- ALWAYS extend ShadowActivity (from com.tencent.shadow.core.runtime.ShadowActivity) for ALL Activity classes — NOT AppCompatActivity. ShadowActivity already extends AppCompatActivity internally and is required for the plugin runtime. If any Activity does not extend ShadowActivity, the app will crash with "not a ShadowActivity subclass".
 - ALWAYS keep package {{PACKAGE_NAME}} in all Java files
 - ALWAYS import {{PACKAGE_NAME}}.R when referencing XML resources
 - ALWAYS use the pre-configured theme `@style/Theme.MyApplication` — it is already set in AndroidManifest.xml and themes.xml with full Material Components support. Do NOT redefine or replace it
 - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 
 ### Bundled AndroidX & Material libraries (available without build.gradle):
-- androidx.appcompat.app.AppCompatActivity (use instead of android.app.Activity)
+- com.tencent.shadow.core.runtime.ShadowActivity (extend this instead of AppCompatActivity or Activity)
 - com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, MaterialToolbar, BottomNavigationView, TabLayout, Chip, Snackbar, Slider, etc.
 - com.google.android.material.progressindicator.LinearProgressIndicator, CircularProgressIndicator
 - androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -120,9 +120,10 @@ When the user runs the app and reports issues, use `read_runtime_log` to check l
 
 ### Debugging workflow:
 When the user reports the app crashed or has a bug:
-1. Call `read_runtime_log` with `log_type: "crash"` (or `"all"`) to see what happened.
-2. Analyze the stack trace or log output.
-3. Fix the code, rebuild, and ask the user to test again.
+1. Call `fix_crash_guide` — it reads the crash log, diagnoses the issue, and returns step-by-step fix instructions.
+2. Follow the instructions exactly: read the suggested files, apply the recommended changes.
+3. Rebuild and ask the user to test again.
+You can also call `read_runtime_log` directly if you need the raw log content.
 
 ## Hard Rules
 1. Always send complete file content in every write call — never partial diffs.

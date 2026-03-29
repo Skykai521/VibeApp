@@ -216,6 +216,7 @@
     <string name="tool_name_rename_project">重命名项目</string>
     <string name="tool_name_update_project_icon">更新图标</string>
     <string name="tool_name_read_runtime_log">读取运行日志</string>
+    <string name="tool_name_fix_crash_guide">诊断崩溃</string>
     <string name="crash_detected_title">应用崩溃</string>
     <string name="crash_auto_fix">自动修复</string>
     <string name="crash_dismiss">忽略</string>

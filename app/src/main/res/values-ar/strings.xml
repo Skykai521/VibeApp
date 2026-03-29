@@ -175,6 +175,7 @@
     <string name="tool_name_rename_project">إعادة تسمية المشروع</string>
     <string name="tool_name_update_project_icon">تحديث الأيقونة</string>
     <string name="tool_name_read_runtime_log">قراءة سجل التطبيق</string>
+    <string name="tool_name_fix_crash_guide">تشخيص العطل</string>
     <string name="crash_detected_title">تعطل التطبيق</string>
     <string name="crash_auto_fix">إصلاح تلقائي</string>
     <string name="crash_dismiss">تجاهل</string>

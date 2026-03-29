@@ -212,6 +212,7 @@
     <string name="tool_name_rename_project">Projeyi yeniden adlandır</string>
     <string name="tool_name_update_project_icon">Simgeyi güncelle</string>
     <string name="tool_name_read_runtime_log">Uygulama günlüğü oku</string>
+    <string name="tool_name_fix_crash_guide">Çökme tanılama</string>
     <string name="crash_detected_title">Uygulama çöktü</string>
     <string name="crash_auto_fix">Otomatik onar</string>
     <string name="crash_dismiss">Kapat</string>

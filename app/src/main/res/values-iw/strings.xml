@@ -175,6 +175,7 @@
     <string name="tool_name_rename_project">שינוי שם פרויקט</string>
     <string name="tool_name_update_project_icon">עדכון סמל</string>
     <string name="tool_name_read_runtime_log">קריאת יומן אפליקציה</string>
+    <string name="tool_name_fix_crash_guide">אבחון קריסה</string>
     <string name="crash_detected_title">האפליקציה קרסה</string>
     <string name="crash_auto_fix">תיקון אוטומטי</string>
     <string name="crash_dismiss">התעלם</string>
