@@ -301,6 +301,7 @@
     <string name="no_projects_yet">No projects yet</string>
 
     <string name="run">Run</string>
+    <string name="install_apk">Install APK</string>
     <string name="export_source_code">Export Source Code</string>
     <string name="export_apk">Export APK</string>
 </resources>

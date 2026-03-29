@@ -132,6 +132,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     implementation(project(":build-engine"))
+    implementation(project(":shadow-runtime"))
 
     // Test
     testImplementation(libs.junit)

@@ -15,6 +15,7 @@ public class BuildModule {
     private static File sLambdaStubs;
     private static File sAndroidxClassesJar;
     private static File sAndroidxResCompiledDir;
+    private static File sShadowRuntimeJar;
 
     public static void initialize(Context applicationContext) {
             sApplicationContext = applicationContext.getApplicationContext();
@@ -74,6 +75,31 @@ public class BuildModule {
             }
         }
         return sAndroidxResCompiledDir;
+    }
+
+    public static File getShadowRuntimeJar() {
+        if (sShadowRuntimeJar == null) {
+            Context context = BuildModule.getContext();
+            if (context == null) return null;
+            sShadowRuntimeJar = new File(context.getFilesDir(), "shadow-runtime.jar");
+            if (!sShadowRuntimeJar.exists()) {
+                try {
+                    java.io.InputStream is = context.getAssets().open("shadow-runtime.jar");
+                    java.io.FileOutputStream fos = new java.io.FileOutputStream(sShadowRuntimeJar);
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = is.read(buffer)) != -1) {
+                        fos.write(buffer, 0, read);
+                    }
+                    fos.close();
+                    is.close();
+                } catch (java.io.IOException e) {
+                    e.printStackTrace();
+                    return null;
+                }
+            }
+        }
+        return sShadowRuntimeJar;
     }
 
     public static void setAndroidJar(@NonNull File jar) {

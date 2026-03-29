@@ -6,6 +6,7 @@ import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.DiagnosticContext
+import com.vibe.build.engine.model.BuildMode
 import com.vibe.build.engine.model.BuildResult
 import com.vibe.build.engine.model.CompileInput
 import com.vibe.build.engine.model.EngineBuildType
@@ -39,7 +40,7 @@ class ProjectInitializer @Inject constructor(
         val minSdk: Int,
         val targetSdk: Int,
     ) {
-        fun toCompileInput(): CompileInput = CompileInput(
+        fun toCompileInput(buildMode: BuildMode = BuildMode.STANDALONE): CompileInput = CompileInput(
             projectId = projectId,
             projectName = projectName,
             packageName = packageName,
@@ -47,6 +48,7 @@ class ProjectInitializer @Inject constructor(
             minSdk = minSdk,
             targetSdk = targetSdk,
             buildType = EngineBuildType.DEBUG,
+            buildMode = buildMode,
         )
     }
 
@@ -154,9 +156,10 @@ class ProjectInitializer @Inject constructor(
         projectId: String,
         triggerSource: String = BuildTriggerSource.CHAT_BUTTON,
         progressListener: BuildProgressListener? = null,
+        buildMode: BuildMode = BuildMode.STANDALONE,
     ): BuildResult = withContext(Dispatchers.IO) {
         val project = ensureProject(projectId)
-        buildProject(project, triggerSource, progressListener)
+        buildProject(project, triggerSource, progressListener, buildMode)
     }
 
     suspend fun ensureProjectLauncherResources(projectId: String) = withContext(Dispatchers.IO) {
@@ -169,6 +172,7 @@ class ProjectInitializer @Inject constructor(
         project: TemplateProject,
         triggerSource: String = BuildTriggerSource.CHAT_BUTTON,
         progressListener: BuildProgressListener? = null,
+        buildMode: BuildMode = BuildMode.STANDALONE,
     ): BuildResult {
         val startedAt = System.currentTimeMillis()
         val stageStartedAt = mutableMapOf<com.vibe.build.engine.model.BuildStage, Long>()
@@ -188,7 +192,7 @@ class ProjectInitializer @Inject constructor(
             }
             progressListener?.onProgress(update)
         }
-        val result = buildPipeline.run(project.toCompileInput(), wrappedListener)
+        val result = buildPipeline.run(project.toCompileInput(buildMode), wrappedListener)
         val completedAt = System.currentTimeMillis()
         val chatId = projectRepository.fetchProject(project.projectId)?.chat?.id
         val diagnosticContext = DiagnosticContext(

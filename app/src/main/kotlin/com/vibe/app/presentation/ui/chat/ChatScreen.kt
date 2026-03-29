@@ -222,6 +222,7 @@ fun ChatScreen(
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
                 chatViewModel::runBuild,
+                onInstallApkClick = { chatViewModel.installBuild() },
                 onExportChatItemClick = {
                     scope.launch {
                         exportChat(context, chatViewModel)
@@ -433,6 +434,7 @@ private fun ChatTopBar(
     scrollBehavior: TopAppBarScrollBehavior,
     onUpdateProjectNameClick: () -> Unit,
     onRunClick: () -> Unit,
+    onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit
@@ -475,6 +477,10 @@ private fun ChatTopBar(
                         onUpdateProjectNameClick.invoke()
                         isDropDownMenuExpanded = false
                     },
+                    onInstallApkClick = {
+                        onInstallApkClick()
+                        isDropDownMenuExpanded = false
+                    },
                     onExportChatItemClick = onExportChatItemClick,
                     onExportSourceCodeItemClick = {
                         onExportSourceCodeItemClick()
@@ -508,6 +514,7 @@ fun ChatDropdownMenu(
     isProjectMenuEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onUpdateProjectNameClick: () -> Unit,
+    onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit
@@ -521,6 +528,11 @@ fun ChatDropdownMenu(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.update_project_name)) },
             onClick = onUpdateProjectNameClick
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.install_apk)) },
+            onClick = onInstallApkClick
         )
         DropdownMenuItem(
             enabled = isChatMenuEnabled,

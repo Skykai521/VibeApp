@@ -29,6 +29,7 @@ data class BuildWorkspace(
     val lambdaStubsJar: File,
     val androidxClassesJar: File?,
     val androidxResCompiledDir: File?,
+    val shadowRuntimeJar: File?,
 ) {
     fun allJavaSources(): List<File> {
         return collectFiles(sourceDir, ".java") + collectFiles(generatedSourcesDir, ".java")
@@ -69,6 +70,12 @@ data class BuildWorkspace(
                 androidxJar
             }
 
+            val shadowRuntimeJar = if (input.buildMode == BuildMode.PLUGIN) {
+                BuildModule.getShadowRuntimeJar()?.takeIf { it.exists() }
+            } else {
+                null
+            }
+
             return BuildWorkspace(
                 rootDir = rootDir,
                 sourceDir = sourceDir,
@@ -90,6 +97,7 @@ data class BuildWorkspace(
                 lambdaStubsJar = BuildModule.getLambdaStubs(),
                 androidxClassesJar = effectiveAndroidxJar,
                 androidxResCompiledDir = BuildModule.getAndroidxResCompiledDir()?.takeIf { it.exists() && it.isDirectory },
+                shadowRuntimeJar = shadowRuntimeJar,
             )
         }
 

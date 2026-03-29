@@ -26,7 +26,9 @@ import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.handleStates
 import com.vibe.app.util.FileUtils
+import com.vibe.app.plugin.PluginManager
 import com.vibe.build.engine.model.BuildLogLevel
+import com.vibe.build.engine.model.BuildMode
 import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.BuildStatus
 import com.vibe.build.engine.pipeline.BuildProgressListener
@@ -57,6 +59,7 @@ class ChatViewModel @Inject constructor(
     private val diagnosticLogger: ChatDiagnosticLogger,
     private val sessionManager: AgentSessionManager,
     private val buildMutex: BuildMutex,
+    private val pluginManager: PluginManager,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -241,6 +244,18 @@ class ChatViewModel @Inject constructor(
         return projectInitializer.findSignedApkPath(projectId)
     }
 
+    private fun buildProgressListener() = BuildProgressListener { update ->
+        val progress = if (update.totalSteps == 0) 0f
+        else update.completedSteps.toFloat() / update.totalSteps
+        _buildProgress.update {
+            it.copy(
+                isVisible = true,
+                progress = progress.coerceIn(0f, 1f),
+                currentStage = update.stage,
+            )
+        }
+    }
+
     fun runBuild() {
         val projectId = _currentProjectId.value
         Log.d("RunBuild", "runBuild called, projectId=$projectId")
@@ -252,35 +267,23 @@ class ChatViewModel @Inject constructor(
         _buildProgress.update { BuildProgressUiState(isVisible = true) }
         viewModelScope.launch {
             try {
-                Log.d("RunBuild", "Starting buildProject for projectId=$projectId")
+                Log.d("RunBuild", "Starting PLUGIN build for projectId=$projectId")
                 val result = buildMutex.withBuildLock {
                     projectInitializer.buildProject(
                         projectId = projectId,
                         triggerSource = BuildTriggerSource.CHAT_BUTTON,
-                        progressListener = BuildProgressListener { update ->
-                            val progress = if (update.totalSteps == 0) {
-                                0f
-                            } else {
-                                update.completedSteps.toFloat() / update.totalSteps
-                            }
-                            _buildProgress.update {
-                                it.copy(
-                                    isVisible = true,
-                                    progress = progress.coerceIn(0f, 1f),
-                                    currentStage = update.stage,
-                                )
-                            }
-                        },
+                        progressListener = buildProgressListener(),
+                        buildMode = BuildMode.PLUGIN,
                     )
                 }
-                Log.d("RunBuild", "buildProject finished: status=${result.status}, artifacts=${result.artifacts.map { "${it.stage}=${it.path}" }}, errorMessage=${result.errorMessage}")
+                Log.d("RunBuild", "buildProject finished: status=${result.status}")
                 if (result.status == BuildStatus.SUCCESS) {
                     val signedApkPath = result.artifacts
                         .firstOrNull { it.stage == BuildStage.SIGN }?.path
                     Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
                     if (signedApkPath != null) {
-                        Log.d("RunBuild", "Emitting InstallApk event")
-                        _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
+                        val packageName = projectInitializer.projectPackageName(projectId)
+                        pluginManager.launchPlugin(signedApkPath, packageName)
                     } else {
                         Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
                     }
@@ -288,6 +291,37 @@ class ChatViewModel @Inject constructor(
                     val errorMsg = buildBuildErrorMessage(result)
                     Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
                     sendBuildErrorToChat(errorMsg)
+                }
+            } finally {
+                _isBuildRunning.update { false }
+                _buildProgress.update { BuildProgressUiState() }
+            }
+        }
+    }
+
+    fun installBuild() {
+        val projectId = _currentProjectId.value
+        if (projectId == null) return
+        _isBuildRunning.update { true }
+        _buildProgress.update { BuildProgressUiState(isVisible = true) }
+        viewModelScope.launch {
+            try {
+                val result = buildMutex.withBuildLock {
+                    projectInitializer.buildProject(
+                        projectId = projectId,
+                        triggerSource = BuildTriggerSource.CHAT_BUTTON,
+                        progressListener = buildProgressListener(),
+                        buildMode = BuildMode.STANDALONE,
+                    )
+                }
+                if (result.status == BuildStatus.SUCCESS) {
+                    val signedApkPath = result.artifacts
+                        .firstOrNull { it.stage == BuildStage.SIGN }?.path
+                    if (signedApkPath != null) {
+                        _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
+                    }
+                } else {
+                    sendBuildErrorToChat(buildBuildErrorMessage(result))
                 }
             } finally {
                 _isBuildRunning.update { false }

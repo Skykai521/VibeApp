@@ -50,6 +50,9 @@ class D8DexConverter(
         if (workspace.androidxClassesJar != null) {
             programFiles.add(workspace.androidxClassesJar.toPath())
         }
+        if (workspace.shadowRuntimeJar != null) {
+            programFiles.add(workspace.shadowRuntimeJar.toPath())
+        }
 
         val command = D8Command.builder(diagnosticsHandler)
             .addProgramFiles(programFiles)
