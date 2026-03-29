@@ -19,30 +19,19 @@ object PluginResourceLoader {
     }
 
     /**
-     * Creates a ClassLoader for plugin APKs with correct class resolution.
+     * Creates a ClassLoader for plugin APKs.
      *
-     * The plugin APK contains shadow-transformed AndroidX where the superclass
-     * chain is: AppCompatActivity → ... → ShadowActivity → Activity.
+     * Generated apps extend ShadowActivity directly (not AppCompatActivity).
+     * The plugin APK's DEX contains ShadowActivity from shadow-runtime.jar,
+     * but we need the host's ShadowActivity for shared class identity
+     * (so `instanceof` works in PluginContainerActivity).
      *
-     * Key challenge: when DexClassLoader resolves superclasses internally, it
-     * uses its own parent chain. If the parent doesn't have ShadowActivity,
-     * DexClassLoader loads it from the plugin DEX — creating a different Class
-     * object than the host's ShadowActivity, breaking `instanceof`.
+     * [ShadowBridgeClassLoader] sits between boot and DexClassLoader:
+     * - com.tencent.shadow.core.runtime.* → host classloader (shared identity)
+     * - everything else → boot classloader (framework only)
      *
-     * Solution: insert a [ShadowBridgeClassLoader] between boot and DexClassLoader:
-     *
-     * ```
-     * DexClassLoader (plugin APK)
-     *   └── ShadowBridgeClassLoader
-     *         ├── com.tencent.shadow.core.runtime.* → host classloader
-     *         └── everything else → boot classloader
-     * ```
-     *
-     * This way, when DexClassLoader resolves ShadowActivity via parent-first
-     * delegation, the bridge intercepts it and returns the host's version.
-     * AndroidX classes are NOT in boot or bridge, so DexClassLoader loads
-     * them from its own DEX (the shadow-transformed versions). The returned
-     * DexClassLoader can be used directly — no outer wrapper needed.
+     * DexClassLoader's parent-first delegation finds ShadowActivity via the
+     * bridge (host's version), while plugin's own classes are loaded from DEX.
      */
     fun createPluginClassLoader(
         context: Context,
@@ -70,15 +59,8 @@ object PluginResourceLoader {
 }
 
 /**
- * Bridge ClassLoader that sits between boot and DexClassLoader.
- *
- * Intercepts `com.tencent.shadow.core.runtime.*` and loads them from the
- * host classloader (for shared class identity). Everything else delegates
- * to the boot classloader (framework classes only).
- *
- * This ensures that when DexClassLoader resolves the superclass chain
- * `AppCompatActivity → ... → ShadowActivity`, it finds the HOST's
- * ShadowActivity (via this bridge), not a duplicate from the plugin DEX.
+ * Bridge ClassLoader between boot and DexClassLoader.
+ * Routes shadow runtime classes to the host for shared class identity.
  */
 private class ShadowBridgeClassLoader(
     private val hostLoader: ClassLoader,

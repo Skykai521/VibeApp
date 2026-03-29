@@ -2,10 +2,8 @@ package com.vibe.build.engine.internal
 
 import com.tyron.builder.BuildModule
 import com.vibe.build.engine.model.BuildArtifact
-import com.vibe.build.engine.model.BuildMode
 import com.vibe.build.engine.model.BuildStage
 import com.vibe.build.engine.model.CompileInput
-import com.vibe.build.engine.shadow.ShadowAndroidxTransformer
 import java.io.File
 
 data class BuildWorkspace(
@@ -62,19 +60,9 @@ data class BuildWorkspace(
             val unsignedApk = File(binDir, "generated.apk")
             val signedApk = File(binDir, "signed.apk")
 
-            val androidxJar = BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() }
-            val effectiveAndroidxJar = if (input.buildMode == BuildMode.PLUGIN && androidxJar != null) {
-                val cacheDir = File(BuildModule.getContext().filesDir, "shadow-cache")
-                ShadowAndroidxTransformer.getOrTransform(androidxJar, cacheDir)
-            } else {
-                androidxJar
-            }
-
-            val shadowRuntimeJar = if (input.buildMode == BuildMode.PLUGIN) {
-                BuildModule.getShadowRuntimeJar()?.takeIf { it.exists() }
-            } else {
-                null
-            }
+            // shadow-runtime.jar is always on classpath — generated apps extend
+            // ShadowActivity which delegates to Activity in standalone mode.
+            val shadowRuntimeJar = BuildModule.getShadowRuntimeJar()?.takeIf { it.exists() }
 
             return BuildWorkspace(
                 rootDir = rootDir,
@@ -95,7 +83,7 @@ data class BuildWorkspace(
                 signedApk = signedApk,
                 bootstrapJar = BuildModule.getAndroidJar(),
                 lambdaStubsJar = BuildModule.getLambdaStubs(),
-                androidxClassesJar = effectiveAndroidxJar,
+                androidxClassesJar = BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() },
                 androidxResCompiledDir = BuildModule.getAndroidxResCompiledDir()?.takeIf { it.exists() && it.isDirectory },
                 shadowRuntimeJar = shadowRuntimeJar,
             )
