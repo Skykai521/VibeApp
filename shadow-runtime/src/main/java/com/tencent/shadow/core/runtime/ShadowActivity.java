@@ -185,6 +185,12 @@ public class ShadowActivity extends AppCompatActivity {
     }
 
     @Override
+    public Resources.Theme getTheme() {
+        if (hostDelegator != null) return hostDelegator.getHostTheme();
+        return super.getTheme();
+    }
+
+    @Override
     public Context getApplicationContext() {
         if (hostDelegator != null) return hostDelegator.getHostContext().getApplicationContext();
         return super.getApplicationContext();

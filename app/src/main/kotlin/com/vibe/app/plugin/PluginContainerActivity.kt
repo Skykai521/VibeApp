@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
@@ -28,7 +29,8 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     private var pluginResources: Resources? = null
     private var pluginClassLoader: ClassLoader? = null
     private var pluginLayoutInflater: LayoutInflater? = null
-    private var pluginReady = false // true after performCreate — guards getSystemService
+    private var pluginTheme: Resources.Theme? = null
+    private var pluginContext: Context? = null // ContextWrapper with plugin resources/theme/ClassLoader
     private var projectId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,34 +62,35 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
             // Plugin APK already contains AndroidX/Material resources (via AAPT2 -R overlay).
             // We just need to apply the plugin's own Theme.MyApplication so ?attr/ resolves.
             pluginResources = PluginResourceLoader.loadPluginResources(this, apkPath)
-            val pluginTheme = pluginResources!!.newTheme()
+            pluginTheme = pluginResources!!.newTheme()
             val pluginPackage = mainClass!!.substringBeforeLast('.')
             val themeResId = pluginResources!!.getIdentifier(
                 "Theme.MyApplication", "style", pluginPackage,
             )
             if (themeResId != 0) {
-                pluginTheme.applyStyle(themeResId, true)
+                pluginTheme!!.applyStyle(themeResId, true)
             }
 
-            // Use the base context's LayoutInflater (system PhoneLayoutInflater)
-            // instead of AppCompatActivity's to avoid the AppCompat Factory2
-            // creating views from the host ClassLoader. Plugin views must come
-            // from pluginClassLoader so their types match the plugin's own
-            // AndroidX/Material classes (loaded from plugin DEX, not host).
-            val baseInflater = baseContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-            pluginLayoutInflater = baseInflater.cloneInContext(object : android.content.ContextWrapper(this) {
+            // Build a self-consistent plugin Context: resources, theme,
+            // ClassLoader, and LayoutInflater all come from the plugin world.
+            // Any code that calls LayoutInflater.from(view.getContext()) on a
+            // plugin-inflated view will stay in the plugin world.
+            val pCtx = object : android.content.ContextWrapper(this) {
                 override fun getResources(): Resources = pluginResources!!
                 override fun getClassLoader(): ClassLoader = pluginClassLoader!!
-                override fun getTheme(): Resources.Theme = pluginTheme
+                override fun getTheme(): Resources.Theme = pluginTheme!!
                 override fun getSystemService(name: String): Any? {
-                    // Views inflated with this context may later request a
-                    // LayoutInflater (e.g. Snackbar.make). Return the plugin
-                    // inflater so it uses plugin resources/ClassLoader, not
-                    // the host's AppCompat inflater which causes ID collisions.
                     if (name == LAYOUT_INFLATER_SERVICE) return pluginLayoutInflater
                     return super.getSystemService(name)
                 }
-            })
+            }
+            pluginContext = pCtx
+
+            // Use the base context's LayoutInflater (system PhoneLayoutInflater)
+            // instead of AppCompatActivity's to avoid the AppCompat Factory2
+            // creating views from the host ClassLoader.
+            val baseInflater = baseContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+            pluginLayoutInflater = baseInflater.cloneInContext(pCtx)
 
             // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
             initPluginLogger(mainClass)
@@ -100,7 +103,6 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
                 Log.d(TAG, "Plugin activity loaded: $mainClass")
                 try {
                     instance.performCreate(savedInstanceState)
-                    pluginReady = true
                 } catch (e: Exception) {
                     Log.e(TAG, "Plugin crashed during onCreate", e)
                     writeCrashLog(e)
@@ -170,23 +172,11 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         finish()
     }
 
-    // Return the plugin LayoutInflater for any code that obtains one via
-    // LayoutInflater.from(context). This covers views whose context is the
-    // host Activity itself (e.g. android.R.id.content used by Snackbar).
-    // Guard with pluginReady: during performCreate, AppCompat's ensureSubDecor
-    // must use the host inflater so its internal views (ContentFrameLayout etc.)
-    // come from the host ClassLoader, not the plugin's.
-    override fun getSystemService(name: String): Any? {
-        if (name == LAYOUT_INFLATER_SERVICE && pluginReady && pluginLayoutInflater != null) {
-            return pluginLayoutInflater
-        }
-        return super.getSystemService(name)
-    }
-
     // --- HostActivityDelegator ---
 
     override fun getHostContext(): Context = this
     override fun getHostResources(): Resources = pluginResources ?: super.getResources()
+    override fun getHostTheme(): Resources.Theme = pluginTheme ?: super.getTheme()
     override fun getHostLayoutInflater(): LayoutInflater = pluginLayoutInflater ?: layoutInflater
     override fun getHostWindow(): Window = window
     override fun getHostWindowManager(): WindowManager = windowManager
@@ -194,10 +184,43 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
 
     override fun superSetContentView(layoutResID: Int) {
         val view = (pluginLayoutInflater ?: layoutInflater).inflate(layoutResID, null)
-        super.setContentView(view)
+        super.setContentView(wrapInPluginCoordinator(view))
     }
 
-    override fun superSetContentView(view: View) = super.setContentView(view)
+    override fun superSetContentView(view: View) {
+        super.setContentView(wrapInPluginCoordinator(view))
+    }
+
+    /**
+     * Wraps plugin content in a CoordinatorLayout from the PLUGIN ClassLoader
+     * with the plugin Context.
+     *
+     * This is critical: Snackbar.findSuitableParent() walks up the view tree
+     * looking for a CoordinatorLayout. Without this, it reaches android.R.id.content
+     * whose context is the HOST Activity — theme checks fail because the host
+     * theme has different R.attr IDs than the plugin Material code expects.
+     * The CoordinatorLayout wrapper keeps everything in the plugin world.
+     */
+    private fun wrapInPluginCoordinator(view: View): View {
+        val ctx = pluginContext ?: return view
+        val cl = pluginClassLoader ?: return view
+        return try {
+            val coordClass = cl.loadClass("androidx.coordinatorlayout.widget.CoordinatorLayout")
+            val ctor = coordClass.getConstructor(Context::class.java)
+            val wrapper = ctor.newInstance(ctx) as ViewGroup
+            wrapper.addView(
+                view,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            wrapper
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to create CoordinatorLayout wrapper", e)
+            view
+        }
+    }
     override fun <T : View> superFindViewById(id: Int): T = findViewById(id)
     override fun superStartActivity(intent: Intent) = super.startActivity(intent)
     override fun superFinish() = super.finish()
