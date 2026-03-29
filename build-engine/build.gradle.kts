@@ -13,7 +13,7 @@ tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.con
     dependsOn(copyShadowRuntime)
 }
 
-tasks.matching { it.name.contains("LintModel") }.configureEach {
+tasks.matching { it.name.contains("lint") || it.name.contains("Lint") }.configureEach {
     dependsOn(copyShadowRuntime)
 }
 
