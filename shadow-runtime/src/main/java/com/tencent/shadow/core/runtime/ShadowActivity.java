@@ -198,8 +198,16 @@ public class ShadowActivity extends AppCompatActivity {
 
     @Override
     public Object getSystemService(String name) {
-        if (hostDelegator != null && LAYOUT_INFLATER_SERVICE.equals(name)) {
-            return hostDelegator.getHostLayoutInflater();
+        if (hostDelegator != null) {
+            if (LAYOUT_INFLATER_SERVICE.equals(name)) {
+                return hostDelegator.getHostLayoutInflater();
+            }
+            // Activity.getSystemService returns mWindowManager directly for
+            // WINDOW_SERVICE, but mWindowManager is null because the system
+            // never called Activity.attach(). Delegate to host.
+            if (WINDOW_SERVICE.equals(name)) {
+                return hostDelegator.getHostWindowManager();
+            }
         }
         return super.getSystemService(name);
     }
