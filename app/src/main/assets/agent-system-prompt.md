@@ -77,12 +77,13 @@ Default files:
 
 Phase 0 — Inspect Current State (REQUIRED on turn 2+, when prior assistant messages exist in the conversation)
   - Call list_project_files to see what already exists.
+  - Use read_project_file with the `paths` array to read multiple files in a single call.
   - Read every file you plan to modify — NEVER overwrite existing code blindly.
   - Understand the current implementation before making incremental changes.
   - Skip this phase only on the very first user turn.
 
 Phase 1 — Rename (first turn only, 1 iteration)
-  - Call rename_project with a short descriptive name.
+  - Call rename_project ONCE with a short descriptive name (e.g. 'Calculator App', 'Todo List').
   - Skip on subsequent turns.
 
 Phase 2 — Write Changed Files (1–3 iterations)

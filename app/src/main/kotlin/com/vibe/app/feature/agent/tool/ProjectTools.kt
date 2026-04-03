@@ -44,7 +44,7 @@ class ReadProjectFileTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = READ_PROJECT_FILE,
-        description = "Read a UTF-8 text file from the template Android project workspace by relative path.",
+        description = "Read one or more text files from the project workspace.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -54,25 +54,67 @@ class ReadProjectFileTool @Inject constructor(
                         "path",
                         buildJsonObject {
                             put("type", JsonPrimitive("string"))
-                            put("description", JsonPrimitive("Relative file path under the Android app module."))
+                            put("description", JsonPrimitive("Relative file path. Use this OR paths, not both."))
+                        },
+                    )
+                    put(
+                        "paths",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("array"))
+                            put("items", buildJsonObject { put("type", JsonPrimitive("string")) })
+                            put("description", JsonPrimitive("Multiple relative file paths to read at once."))
                         },
                     )
                 },
             )
-            put("required", JsonArray(listOf(JsonPrimitive("path"))))
         },
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
-        val path = call.arguments.requireString("path")
+        val singlePath = call.arguments.jsonObject["path"]?.jsonPrimitive?.content
+            ?.takeIf { it.isNotBlank() }
+        val multiPaths = call.arguments.jsonObject["paths"]
+            ?.let { (it as? JsonArray)?.mapNotNull { el -> el.jsonPrimitive.content.takeIf { s -> s.isNotBlank() } } }
+
+        val pathsToRead = multiPaths ?: listOfNotNull(singlePath)
+        require(pathsToRead.isNotEmpty()) { "Provide either 'path' or 'paths'." }
+
         val workspace = projectManager.openWorkspace(context.projectId)
-        val content = workspace.readTextFile(path)
+
+        if (pathsToRead.size == 1) {
+            val path = pathsToRead.first()
+            return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("path", JsonPrimitive(path))
+                    put("content", JsonPrimitive(workspace.readTextFile(path)))
+                },
+            )
+        }
+
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
             output = buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("content", JsonPrimitive(content))
+                put(
+                    "files",
+                    buildJsonArray {
+                        pathsToRead.forEach { path ->
+                            val content = runCatching { workspace.readTextFile(path) }
+                            add(
+                                buildJsonObject {
+                                    put("path", JsonPrimitive(path))
+                                    if (content.isSuccess) {
+                                        put("content", JsonPrimitive(content.getOrThrow()))
+                                    } else {
+                                        put("error", JsonPrimitive(content.exceptionOrNull()?.message ?: "Read failed"))
+                                    }
+                                },
+                            )
+                        }
+                    },
+                )
             },
         )
     }
@@ -85,7 +127,7 @@ class WriteProjectFileTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = WRITE_PROJECT_FILE,
-        description = "Write a UTF-8 text file into the template Android project workspace by relative path. Always send the full file content.",
+        description = "Create or overwrite a file in the project workspace with complete content.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -110,11 +152,7 @@ class WriteProjectFileTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("bytes", JsonPrimitive(content.encodeToByteArray().size))
-                put("written", JsonPrimitive(true))
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -126,7 +164,7 @@ class DeleteProjectFileTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = DELETE_PROJECT_FILE,
-        description = "Delete a file from the project workspace. Use this to remove unwanted or duplicate files.",
+        description = "Delete a file from the project workspace.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -152,10 +190,7 @@ class DeleteProjectFileTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("deleted", JsonPrimitive(true))
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -167,8 +202,7 @@ class ListProjectFilesTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = LIST_PROJECT_FILES,
-        description = "List all files in the project workspace. Returns relative paths. " +
-            "Use this to understand the current project structure before making changes.",
+        description = "List all files in the project workspace as relative paths.",
         inputSchema = buildJsonObject {},
     )
 
@@ -180,7 +214,6 @@ class ListProjectFilesTool @Inject constructor(
             toolName = call.name,
             output = buildJsonObject {
                 put("files", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
-                put("count", JsonPrimitive(files.size))
             },
         )
     }
@@ -353,9 +386,7 @@ class RenameProjectTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = RENAME_PROJECT,
-        description = "Rename the current project to a short, descriptive name that reflects what the user is building. " +
-            "Call this ONCE when you understand the user's intent from their first message. " +
-            "Use a concise name like 'Calculator App', 'Todo List', 'Weather App'.",
+        description = "Rename the current project.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -389,10 +420,7 @@ class RenameProjectTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("renamed", JsonPrimitive(true))
-                put("name", JsonPrimitive(name))
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -404,9 +432,7 @@ class UpdateProjectIconTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = UPDATE_PROJECT_ICON,
-        description = "Update the current project's Android launcher icon. " +
-            "Writes complete XML files to the fixed launcher icon paths. " +
-            "Use self-contained Android vector drawable XML with literal colors.",
+        description = "Update the launcher icon with background and foreground vector drawable XML.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -450,16 +476,7 @@ class UpdateProjectIconTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("updated", JsonPrimitive(true))
-                put(
-                    "paths",
-                    buildJsonArray {
-                        add(JsonPrimitive(ICON_BACKGROUND_PATH))
-                        add(JsonPrimitive(ICON_FOREGROUND_PATH))
-                    },
-                )
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -471,9 +488,7 @@ class ReadRuntimeLogTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = READ_RUNTIME_LOG,
-        description = "Read runtime logs from the generated app. " +
-            "Returns app logs (written by AppLogger) and/or crash stack traces " +
-            "produced during the app's execution.",
+        description = "Read runtime app logs and/or crash stack traces.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -531,7 +546,6 @@ class ReadRuntimeLogTool @Inject constructor(
                 if (logType == "crash" || logType == "all") {
                     put("crash_log", JsonPrimitive(readTail(File(logDir, "crash.log"), tail)))
                 }
-                put("log_dir_exists", JsonPrimitive(logDir.exists()))
             },
         )
     }
@@ -551,9 +565,7 @@ class FixCrashGuideTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = FIX_CRASH_GUIDE,
-        description = "Diagnose a runtime crash and return step-by-step fix instructions. " +
-            "Reads crash.log and relevant project files automatically. " +
-            "Call this FIRST when the user reports a crash.",
+        description = "Diagnose a runtime crash from crash.log and return fix instructions.",
         inputSchema = buildJsonObject {},
     )
 
