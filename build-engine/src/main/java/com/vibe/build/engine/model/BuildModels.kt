@@ -31,7 +31,6 @@ enum class EngineBuildType {
 
 enum class BuildMode {
     STANDALONE,
-    PLUGIN,
 }
 
 data class SigningConfig(

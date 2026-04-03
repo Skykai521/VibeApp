@@ -292,7 +292,7 @@ class ChatViewModel @Inject constructor(
                         projectId = projectId,
                         triggerSource = BuildTriggerSource.CHAT_BUTTON,
                         progressListener = buildProgressListener(),
-                        buildMode = BuildMode.PLUGIN,
+                        buildMode = BuildMode.STANDALONE,
                     )
                 }
                 Log.d("RunBuild", "buildProject finished: status=${result.status}")
