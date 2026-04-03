@@ -302,7 +302,7 @@ class ChatViewModel @Inject constructor(
                     Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
                     if (signedApkPath != null) {
                         val packageName = projectInitializer.projectPackageName(projectId)
-                        pluginManager.launchPlugin(signedApkPath, packageName, projectId)
+                        pluginManager.launchPlugin(signedApkPath, packageName, projectId, _projectName.value)
                     } else {
                         Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
                     }

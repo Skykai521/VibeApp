@@ -32,7 +32,7 @@ class PluginManager @Inject constructor(
         PluginSlot4::class.java,
     )
 
-    fun launchPlugin(apkPath: String, packageName: String, projectId: String = apkPath) {
+    fun launchPlugin(apkPath: String, packageName: String, projectId: String = apkPath, projectName: String? = null) {
         val mainClassName = findMainActivity(apkPath, packageName)
         val slotIndex = allocateSlot(projectId)
         Log.d(TAG, "Launching plugin in slot $slotIndex: apk=$apkPath, main=$mainClassName")
@@ -43,7 +43,7 @@ class PluginManager @Inject constructor(
         val intent = Intent(context, slotActivities[slotIndex]).apply {
             putExtra(PluginContainerActivity.EXTRA_APK_PATH, apkPath)
             putExtra(PluginContainerActivity.EXTRA_MAIN_CLASS, mainClassName)
-            putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, packageName.substringAfterLast('.'))
+            putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, projectName ?: packageName.substringAfterLast('.'))
             putExtra(PluginContainerActivity.EXTRA_SLOT_INDEX, slotIndex)
             putExtra(PluginContainerActivity.EXTRA_PROJECT_ID, projectId)
             // NEW_TASK: separate task (taskAffinity gives each slot its own)
