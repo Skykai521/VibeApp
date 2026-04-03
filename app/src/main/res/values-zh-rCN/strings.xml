@@ -146,6 +146,7 @@
     <string name="remove">移除</string>
     <string name="qwen_description">Qwen 创造者</string>
     <string name="kimi_description">月之暗面旗下 Kimi 智能助手</string>
+    <string name="minimax_description">MiniMax 创造者</string>
     <string name="stop">停止</string>
     <string name="select_image">选择图片</string>
     <string name="image_input_not_supported">仅 OpenAI、Anthropic 和 Kimi 对话支持选择图片。</string>

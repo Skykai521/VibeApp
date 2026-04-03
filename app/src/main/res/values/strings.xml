@@ -163,6 +163,8 @@
     <string name="qwen_description">Creator of Qwen.</string>
     <string name="kimi" translatable="false">Kimi</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
+    <string name="minimax" translatable="false">MiniMax</string>
+    <string name="minimax_description">Creator of MiniMax.</string>
     <string name="remove">Remove</string>
 
     <!-- Project management strings -->
