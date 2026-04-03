@@ -63,9 +63,9 @@ fun ThinkingBlock(
     val resolvedToolNames = mapOf(
         "read_project_file" to stringResource(R.string.tool_name_read_project_file),
         "write_project_file" to stringResource(R.string.tool_name_write_project_file),
+        "edit_project_file" to stringResource(R.string.tool_name_edit_project_file),
         "delete_project_file" to stringResource(R.string.tool_name_delete_project_file),
         "list_project_files" to stringResource(R.string.tool_name_list_project_files),
-        "clean_build_cache" to stringResource(R.string.tool_name_clean_build_cache),
         "run_build_pipeline" to stringResource(R.string.tool_name_run_build_pipeline),
         "rename_project" to stringResource(R.string.tool_name_rename_project),
         "update_project_icon" to stringResource(R.string.tool_name_update_project_icon),
