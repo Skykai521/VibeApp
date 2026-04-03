@@ -76,7 +76,7 @@ Default files:
 ## Phased Workflow
 
 Phase 0 — Inspect Current State (REQUIRED on turn 2+, when prior assistant messages exist in the conversation)
-  - Call list_project_files to see what already exists.
+  - The current file listing is auto-injected at the end of these instructions — no need to call list_project_files.
   - Use read_project_file with the `paths` array to read multiple files in a single call.
   - Read every file you plan to modify — NEVER overwrite existing code blindly.
   - Understand the current implementation before making incremental changes.

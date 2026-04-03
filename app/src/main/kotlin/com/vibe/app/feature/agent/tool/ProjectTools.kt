@@ -565,7 +565,7 @@ class FixCrashGuideTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = FIX_CRASH_GUIDE,
-        description = "Diagnose a runtime crash from crash.log and return fix instructions.",
+        description = "Read crash log and auto-include source files referenced in the stack trace.",
         inputSchema = buildJsonObject {},
     )
 
@@ -578,7 +578,8 @@ class FixCrashGuideTool @Inject constructor(
                 toolCallId = call.id,
                 toolName = call.name,
                 output = buildJsonObject {
-                    put("diagnosis", JsonPrimitive("No crash log found. The app may not have crashed, or logs were cleared."))
+                    put("crash_log", JsonPrimitive(""))
+                    put("note", JsonPrimitive("No crash log found."))
                 },
             )
         }
@@ -591,191 +592,76 @@ class FixCrashGuideTool @Inject constructor(
             crashLog
         }
 
-        // Match known crash patterns and generate fix instructions
-        val diagnosis = diagnoseCrash(lastCrash, context)
+        // Auto-resolve source files referenced in the stack trace
+        val workspace = projectManager.openWorkspace(context.projectId)
+        val projectFiles = workspace.listFiles()
+        val referencedFiles = extractReferencedFiles(lastCrash, projectFiles)
+
+        // Auto-read referenced source files (max 3 to avoid bloat)
+        val fileContents = mutableListOf<JsonObject>()
+        for (path in referencedFiles.take(3)) {
+            val content = runCatching { workspace.readTextFile(path) }
+            fileContents.add(
+                buildJsonObject {
+                    put("path", JsonPrimitive(path))
+                    if (content.isSuccess) {
+                        put("content", JsonPrimitive(content.getOrThrow()))
+                    } else {
+                        put("error", JsonPrimitive(content.exceptionOrNull()?.message ?: "Read failed"))
+                    }
+                },
+            )
+        }
 
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
             output = buildJsonObject {
                 put("crash_log", JsonPrimitive(lastCrash.take(2000)))
-                put("diagnosis", JsonPrimitive(diagnosis.summary))
-                put("fix_instructions", JsonPrimitive(diagnosis.instructions))
-                diagnosis.filesToRead?.let { files ->
-                    put("files_to_read", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
-                }
-                diagnosis.filesToFix?.let { files ->
-                    put("files_to_fix", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
+                if (fileContents.isNotEmpty()) {
+                    put("source_files", buildJsonArray { fileContents.forEach { add(it) } })
                 }
             },
         )
     }
 
-    private data class CrashDiagnosis(
-        val summary: String,
-        val instructions: String,
-        val filesToRead: List<String>? = null,
-        val filesToFix: List<String>? = null,
-    )
+    /**
+     * Extracts project source files mentioned in a crash stack trace.
+     * Matches lines like "at com.vibe.generated.p123.MainActivity(MainActivity.java:42)"
+     * and resolves the .java filename against the project file listing.
+     */
+    private fun extractReferencedFiles(crashLog: String, projectFiles: List<String>): List<String> {
+        val javaFileNames = Regex("""\((\S+\.java):\d+\)""")
+            .findAll(crashLog)
+            .map { it.groupValues[1] }
+            .distinct()
+            .toList()
 
-    private suspend fun diagnoseCrash(crashLog: String, context: AgentToolContext): CrashDiagnosis {
-        // Pattern 1: Not a ShadowActivity subclass
-        if (crashLog.contains("is not a ShadowActivity subclass")) {
-            val activityName = Regex("""(\S+) is not a ShadowActivity subclass""")
-                .find(crashLog)?.groupValues?.get(1)
-            val simpleClassName = activityName?.substringAfterLast('.') ?: "MainActivity"
-            val packagePath = "{{PACKAGE_PATH}}".let {
-                // Try to find the actual file
-                val workspace = projectManager.openWorkspace(context.projectId)
-                val files = workspace.listFiles()
-                files.firstOrNull { it.endsWith("$simpleClassName.java") }
+        // Also match layout names from InflateException: "layout/activity_main"
+        val layoutNames = Regex("""layout/(\w+)""")
+            .findAll(crashLog)
+            .map { "src/main/res/layout/${it.groupValues[1]}.xml" }
+            .distinct()
+            .toList()
+
+        val resolved = mutableListOf<String>()
+
+        // Resolve .java filenames to actual project paths
+        for (fileName in javaFileNames) {
+            val match = projectFiles.firstOrNull { it.endsWith(fileName) }
+            if (match != null && match !in resolved) {
+                resolved.add(match)
             }
-
-            return CrashDiagnosis(
-                summary = "FATAL: $simpleClassName does not extend ShadowActivity. " +
-                    "All Activity classes MUST extend com.tencent.shadow.core.runtime.ShadowActivity, " +
-                    "NOT AppCompatActivity or Activity directly.",
-                instructions = """
-Step 1: Read the file containing $simpleClassName (use read_project_file).
-Step 2: Change the class declaration from:
-  public class $simpleClassName extends AppCompatActivity {
-  (or extends Activity, or extends FragmentActivity)
-TO:
-  public class $simpleClassName extends ShadowActivity {
-Step 3: Change the import from:
-  import androidx.appcompat.app.AppCompatActivity;
-TO:
-  import com.tencent.shadow.core.runtime.ShadowActivity;
-Step 4: Keep everything else unchanged. ShadowActivity extends AppCompatActivity internally, so all AppCompatActivity APIs (setSupportActionBar, getSupportFragmentManager, etc.) still work.
-Step 5: Write the fixed file with write_project_file, then run_build_pipeline.
-""".trimIndent(),
-                filesToRead = listOfNotNull(packagePath),
-                filesToFix = listOfNotNull(packagePath),
-            )
         }
 
-        // Pattern 2: InflateException with Toolbar
-        if (crashLog.contains("InflateException") && crashLog.contains("Toolbar")) {
-            return CrashDiagnosis(
-                summary = "FATAL: Toolbar inflation failed. This is usually caused by a theme conflict " +
-                    "in the plugin runtime. Using androidx.appcompat.widget.Toolbar directly causes crashes.",
-                instructions = """
-Step 1: Read the layout XML file mentioned in the crash log (use read_project_file).
-Step 2: Replace any <androidx.appcompat.widget.Toolbar> or <android.widget.Toolbar> with:
-  <com.google.android.material.appbar.MaterialToolbar
-      android:id="@+id/toolbar"
-      android:layout_width="match_parent"
-      android:layout_height="?attr/actionBarSize"
-      android:background="?attr/colorPrimary"
-      app:titleTextColor="@android:color/white" />
-Step 3: In the Activity's onCreate, after setContentView, add:
-  MaterialToolbar toolbar = findViewById(R.id.toolbar);
-  setSupportActionBar(toolbar);
-Step 4: Make sure the Activity imports:
-  import com.google.android.material.appbar.MaterialToolbar;
-Step 5: Do NOT modify themes.xml. The theme must stay as Theme.MaterialComponents.DayNight.NoActionBar.
-Step 6: Write the fixed files, then run_build_pipeline.
-""".trimIndent(),
-                filesToRead = listOf("src/main/res/layout/activity_main.xml"),
-                filesToFix = listOf("src/main/res/layout/activity_main.xml"),
-            )
+        // Add layout files if they exist in project
+        for (layoutPath in layoutNames) {
+            if (layoutPath in projectFiles && layoutPath !in resolved) {
+                resolved.add(layoutPath)
+            }
         }
 
-        // Pattern 3: InflateException with theme errors
-        if (crashLog.contains("InflateException")) {
-            val layoutMatch = Regex("""in (\S+):layout/(\S+):""").find(crashLog)
-            val layoutName = layoutMatch?.groupValues?.get(2) ?: "activity_main"
-            val classMatch = Regex("""Error inflating class (\S+)""").find(crashLog)
-            val className = classMatch?.groupValues?.get(1)
-
-            return CrashDiagnosis(
-                summary = "FATAL: Layout inflation error${className?.let { " for class $it" } ?: ""}. " +
-                    "A view in layout/$layoutName cannot be created, usually due to a missing style, " +
-                    "wrong widget class, or theme misconfiguration.",
-                instructions = """
-Step 1: Read src/main/res/layout/$layoutName.xml to find the problematic view.
-Step 2: Read src/main/res/values/themes.xml to verify the theme is correct.
-Step 3: Check that:
-  - themes.xml parent is Theme.MaterialComponents.DayNight.NoActionBar (do NOT change it)
-  - All widgets use Material Components or standard Android widgets
-  - No Material3 widgets are used (MaterialSwitch, etc.)
-  - All custom attributes (app:...) are valid for the widget type
-  - No android:cx, android:cy, or android:r attributes are used
-${className?.let { "Step 4: If '$it' is not a valid widget, replace it with the correct Material Components equivalent." } ?: ""}
-Step 5: Write the fixed files, then run_build_pipeline.
-""".trimIndent(),
-                filesToRead = listOf("src/main/res/layout/$layoutName.xml", "src/main/res/values/themes.xml"),
-                filesToFix = listOf("src/main/res/layout/$layoutName.xml"),
-            )
-        }
-
-        // Pattern 4: NullPointerException
-        if (crashLog.contains("NullPointerException")) {
-            val atLine = Regex("""at (\S+)\((\S+\.java):(\d+)\)""").find(crashLog)
-            val fileName = atLine?.groupValues?.get(2)
-            val lineNum = atLine?.groupValues?.get(3)
-
-            return CrashDiagnosis(
-                summary = "NullPointerException${fileName?.let { " in $it at line $lineNum" } ?: ""}. " +
-                    "A variable is null when it should not be.",
-                instructions = """
-Step 1: Read the crash stack trace to find the exact file and line number.
-Step 2: Read the source file with read_project_file.
-Step 3: Check for common causes:
-  - findViewById() returning null — is the ID correct? Is it in the right layout?
-  - Calling methods on objects before they are initialized
-  - Missing null checks on optional data
-Step 4: Add null checks or fix the initialization order.
-Step 5: Write the fixed file, then run_build_pipeline.
-""".trimIndent(),
-                filesToRead = fileName?.let {
-                    val workspace = projectManager.openWorkspace(context.projectId)
-                    val files = workspace.listFiles()
-                    files.filter { f -> f.endsWith(it) }.take(1)
-                },
-                filesToFix = null,
-            )
-        }
-
-        // Pattern 5: ClassNotFoundException or NoClassDefFoundError
-        if (crashLog.contains("ClassNotFoundException") || crashLog.contains("NoClassDefFoundError")) {
-            val classMatch = Regex("""(?:ClassNotFoundException|NoClassDefFoundError):\s*(\S+)""").find(crashLog)
-            val missingClass = classMatch?.groupValues?.get(1)
-
-            return CrashDiagnosis(
-                summary = "Class not found: ${missingClass ?: "unknown"}. " +
-                    "This class is not available in the bundled libraries.",
-                instructions = """
-Step 1: The class '${missingClass ?: "unknown"}' does not exist in the available libraries.
-Step 2: Only these libraries are available — do NOT try to import anything else:
-  - Standard Android SDK (android.widget.*, android.view.*, etc.)
-  - AndroidX (androidx.appcompat, androidx.recyclerview, androidx.constraintlayout, etc.)
-  - Material Components (com.google.android.material.*)
-  - ShadowActivity (com.tencent.shadow.core.runtime.ShadowActivity)
-Step 3: Replace the missing class with an equivalent from the available libraries.
-Step 4: Write the fixed file, then run_build_pipeline.
-""".trimIndent(),
-                filesToRead = null,
-                filesToFix = null,
-            )
-        }
-
-        // Generic fallback
-        return CrashDiagnosis(
-            summary = "Runtime crash detected. Read the stack trace below and fix the root cause.",
-            instructions = """
-Step 1: Read the crash stack trace in the crash_log field.
-Step 2: Identify the exception type and the file/line where it occurred.
-Step 3: Use read_project_file to read the relevant source files.
-Step 4: Fix the issue and rebuild with run_build_pipeline.
-Important reminders:
-  - All Activities MUST extend ShadowActivity (not AppCompatActivity)
-  - Do NOT modify themes.xml
-  - Do NOT use libraries that are not bundled
-""".trimIndent(),
-            filesToRead = null,
-            filesToFix = null,
-        )
+        return resolved
     }
 }
 

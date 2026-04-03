@@ -15,6 +15,7 @@ import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.project.ProjectManager
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +29,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private val agentModelGateway: AgentModelGateway,
     private val agentToolRegistry: AgentToolRegistry,
     private val diagnosticLogger: ChatDiagnosticLogger,
+    private val projectManager: ProjectManager,
 ) : AgentLoopCoordinator {
 
     private val contextManager = ConversationContextManager()
@@ -246,7 +248,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         context.assets.open("agent-system-prompt.md").bufferedReader().use { it.readText() }
     }
 
-    private fun buildInstructions(request: AgentLoopRequest): String {
+    private suspend fun buildInstructions(request: AgentLoopRequest): String {
         val packageName = request.projectId
             ?.let { "com.vibe.generated.p$it" }
             ?: "com.vibe.generated.emptyactivity"
@@ -254,6 +256,10 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         val custom = request.systemPrompt
             ?.takeIf { it.isNotBlank() }
             ?: request.platform.systemPrompt?.takeIf { it.isNotBlank() }
+
+        val isTurn2Plus = request.assistantMessages.any { msgs ->
+            msgs.any { it.content.isNotBlank() }
+        }
 
         return buildString {
             append(
@@ -264,6 +270,16 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             if (custom != null) {
                 append("\n\n[Additional System Prompt]\n")
                 append(custom)
+            }
+            // Auto-inject file listing on turn 2+ so the AI doesn't need to call list_project_files
+            if (isTurn2Plus && request.projectId != null) {
+                val files = runCatching {
+                    projectManager.openWorkspace(request.projectId).listFiles()
+                }.getOrNull()
+                if (!files.isNullOrEmpty()) {
+                    append("\n\n[Current Project Files]\n")
+                    files.forEach { append("- $it\n") }
+                }
             }
         }
     }
