@@ -11,6 +11,7 @@ object ModelConstants {
 
     const val QWEN_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/"
     const val KIMI_API_URL = "https://api.moonshot.cn/"
+    const val MINIMAX_API_URL = "https://api.minimaxi.com/v1/"
 
     const val DEFAULT_PROMPT = "Your task is to answer my questions precisely."
 
