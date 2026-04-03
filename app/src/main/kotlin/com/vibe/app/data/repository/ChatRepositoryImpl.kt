@@ -118,7 +118,7 @@ class ChatRepositoryImpl @Inject constructor(
             completeChatWithOpenAIResponses(userMessages, assistantMessages, platform, diagnosticContext)
         }
 
-        ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM, ClientType.KIMI -> {
+        ClientType.GROQ, ClientType.OLLAMA, ClientType.OPENROUTER, ClientType.CUSTOM, ClientType.KIMI, ClientType.MINIMAX -> {
             // Use Chat Completions API for OpenAI-compatible services
             completeChatWithOpenAIChatCompletions(userMessages, assistantMessages, platform, diagnosticContext)
         }
