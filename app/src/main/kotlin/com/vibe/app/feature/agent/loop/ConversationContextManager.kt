@@ -12,6 +12,13 @@ import com.vibe.app.feature.agent.AgentMessageRole
  * 3. Summarize older turns into compact form (user request + tools used + outcome)
  * 4. If still over budget, progressively drop oldest summaries
  */
+@Deprecated(
+    message = "Use ConversationCompactor for conversation compaction. Kept for estimateTokens utility.",
+    replaceWith = ReplaceWith(
+        "ConversationCompactor",
+        "com.vibe.app.feature.agent.loop.compaction.ConversationCompactor",
+    ),
+)
 class ConversationContextManager(
     private val maxContextTokens: Int = DEFAULT_MAX_CONTEXT_TOKENS,
     private val recentTurnsToKeepFull: Int = DEFAULT_RECENT_TURNS,
