@@ -120,7 +120,7 @@ dependencies {
 
     // Markdown
     implementation(libs.compose.markdown)
-    implementation(libs.richtext)
+    implementation(libs.compose.markdown.code)
 
     // Navigation
     implementation(libs.hilt.navigation)
