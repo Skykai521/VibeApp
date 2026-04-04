@@ -139,6 +139,8 @@
     <string name="tool_name_update_project_icon">Update icon</string>
     <string name="tool_name_read_runtime_log">Read app log</string>
     <string name="tool_name_fix_crash_guide">Diagnose crash</string>
+    <string name="tool_name_inspect_ui">Inspect UI</string>
+    <string name="tool_name_interact_ui">Interact UI</string>
     <string name="crash_detected_title">App Crashed</string>
     <string name="crash_auto_fix">Auto Fix</string>
     <string name="crash_dismiss">Dismiss</string>

@@ -322,44 +322,69 @@ fun ChatScreen(
                                 }
                             }
                         }
+                        // Agent step items (thinking, tool calls) — each as its own list item
+                        val turnSteps = groupedMessages.agentSteps.getOrNull(i) ?: emptyList()
+                        val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                        val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+
+                        // Platform header
                         item {
-                            val assistantThoughts = assistantMessages.getOrNull(platformIndexState)?.thoughts ?: ""
-                            Column(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 12.dp)
+                                    .padding(horizontal = 6.dp)
+                                    .padding(top = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
-                                    run {
-                                        val assistantMsg = assistantMessages.getOrNull(platformIndexState)
-                                        val platformName = assistantMsg?.platformType
-                                            ?.let { uid -> allPlatforms.find { it.uid == uid }?.name }
-                                            ?: stringResource(R.string.unknown)
-                                        Text(
-                                            text = platformName,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(start = 12.dp)
+                                GPTMobileIcon(if (isLastTurn) !isIdle else false)
+                                run {
+                                    val assistantMsg = assistantMessages.getOrNull(platformIndexState)
+                                    val platformName = assistantMsg?.platformType
+                                        ?.let { uid -> allPlatforms.find { it.uid == uid }?.name }
+                                        ?: stringResource(R.string.unknown)
+                                    Text(
+                                        text = platformName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(start = 12.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Render each step as its own item
+                        if (turnSteps.isNotEmpty()) {
+                            turnSteps.forEachIndexed { stepIdx, step ->
+                                if (step.type != com.vibe.app.feature.agent.AgentStepType.OUTPUT) {
+                                    item(key = "step_${i}_${stepIdx}") {
+                                        val isLiveStep = isTurnLoading && stepIdx == turnSteps.lastIndex
+                                        AgentStepBubble(
+                                            step = step,
+                                            isLive = isLiveStep,
+                                            modifier = Modifier.padding(horizontal = 4.dp),
                                         )
                                     }
                                 }
+                            }
+                        }
+
+                        // Final output bubble (the assistant's text response)
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                            ) {
                                 OpponentChatBubble(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 4.dp)
                                         .widthIn(max = maximumOpponentChatBubbleWidth),
-                                    canRetry = canUseChat && i == groupedMessages.assistantMessages.size - 1 && !isCurrentPlatformLoading,
-                                    isLoading = if (i == groupedMessages.assistantMessages.size - 1) isCurrentPlatformLoading else false,
+                                    canRetry = canUseChat && isLastTurn && !isTurnLoading,
+                                    isLoading = isTurnLoading,
                                     text = assistantContent,
-                                    thoughts = assistantThoughts,
                                     onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
                                     onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
                                     onRetryClick = { chatViewModel.retryChat(platformIndexState) }

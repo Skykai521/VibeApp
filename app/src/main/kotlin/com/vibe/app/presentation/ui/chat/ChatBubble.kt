@@ -118,7 +118,6 @@ fun OpponentChatBubble(
     isLoading: Boolean,
     isError: Boolean = false,
     text: String,
-    thoughts: String = "",
     onCopyClick: () -> Unit = {},
     onSelectClick: () -> Unit = {},
     onRetryClick: () -> Unit = {}
@@ -130,19 +129,7 @@ fun OpponentChatBubble(
         disabledContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
     )
 
-    // Show thinking block while loading if we have thoughts but no text yet
-    val isThinking = isLoading && thoughts.isNotBlank() && text.isBlank()
-
     Column(modifier = modifier) {
-        // Thinking block (collapsed by default)
-        if (thoughts.isNotBlank()) {
-            ThinkingBlock(
-                modifier = Modifier.padding(top = 16.dp, start = 8.dp, end = 8.dp),
-                thoughts = thoughts,
-                isLoading = isThinking
-            )
-        }
-
         Column {
             Card(
                 shape = RoundedCornerShape(0.dp),

@@ -75,7 +75,8 @@ class ChatViewModel @Inject constructor(
 
     data class GroupedMessages(
         val userMessages: List<MessageV2> = listOf(),
-        val assistantMessages: List<List<MessageV2>> = listOf()
+        val assistantMessages: List<List<MessageV2>> = listOf(),
+        val agentSteps: List<List<com.vibe.app.feature.agent.AgentStepItem>> = listOf(),
     )
 
     data class BuildProgressUiState(
@@ -751,7 +752,17 @@ class ChatViewModel @Inject constructor(
             )
         }
 
-        return GroupedMessages(userMessages, sortedAssistantMessages)
+        // Parse steps from saved thoughts for display
+        val parsedSteps = sortedAssistantMessages.map { turn ->
+            val msg = turn.firstOrNull()
+            if (msg != null && msg.thoughts.isNotBlank()) {
+                com.vibe.app.feature.agent.service.AgentSessionManager.parseThoughtsToSteps(msg.thoughts)
+            } else {
+                emptyList()
+            }
+        }
+
+        return GroupedMessages(userMessages, sortedAssistantMessages, parsedSteps)
     }
 
     private fun fetchChatRoom() {
@@ -899,6 +910,7 @@ class ChatViewModel @Inject constructor(
                     GroupedMessages(
                         userMessages = sessionState.userMessages,
                         assistantMessages = sessionState.assistantMessages,
+                        agentSteps = sessionState.agentSteps,
                     )
                 }
                 // Keep indexStates in sync
@@ -934,6 +946,7 @@ class ChatViewModel @Inject constructor(
                 GroupedMessages(
                     userMessages = currentState.userMessages,
                     assistantMessages = currentState.assistantMessages,
+                    agentSteps = currentState.agentSteps,
                 )
             }
             _indexStates.update { List(currentState.userMessages.size) { 0 } }

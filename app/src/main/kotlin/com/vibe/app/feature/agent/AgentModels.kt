@@ -70,6 +70,30 @@ data class AgentLoopRequest(
     val policy: AgentLoopPolicy = AgentLoopPolicy(),
 )
 
+/**
+ * Represents a single step in the agent's work process, displayed as an independent
+ * item in the chat list. Each model iteration can produce multiple steps.
+ */
+data class AgentStepItem(
+    val type: AgentStepType,
+    val toolName: String? = null,
+    val toolStatus: AgentToolStatus? = null,
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
+enum class AgentStepType {
+    THINKING,
+    TOOL_CALL,
+    OUTPUT,
+}
+
+enum class AgentToolStatus {
+    CALLING,
+    OK,
+    ERROR,
+}
+
 sealed interface AgentLoopEvent {
     data class LoopStarted(
         val chatId: Int,
