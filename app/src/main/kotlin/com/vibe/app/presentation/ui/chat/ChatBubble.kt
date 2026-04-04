@@ -174,26 +174,25 @@ fun VibeAppIcon(loading: Boolean) {
         modifier = Modifier
             .padding(start = 8.dp)
             .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(48.dp),
-                ambientColor = Color.Black.copy(alpha = 0.15f),
-                spotColor = Color.Black.copy(alpha = 0.2f),
+                elevation = 8.dp,
+                shape = RoundedCornerShape(40.dp),
+                ambientColor = Color.Black.copy(alpha = 0.1f),
+                spotColor = Color.Black.copy(alpha = 0.15f),
             )
-            .size(48.dp)
-            .clip(RoundedCornerShape(48.dp))
+            .size(40.dp)
+            .clip(RoundedCornerShape(40.dp))
             .background(color = Color(0xFFFFFFFF)),
         contentAlignment = Alignment.Center
     ) {
         if (loading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(48.dp),
-                strokeWidth = 2.dp,
+                modifier = Modifier.size(40.dp)
             )
         }
         Image(
             painter = painterResource(R.drawable.ic_vibe),
             contentDescription = null,
-            modifier = Modifier.size(42.dp)
+            modifier = Modifier.size(36.dp)
         )
     }
 }

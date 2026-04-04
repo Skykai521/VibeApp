@@ -5,6 +5,9 @@
       <module name="VibeApp.build-tools.build-cache" target="11" />
       <module name="VibeApp.build-tools.build-cache.main" target="11" />
       <module name="VibeApp.build-tools.build-cache.test" target="11" />
+      <module name="VibeApp.build-tools.eclipse-standalone" target="11" />
+      <module name="VibeApp.build-tools.eclipse-standalone.main" target="11" />
+      <module name="VibeApp.build-tools.eclipse-standalone.test" target="11" />
     </bytecodeTargetLevel>
   </component>
 </project>
