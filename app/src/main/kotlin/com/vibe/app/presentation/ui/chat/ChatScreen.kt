@@ -228,23 +228,25 @@ fun ChatScreen(
         }
     }
 
-    // Auto-scroll during streaming: when new items appear or content grows, keep at bottom
-    LaunchedEffect(Unit) {
-        snapshotFlow { listState.layoutInfo.totalItemsCount }
-            .collect { totalItems ->
-                if (!isIdle && totalItems > 0 && isNearBottom) {
-                    listState.scrollToItem(totalItems - 1)
-                }
+    // Single streaming scroll handler: keep view anchored to bottom while AI is generating.
+    // Monitors layout changes (item count, content height) so both new items and growing
+    // text within existing items trigger a scroll.
+    LaunchedEffect(isIdle) {
+        if (isIdle) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            // Reading totalItemsCount + last visible item's bottom edge covers both
+            // "new item added" and "existing item grew taller" scenarios.
+            val lastVisibleBottom = info.visibleItemsInfo.lastOrNull()?.let { it.offset + it.size } ?: 0
+            Triple(info.totalItemsCount, lastVisibleBottom, info.viewportEndOffset)
+        }.collect { (totalItems, _, _) ->
+            if (totalItems <= 0) return@collect
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return@collect
+            // Only auto-scroll when the user hasn't scrolled far up (within 3 items of bottom)
+            if (lastVisible.index >= info.totalItemsCount - 3) {
+                listState.scrollToItem(totalItems - 1)
             }
-    }
-    // Also scroll when content within items changes (streaming text grows, but item count stays the same)
-    val streamingContentKey = remember(groupedMessages) {
-        val lastAssistant = groupedMessages.assistantMessages.lastOrNull()?.lastOrNull()
-        (lastAssistant?.content?.length ?: 0) to (groupedMessages.agentSteps.lastOrNull()?.size ?: 0)
-    }
-    LaunchedEffect(streamingContentKey) {
-        if (!isIdle && isNearBottom) {
-            listState.scrollToItem(lastItemIndex)
         }
     }
 

@@ -1,6 +1,5 @@
 package com.vibe.app.presentation.ui.chat
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -119,8 +118,7 @@ private fun ThinkingStep(
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-            .padding(12.dp)
-            .then(if (isLive) Modifier.animateContentSize() else Modifier),
+            .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(

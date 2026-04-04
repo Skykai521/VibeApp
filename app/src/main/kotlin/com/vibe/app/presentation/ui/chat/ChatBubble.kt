@@ -2,7 +2,6 @@ package com.vibe.app.presentation.ui.chat
 
 import android.net.Uri
 import android.util.Log
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -138,9 +137,7 @@ fun OpponentChatBubble(
 
                 Markdown(
                     content = displayText,
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .then(if (isLoading) Modifier.animateContentSize() else Modifier),
+                    modifier = Modifier.padding(16.dp),
                     colors = chatMarkdownColors(),
                     typography = chatMarkdownTypography(),
                     components = chatMarkdownComponents(),
