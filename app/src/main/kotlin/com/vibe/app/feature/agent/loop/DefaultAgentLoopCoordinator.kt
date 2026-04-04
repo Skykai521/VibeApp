@@ -14,6 +14,7 @@ import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
+import com.vibe.app.feature.agent.loop.compaction.CompactionStrategyType
 import com.vibe.app.feature.agent.loop.compaction.ConversationCompactor
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.project.ProjectManager
@@ -70,6 +71,20 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 items = fullConversation.toList(),
                 clientType = request.platform.compatibleType,
             )
+
+            if (compactionResult.strategyUsed != CompactionStrategyType.NONE) {
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logConversationCompaction(
+                        context = ctx,
+                        iteration = iteration,
+                        strategy = compactionResult.strategyUsed.name,
+                        turnsCompacted = compactionResult.turnsCompacted,
+                        estimatedTokens = compactionResult.estimatedTokens,
+                        itemsBefore = fullConversation.size,
+                        itemsAfter = compactionResult.items.size,
+                    )
+                }
+            }
 
             agentModelGateway.streamTurn(
                 AgentModelRequest(

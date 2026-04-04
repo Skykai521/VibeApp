@@ -77,6 +77,7 @@ object DiagnosticCategories {
     const val LATENCY_BREAKDOWN = "LATENCY_BREAKDOWN"
     const val BUILD_RESULT = "BUILD_RESULT"
     const val AGENT_TOOL = "AGENT_TOOL"
+    const val AGENT_LOOP = "AGENT_LOOP"
 }
 
 object DiagnosticLevels {

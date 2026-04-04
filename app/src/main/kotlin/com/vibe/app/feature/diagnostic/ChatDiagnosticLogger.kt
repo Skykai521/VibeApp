@@ -79,6 +79,16 @@ interface ChatDiagnosticLogger {
         completedAt: Long = System.currentTimeMillis(),
     )
 
+    suspend fun logConversationCompaction(
+        context: DiagnosticContext,
+        iteration: Int,
+        strategy: String,
+        turnsCompacted: Int,
+        estimatedTokens: Int,
+        itemsBefore: Int,
+        itemsAfter: Int,
+    )
+
     suspend fun readChatLog(chatId: Int): DiagnosticLogSnapshot?
 
     suspend fun migrateChatLogs(fromChatId: Int, toChatId: Int)
@@ -389,6 +399,39 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                             add(JsonPrimitive("${artifact.stage.name}:${File(artifact.path).name}"))
                         }
                     }
+                },
+            ),
+        )
+    }
+
+    override suspend fun logConversationCompaction(
+        context: DiagnosticContext,
+        iteration: Int,
+        strategy: String,
+        turnsCompacted: Int,
+        estimatedTokens: Int,
+        itemsBefore: Int,
+        itemsAfter: Int,
+    ) {
+        val timestamp = System.currentTimeMillis()
+        writeEvent(
+            DiagnosticEvent(
+                id = createDiagnosticEventId(timestamp),
+                timestamp = timestamp,
+                chatId = context.chatId,
+                projectId = context.projectId,
+                turnId = context.turnId,
+                category = DiagnosticCategories.AGENT_LOOP,
+                level = DiagnosticLevels.INFO,
+                summary = "Conversation compacted: $strategy ($itemsBefore→$itemsAfter items, ~${estimatedTokens}tok)",
+                payload = buildJsonObject {
+                    put("action", "conversation_compaction")
+                    put("iteration", iteration)
+                    put("strategy", strategy)
+                    put("turnsCompacted", turnsCompacted)
+                    put("estimatedTokens", estimatedTokens)
+                    put("itemsBefore", itemsBefore)
+                    put("itemsAfter", itemsAfter)
                 },
             ),
         )
