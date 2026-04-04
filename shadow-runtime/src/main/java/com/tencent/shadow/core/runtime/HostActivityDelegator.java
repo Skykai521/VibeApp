@@ -21,6 +21,7 @@ public interface HostActivityDelegator {
     void superSetContentView(View view);
     <T extends View> T superFindViewById(int id);
     void superStartActivity(Intent intent);
+    void superStartActivityForResult(Intent intent, int requestCode, Bundle options);
     void superFinish();
     void setPluginResult(int resultCode, Intent data);
     Intent getHostIntent();

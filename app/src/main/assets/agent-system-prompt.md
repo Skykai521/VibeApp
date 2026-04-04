@@ -18,6 +18,7 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER use DarkActionBar theme with setSupportActionBar()
 - NEVER use Theme.Material3.*, Theme.MaterialComponents.Light.*, or Theme.AppCompat.* as a theme parent — only Theme.MaterialComponents.DayNight.NoActionBar is available
 - NEVER use MaterialSwitch, SwitchMaterial, or BottomAppBar — not available in bundled library
+- NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use Fragments or view switching for multi-screen navigation. System intents (camera, file picker, browser via ACTION_VIEW) work fine with startActivity() and startActivityForResult().
 
 ### ALWAYS do these:
 - ALWAYS extend ShadowActivity (com.tencent.shadow.core.runtime.ShadowActivity) for ALL Activity classes — NOT AppCompatActivity. ShadowActivity extends AppCompatActivity internally and is required for plugin runtime. Otherwise crash: "not a ShadowActivity subclass".

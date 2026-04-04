@@ -255,6 +255,22 @@ public class ShadowActivity extends AppCompatActivity {
     }
 
     @Override
+    public void startActivityForResult(Intent intent, int requestCode, Bundle options) {
+        if (hostDelegator != null) {
+            hostDelegator.superStartActivityForResult(intent, requestCode, options);
+            return;
+        }
+        super.startActivityForResult(intent, requestCode, options);
+    }
+
+    /**
+     * Called by PluginContainerActivity when the launched activity returns a result.
+     */
+    public void performActivityResult(int requestCode, int resultCode, Intent data) {
+        onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
     public void finish() {
         if (hostDelegator != null) { hostDelegator.superFinish(); return; }
         super.finish();
