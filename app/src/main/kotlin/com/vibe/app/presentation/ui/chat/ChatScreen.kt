@@ -65,11 +65,13 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -166,31 +168,41 @@ fun ChatScreen(
     val showPlatformSetupPrompt = !hasConfiguredPlatforms && groupedMessages.userMessages.isEmpty()
 
     val scope = rememberCoroutineScope()
-    val platformSetupPromptCount = if (showPlatformSetupPrompt) 1 else 0
-    // +1 for the bottom spacer item appended to LazyColumn, +1 if crash prompt visible
-    val crashPromptCount = if (crashPrompt != null) 1 else 0
-    val bottomSpacerIndex = groupedMessages.userMessages.size * 2 + crashPromptCount + platformSetupPromptCount
+
+    // Reliable last-item index derived from the actual LazyColumn layout
+    val lastItemIndex by remember {
+        derivedStateOf { (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0) }
+    }
+
+    // Whether the user is currently near the bottom of the list (within 3 items)
+    val isNearBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisible != null && lastVisible.index >= layoutInfo.totalItemsCount - 3
+        }
+    }
 
     LaunchedEffect(isIdle) {
-        listState.scrollToItem(bottomSpacerIndex)
+        listState.scrollToItem(lastItemIndex)
     }
 
     LaunchedEffect(isLoaded) {
-        listState.scrollToItem(bottomSpacerIndex)
+        listState.scrollToItem(lastItemIndex)
     }
 
     // Auto-scroll when a new conversation round starts (new user message added)
     val messageCount = groupedMessages.userMessages.size
     LaunchedEffect(messageCount) {
         if (messageCount > 0) {
-            listState.animateScrollToItem(bottomSpacerIndex)
+            listState.animateScrollToItem(lastItemIndex)
         }
     }
 
     // Auto-scroll when crash prompt appears
     LaunchedEffect(crashPrompt) {
         if (crashPrompt != null) {
-            listState.animateScrollToItem(bottomSpacerIndex)
+            listState.animateScrollToItem(lastItemIndex)
         }
     }
 
@@ -199,7 +211,27 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.scrollToItem(bottomSpacerIndex)
+            listState.scrollToItem(lastItemIndex)
+        }
+    }
+
+    // Auto-scroll during streaming: when new items appear or content grows, keep at bottom
+    LaunchedEffect(Unit) {
+        snapshotFlow { listState.layoutInfo.totalItemsCount }
+            .collect { totalItems ->
+                if (!isIdle && totalItems > 0 && isNearBottom) {
+                    listState.scrollToItem(totalItems - 1)
+                }
+            }
+    }
+    // Also scroll when content within items changes (streaming text grows, but item count stays the same)
+    val streamingContentKey = remember(groupedMessages) {
+        val lastAssistant = groupedMessages.assistantMessages.lastOrNull()?.lastOrNull()
+        (lastAssistant?.content?.length ?: 0) to (groupedMessages.agentSteps.lastOrNull()?.size ?: 0)
+    }
+    LaunchedEffect(streamingContentKey) {
+        if (!isIdle && isNearBottom) {
+            listState.scrollToItem(lastItemIndex)
         }
     }
 
@@ -424,7 +456,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(bottomSpacerIndex)
+                                listState.animateScrollToItem(lastItemIndex)
                             }
                         }
                     }
