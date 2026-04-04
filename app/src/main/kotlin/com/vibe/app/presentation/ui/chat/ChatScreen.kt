@@ -340,7 +340,12 @@ fun ChatScreen(
                                 run {
                                     val assistantMsg = assistantMessages.getOrNull(platformIndexState)
                                     val platformName = assistantMsg?.platformType
-                                        ?.let { uid -> allPlatforms.find { it.uid == uid }?.name }
+                                        ?.let { uid ->
+                                            allPlatforms.find { it.uid == uid }?.name
+                                                ?: appEnabledPlatforms.find { it.uid == uid }?.name
+                                                ?: chatPlatforms.find { it.uid == uid }?.name
+                                        }
+                                        ?: chatPlatforms.getOrNull(platformIndexState)?.name
                                         ?: stringResource(R.string.unknown)
                                     Text(
                                         text = platformName,

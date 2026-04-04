@@ -68,8 +68,14 @@ fun NavGraphBuilder.setupNavigation(
                     val fromSettings = runCatching {
                         navController.getBackStackEntry(Route.SETTING_ROUTE)
                     }.isSuccess
+                    val fromChat = runCatching {
+                        navController.getBackStackEntry(Route.CHAT_ROOM)
+                    }.isSuccess
                     if (fromSettings) {
                         navController.popBackStack(Route.SETTINGS, inclusive = false)
+                    } else if (fromChat) {
+                        // Return directly to the chat screen after adding API key
+                        navController.popBackStack(Route.CHAT_ROOM, inclusive = false)
                     } else {
                         navController.navigate(Route.SETUP_COMPLETE) {
                             popUpTo(Route.SETUP_ROUTE) { inclusive = false }
