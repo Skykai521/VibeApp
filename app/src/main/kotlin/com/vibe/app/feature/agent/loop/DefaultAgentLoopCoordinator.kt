@@ -70,6 +70,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             val compactionResult = conversationCompactor.compact(
                 items = fullConversation.toList(),
                 clientType = request.platform.compatibleType,
+                platform = request.platform,
             )
 
             if (compactionResult.strategyUsed != CompactionStrategyType.NONE) {
@@ -241,6 +242,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         val windDownCompaction = conversationCompactor.compact(
             items = fullConversation.toList(),
             clientType = request.platform.compatibleType,
+            platform = request.platform,
         )
         agentModelGateway.streamTurn(
             AgentModelRequest(

@@ -1,5 +1,6 @@
 package com.vibe.app.feature.agent.loop.compaction
 
+import android.util.Log
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.request.QwenChatMessage
 import com.vibe.app.data.dto.qwen.request.qwenTextContent
@@ -33,6 +34,14 @@ class ModelSummaryStrategy(
         ClientType.CUSTOM,
     )
 
+    /**
+     * Platform credentials for the summarization API call.
+     * Must be set by [ConversationCompactor] before calling [compact].
+     */
+    var apiUrl: String = ""
+    var token: String? = null
+    var model: String = ""
+
     override suspend fun compact(
         items: List<AgentConversationItem>,
         recentTurnCount: Int,
@@ -49,7 +58,8 @@ class ModelSummaryStrategy(
 
         val summary = try {
             callSummarizationAPI(textToSummarize)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Model-based summarization failed, falling back", e)
             return null
         }
 
@@ -93,9 +103,13 @@ class ModelSummaryStrategy(
     }
 
     private suspend fun callSummarizationAPI(text: String): String? {
+        // Configure API credentials for the summarization call
+        openAIAPI.setToken(token)
+        openAIAPI.setAPIUrl(apiUrl)
+
         val response = openAIAPI.completeQwenChatCompletion(
             QwenChatCompletionRequest(
-                model = "",
+                model = model,
                 messages = listOf(
                     QwenChatMessage(
                         role = "system",
@@ -113,6 +127,7 @@ class ModelSummaryStrategy(
     }
 
     companion object {
+        private const val TAG = "ModelSummaryStrategy"
         private const val MAX_SUMMARIZATION_INPUT = 8_000
 
         private const val SUMMARIZATION_SYSTEM_PROMPT =

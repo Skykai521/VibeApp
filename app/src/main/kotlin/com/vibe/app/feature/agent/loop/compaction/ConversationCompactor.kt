@@ -1,5 +1,6 @@
 package com.vibe.app.feature.agent.loop.compaction
 
+import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.feature.agent.AgentConversationItem
@@ -36,6 +37,7 @@ class ConversationCompactor @Inject constructor(
     suspend fun compact(
         items: List<AgentConversationItem>,
         clientType: ClientType,
+        platform: PlatformV2? = null,
     ): CompactionResult {
         val budget = ProviderContextBudget.forProvider(clientType)
         val currentTokens = ConversationContextManager.estimateTokens(items)
@@ -68,7 +70,10 @@ class ConversationCompactor @Inject constructor(
         }
 
         // Strategy 3: Model-based summarization (only for supported providers)
-        if (modelSummaryStrategy.isSupported(clientType)) {
+        if (modelSummaryStrategy.isSupported(clientType) && platform != null) {
+            modelSummaryStrategy.apiUrl = platform.apiUrl
+            modelSummaryStrategy.token = platform.token
+            modelSummaryStrategy.model = platform.model
             val modelResult = modelSummaryStrategy.compact(
                 afterTrim, budget.recentTurns, budget.maxTokens,
             )
