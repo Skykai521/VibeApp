@@ -151,15 +151,15 @@ fun OpponentChatBubble(
 
             if (!isLoading) {
                 Row(
-                    modifier = Modifier.padding(start = 16.dp)
+                    modifier = Modifier.padding(start = 8.dp)
                 ) {
                     if (!isError) {
                         CopyTextIcon(onCopyClick)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         SelectTextIcon(onSelectClick)
                     }
                     if (canRetry) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         RetryIcon(onRetryClick)
                     }
                 }
@@ -232,30 +232,36 @@ fun PlatformButton(
 
 @Composable
 private fun CopyTextIcon(onCopyClick: () -> Unit) {
-    IconButton(onClick = onCopyClick) {
+    IconButton(onClick = onCopyClick, modifier = Modifier.size(38.dp)) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_copy),
-            contentDescription = stringResource(R.string.copy_text)
+            contentDescription = stringResource(R.string.copy_text),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
     }
 }
 
 @Composable
 private fun SelectTextIcon(onSelectClick: () -> Unit) {
-    IconButton(onClick = onSelectClick) {
+    IconButton(onClick = onSelectClick, modifier = Modifier.size(38.dp)) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_select),
-            contentDescription = stringResource(R.string.select_text)
+            contentDescription = stringResource(R.string.select_text),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
     }
 }
 
 @Composable
 private fun RetryIcon(onRetryClick: () -> Unit) {
-    IconButton(onClick = onRetryClick) {
+    IconButton(onClick = onRetryClick, modifier = Modifier.size(38.dp)) {
         Icon(
             Icons.Rounded.Refresh,
-            contentDescription = stringResource(R.string.retry)
+            contentDescription = stringResource(R.string.retry),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
     }
 }
