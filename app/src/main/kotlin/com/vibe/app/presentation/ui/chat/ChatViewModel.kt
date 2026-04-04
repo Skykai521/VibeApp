@@ -895,6 +895,11 @@ class ChatViewModel @Inject constructor(
         val statusJob = viewModelScope.launch {
             sessionManager.getSessionStatus(sessionChatId)?.collect { status ->
                 if (status != AgentSessionStatus.RUNNING) {
+                    // Pick up the DB-assigned chat room ID from the session manager's save
+                    // so observeStateChanges() does an UPDATE instead of a duplicate INSERT.
+                    sessionManager.getSavedChatRoom(sessionChatId)?.let { savedRoom ->
+                        _chatRoom.update { savedRoom }
+                    }
                     // Session finished — set loading to idle so observeStateChanges() can trigger save
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
                     // Refresh project name in case the agent called rename_project

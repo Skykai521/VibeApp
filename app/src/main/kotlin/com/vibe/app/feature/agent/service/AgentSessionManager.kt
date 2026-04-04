@@ -348,15 +348,27 @@ class AgentSessionManager @Inject constructor(
             .sortedBy { it.createdAt }
 
         try {
-            chatRepository.saveChat(
+            val savedChatRoom = chatRepository.saveChat(
                 chatRoom = saveContext.chatRoom,
                 messages = messages,
                 chatPlatformModels = saveContext.chatPlatformModels,
             )
-            Log.d(TAG, "Saved session state to Room for chatId=$chatId")
+            // Update save context with the DB-assigned ID so subsequent saves
+            // (e.g., from ViewModel's observeStateChanges) are updates, not inserts.
+            saveContexts[chatId] = saveContext.copy(chatRoom = savedChatRoom)
+            Log.d(TAG, "Saved session state to Room for chatId=$chatId (savedId=${savedChatRoom.id})")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save session to Room for chatId=$chatId", e)
         }
+    }
+
+    /**
+     * Returns the saved chat room (with DB-assigned ID) if the session has been persisted,
+     * or null if no save has occurred yet.
+     */
+    fun getSavedChatRoom(chatId: Int): ChatRoomV2? {
+        val ctx = saveContexts[chatId] ?: return null
+        return ctx.chatRoom.takeIf { it.id > 0 }
     }
 
     // -- Lifecycle --

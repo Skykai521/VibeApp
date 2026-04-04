@@ -56,6 +56,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -103,6 +104,7 @@ import com.vibe.app.util.FileUtils
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -183,12 +185,28 @@ fun ChatScreen(
         }
     }
 
+    // Show scroll-to-bottom button only when scrolled far enough from bottom (>= 5 items away)
+    val showScrollToBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisible != null && lastVisible.index < layoutInfo.totalItemsCount - 5
+        }
+    }
+
     LaunchedEffect(isIdle) {
-        listState.scrollToItem(lastItemIndex)
+        // Wait for LazyColumn to lay out items before scrolling
+        snapshotFlow { listState.layoutInfo.totalItemsCount }
+            .first { it > 0 }
+        listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
     }
 
     LaunchedEffect(isLoaded) {
-        listState.scrollToItem(lastItemIndex)
+        if (isLoaded) {
+            snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it > 0 }
+            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+        }
     }
 
     // Auto-scroll when a new conversation round starts (new user message added)
@@ -447,7 +465,7 @@ fun ChatScreen(
                     }
                 }
 
-                if (listState.canScrollForward) {
+                if (showScrollToBottom) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -959,14 +977,8 @@ fun ChatInputBox(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(20.dp),
-                ambientColor = Color.Black.copy(alpha = 0.1f),
-                spotColor = Color.Black.copy(alpha = 0.15f),
-            )
             .clip(RoundedCornerShape(20.dp))
-            .background(color = MaterialTheme.colorScheme.surface)
+            .background(color = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         if (selectedFiles.isNotEmpty()) {
             FileThumbnailRow(
@@ -1243,8 +1255,14 @@ private fun isImageFile(extension: String?): Boolean {
 fun ScrollToBottomButton(onClick: () -> Unit) {
     SmallFloatingActionButton(
         onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        containerColor = Color.White,
+        contentColor = Color.Black,
+        elevation = FloatingActionButtonDefaults.elevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp,
+            focusedElevation = 2.dp,
+            hoveredElevation = 3.dp,
+        ),
     ) {
         Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.scroll_to_bottom_icon))
     }
