@@ -212,8 +212,8 @@
 
     <issue
         id="MissingTranslation"
-        message="&quot;gpt_mobile_introduction_logo&quot; is not translated in &quot;fr&quot; (French)"
-        errorLine1="    &lt;string name=&quot;gpt_mobile_introduction_logo&quot;>VibeApp Introduction Logo&lt;/string>"
+        message="&quot;vibe_app_introduction_logo&quot; is not translated in &quot;fr&quot; (French)"
+        errorLine1="    &lt;string name=&quot;vibe_app_introduction_logo&quot;>VibeApp Introduction Logo&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
@@ -3332,33 +3332,33 @@
 
     <issue
         id="UnusedResources"
-        message="The resource `R.mipmap.ic_gpt_mobile` appears to be unused"
+        message="The resource `R.mipmap.ic_vibe_app` appears to be unused"
         errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
         errorLine2="^">
         <location
-            file="src/main/res/mipmap-anydpi/ic_gpt_mobile.xml"
+            file="src/main/res/mipmap-anydpi/ic_vibe_app.xml"
             line="2"
             column="1"/>
     </issue>
 
     <issue
         id="UnusedResources"
-        message="The resource `R.drawable.ic_gpt_mobile_foreground` appears to be unused"
+        message="The resource `R.drawable.ic_vibe_app_foreground` appears to be unused"
         errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
         errorLine2="^">
         <location
-            file="src/main/res/drawable/ic_gpt_mobile_foreground.xml"
+            file="src/main/res/drawable/ic_vibe_app_foreground.xml"
             line="1"
             column="1"/>
     </issue>
 
     <issue
         id="UnusedResources"
-        message="The resource `R.drawable.ic_gpt_mobile_monochrome_foreground` appears to be unused"
+        message="The resource `R.drawable.ic_vibe_app_monochrome_foreground` appears to be unused"
         errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
         errorLine2="^">
         <location
-            file="src/main/res/drawable/ic_gpt_mobile_monochrome_foreground.xml"
+            file="src/main/res/drawable/ic_vibe_app_monochrome_foreground.xml"
             line="1"
             column="1"/>
     </issue>

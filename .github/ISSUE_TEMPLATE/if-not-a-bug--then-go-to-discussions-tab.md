@@ -14,4 +14,4 @@ If your request is not a bug, got to discussions tab and create discussion about
 
 Issues that are not related to bug reports will be instantly closed. Thank you.
 
-[Go to discussions](https://github.com/Taewan-P/gpt_mobile/discussions)
+[Go to discussions](https://github.com/Taewan-P/VibeApp/discussions)

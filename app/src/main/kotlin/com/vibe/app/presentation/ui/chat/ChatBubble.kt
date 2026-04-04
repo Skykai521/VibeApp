@@ -63,7 +63,7 @@ import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.material3.RichText
 import com.halilibo.richtext.ui.string.RichTextStringStyle
 import com.vibe.app.R
-import com.vibe.app.presentation.theme.GPTMobileTheme
+import com.vibe.app.presentation.theme.VibeAppTheme
 import java.io.File
 
 @Composable
@@ -169,7 +169,7 @@ fun OpponentChatBubble(
 }
 
 @Composable
-fun GPTMobileIcon(loading: Boolean) {
+fun VibeAppIcon(loading: Boolean) {
     Box(
         modifier = Modifier
             .padding(start = 8.dp)
@@ -267,7 +267,7 @@ fun UserChatBubblePreview() {
         How can I print hello world
         in Python?
     """.trimIndent()
-    GPTMobileTheme {
+    VibeAppTheme {
         UserChatBubble(text = sampleText, files = emptyList(), onLongPress = {})
     }
 }
@@ -290,7 +290,7 @@ fun OpponentChatBubblePreview() {
         - Or minuses
         + Or pluses
     """.trimIndent()
-    GPTMobileTheme {
+    VibeAppTheme {
         OpponentChatBubble(
             text = sampleText,
             canRetry = true,

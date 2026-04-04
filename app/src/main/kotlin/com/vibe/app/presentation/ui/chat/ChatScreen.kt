@@ -336,7 +336,7 @@ fun ChatScreen(
                                     .padding(top = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                GPTMobileIcon(if (isLastTurn) !isIdle else false)
+                                VibeAppIcon(if (isLastTurn) !isIdle else false)
                                 run {
                                     val assistantMsg = assistantMessages.getOrNull(platformIndexState)
                                     val platformName = assistantMsg?.platformType

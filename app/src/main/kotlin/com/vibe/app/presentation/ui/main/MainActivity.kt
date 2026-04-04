@@ -12,7 +12,7 @@ import com.vibe.app.presentation.common.LocalDynamicTheme
 import com.vibe.app.presentation.common.LocalThemeMode
 import com.vibe.app.presentation.common.SetupNavGraph
 import com.vibe.app.presentation.common.ThemeSettingProvider
-import com.vibe.app.presentation.theme.GPTMobileTheme
+import com.vibe.app.presentation.theme.VibeAppTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             ThemeSettingProvider {
-                GPTMobileTheme(
+                VibeAppTheme(
                     dynamicTheme = LocalDynamicTheme.current,
                     themeMode = LocalThemeMode.current
                 ) {

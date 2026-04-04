@@ -41,7 +41,7 @@ import com.halilibo.richtext.ui.CodeBlockStyle
 import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.material3.RichText
 import com.vibe.app.R
-import com.vibe.app.presentation.theme.GPTMobileTheme
+import com.vibe.app.presentation.theme.VibeAppTheme
 
 @Composable
 fun ThinkingBlock(
@@ -227,7 +227,7 @@ private fun ThinkingBlockPreview() {
         This is a longer thinking process that shows how the AI reasons through the problem.
     """.trimIndent()
 
-    GPTMobileTheme {
+    VibeAppTheme {
         ThinkingBlock(
             thoughts = sampleThoughts,
             isLoading = false
@@ -238,7 +238,7 @@ private fun ThinkingBlockPreview() {
 @Preview
 @Composable
 private fun ThinkingBlockLoadingPreview() {
-    GPTMobileTheme {
+    VibeAppTheme {
         ThinkingBlock(
             thoughts = "Analyzing the problem...",
             isLoading = true
