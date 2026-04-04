@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isGone
 import android.widget.EditText
 import android.widget.TextView
 import org.json.JSONArray
@@ -148,7 +149,7 @@ open class PluginInspectorService : Service() {
             val children = JSONArray()
             for (i in 0 until view.childCount) {
                 val child = view.getChildAt(i)
-                if (child.visibility == View.GONE) continue
+                if (child.isGone) continue
                 children.put(dumpView(child, depth + 1))
             }
             node.put("children", children)

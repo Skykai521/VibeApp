@@ -101,4 +101,10 @@
     <string name="crash_auto_fix">إصلاح تلقائي</string>
     <string name="crash_dismiss">تجاهل</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
+    <string name="add_api_key">Add API Key</string>
+    <string name="add_api_key_to_start_chatting">Add an API key to start chatting</string>
+    <string name="add_api_key_prompt_title">Add an API key before your first message</string>
+    <string name="add_api_key_prompt_description">No platform is configured yet. Add a provider first, then come back here to start the conversation.</string>
+    <string name="minimax_description">Creator of MiniMax.</string>
+    <string name="install_apk">Install APK</string>
 </resources>
