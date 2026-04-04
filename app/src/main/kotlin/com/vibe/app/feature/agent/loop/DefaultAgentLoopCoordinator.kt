@@ -14,6 +14,7 @@ import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
+import com.vibe.app.feature.agent.loop.compaction.ConversationCompactor
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.project.ProjectManager
 import javax.inject.Inject
@@ -30,9 +31,8 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private val agentToolRegistry: AgentToolRegistry,
     private val diagnosticLogger: ChatDiagnosticLogger,
     private val projectManager: ProjectManager,
+    private val conversationCompactor: ConversationCompactor,
 ) : AgentLoopCoordinator {
-
-    private val contextManager = ConversationContextManager()
 
     override suspend fun run(request: AgentLoopRequest): Flow<AgentLoopEvent> = flow {
         emit(
@@ -66,12 +66,17 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 request.policy
             }
 
+            val compactionResult = conversationCompactor.compact(
+                items = fullConversation.toList(),
+                clientType = request.platform.compatibleType,
+            )
+
             agentModelGateway.streamTurn(
                 AgentModelRequest(
                     platform = request.platform,
                     diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
                     conversation = conversationDelta,
-                    fullConversation = fullConversation.toList(),
+                    fullConversation = compactionResult.items,
                     instructions = buildInstructions(request),
                     tools = request.tools,
                     policy = effectivePolicy,
@@ -218,12 +223,16 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
         emit(AgentLoopEvent.ModelTurnStarted(request.policy.maxIterations + 1))
         val finalOutput = StringBuilder()
+        val windDownCompaction = conversationCompactor.compact(
+            items = fullConversation.toList(),
+            clientType = request.platform.compatibleType,
+        )
         agentModelGateway.streamTurn(
             AgentModelRequest(
                 platform = request.platform,
                 diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
                 conversation = conversationDelta,
-                fullConversation = fullConversation.toList(),
+                fullConversation = windDownCompaction.items,
                 instructions = buildInstructions(request),
                 tools = emptyList(),
                 policy = request.policy.copy(toolChoiceMode = AgentToolChoiceMode.NONE),
@@ -268,7 +277,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             }
         }
 
-        return contextManager.trimConversation(items)
+        return items
     }
 
     private fun MessageV2.toAgentConversationItem(): AgentConversationItem {
