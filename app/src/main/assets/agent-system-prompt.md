@@ -91,6 +91,51 @@ org.jsoup.nodes.Document doc = Jsoup.connect("https://example.com/api")
     .post();
 ```
 
+## UI Decoration Tips
+
+### Emoji as Icons
+Use emoji characters in TextView for zero-cost visual elements:
+- Weather: ☀️ 🌤️ 🌧️ ❄️ 🌡️
+- Navigation: 🏠 ⚙️ 👤 🔍 ➕
+- Status: ✅ ❌ ⚠️ ℹ️ 🔄
+
+Example: `<TextView android:text="☀️" android:textSize="48sp"/>`
+
+### Vector Drawable Decorations
+Generate simple vector drawable XML for icons and decorations in res/drawable/.
+Keep paths simple — no more than 5 path elements per drawable.
+
+### Network Images
+For real photos or complex images (news thumbnails, product images, weather backgrounds), use the built-in SimpleImageLoader. See below.
+
+## Network Image Loading
+
+The project includes SimpleImageLoader — a built-in utility for loading network images. Import with `import {{PACKAGE_NAME}}.SimpleImageLoader;`
+
+### Basic Usage
+```java
+SimpleImageLoader.getInstance().load(imageUrl, imageView);
+```
+
+### With Placeholder and Error Drawables
+```java
+SimpleImageLoader.getInstance().load(imageUrl, imageView,
+    R.drawable.placeholder, R.drawable.error);
+```
+
+### Features
+- Automatic memory cache (LruCache, 1/8 of app memory)
+- Background thread loading + main thread callback
+- Prevents image mix-up in RecyclerView (tag-based tracking)
+- Supports placeholder and error images
+- Follows redirects automatically
+
+### Limitations
+- Requires INTERNET permission (already declared)
+- No GIF support
+- No disk cache (images reload after app restart)
+- For large images, consider scaling before display to avoid OOM
+
 ## Pre-configured Template Files
 
 These files are already correct and should NOT be modified unless the user specifically asks to change colors or theme:
@@ -107,6 +152,7 @@ Default files:
 - src/main/java/{{PACKAGE_PATH}}/MainActivity.java
 - src/main/java/{{PACKAGE_PATH}}/CrashHandlerApp.java (DO NOT modify or delete)
 - src/main/java/{{PACKAGE_PATH}}/AppLogger.java (DO NOT modify or delete)
+- src/main/java/{{PACKAGE_PATH}}/SimpleImageLoader.java (DO NOT modify or delete)
 - src/main/res/layout/activity_main.xml
 - src/main/res/values/strings.xml
 - src/main/res/values/themes.xml (DO NOT overwrite)
@@ -120,6 +166,14 @@ Default files:
 - Write self-contained Android vector drawable XML, not SVG.
 - Use literal hex colors inside the icon XML. Avoid @color/... references so previews stay reliable.
 - Keep the icon artwork inside a 108x108 viewport and provide both background and foreground files.
+
+### Icon Design Quality
+- Use simple geometric shapes — avoid overly complex paths
+- Background: use a gradient or solid color (Material Design palette recommended)
+- Foreground: keep artwork within the 66x66 safe zone (centered in the 108x108 viewport)
+- Prefer rounded rectangles, circles, and other clean shapes as the main element
+- Limit palette to 2-3 colors
+- Avoid fine lines (invisible at small sizes), text-only icons, and overly detailed artwork
 
 ## Phased Workflow
 
