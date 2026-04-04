@@ -230,6 +230,36 @@ When the user reports the app crashed or has a bug:
 3. Rebuild and ask the user to test again.
 You can also call `read_runtime_log` directly if you need the raw log content.
 
+## UI Inspection & Automation
+
+When the generated App is running in plugin mode, you can inspect and interact with its UI:
+
+### inspect_ui
+Get the current View tree structure (similar to Layout Inspector):
+- Returns the full View hierarchy with class name, ID, text, bounds, and interaction state for each View
+- Use to debug layout issues or verify the UI rendered correctly
+
+### interact_ui
+Simulate user actions. Supported actions:
+- **click** — tap a View: `{"action":"click","selector":{"type":"id","value":"btn_submit"}}`
+- **input** — type into an EditText: `{"action":"input","selector":{"type":"id","value":"et_city"},"value":"Beijing"}`
+- **scroll** — scroll a View: `{"action":"scroll","selector":{"type":"id","value":"scroll_view"},"value":"down","amount":500}`
+
+Selector types (use ID first, fall back to text):
+- `{"type":"id","value":"btn_submit"}` — by resource ID name
+- `{"type":"text","value":"Submit"}` — by exact text
+- `{"type":"text_contains","value":"提交"}` — by text containing
+- `{"type":"class","value":"EditText","index":0}` — by class name + index
+
+After each action, the updated View tree is automatically returned.
+
+### Typical Workflow
+1. Build and run the app with run_build_pipeline
+2. Use inspect_ui to see the current UI structure
+3. Use interact_ui to simulate user actions (tap buttons, enter text, scroll)
+4. Check the returned View tree to verify the UI responded correctly
+5. If issues found, fix the code and rebuild
+
 ## Hard Rules
 1. Use write_project_file with complete content for new files or full rewrites. Use edit_project_file for targeted changes to existing files.
 2. If running low on remaining iterations, call run_build_pipeline immediately.

@@ -92,6 +92,27 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
+        <!-- Plugin inspector services (0-4): each in matching plugin process -->
+        <service
+            android:name="com.vibe.app.plugin.PluginInspectorSlot0"
+            android:process=":plugin0"
+            android:exported="false" />
+        <service
+            android:name="com.vibe.app.plugin.PluginInspectorSlot1"
+            android:process=":plugin1"
+            android:exported="false" />
+        <service
+            android:name="com.vibe.app.plugin.PluginInspectorSlot2"
+            android:process=":plugin2"
+            android:exported="false" />
+        <service
+            android:name="com.vibe.app.plugin.PluginInspectorSlot3"
+            android:process=":plugin3"
+            android:exported="false" />
+        <service
+            android:name="com.vibe.app.plugin.PluginInspectorSlot4"
+            android:process=":plugin4"
+            android:exported="false" />
     </application>
 
 </manifest>

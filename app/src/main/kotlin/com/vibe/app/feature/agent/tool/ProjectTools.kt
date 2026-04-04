@@ -10,6 +10,7 @@ import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.service.BuildMutex
 import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.plugin.PluginManager
 import com.vibe.build.engine.model.BuildResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -34,6 +35,8 @@ private const val RENAME_PROJECT = "rename_project"
 private const val UPDATE_PROJECT_ICON = "update_project_icon"
 private const val READ_RUNTIME_LOG = "read_runtime_log"
 private const val FIX_CRASH_GUIDE = "fix_crash_guide"
+private const val INSPECT_UI = "inspect_ui"
+private const val INTERACT_UI = "interact_ui"
 private const val ICON_BACKGROUND_PATH = "src/main/res/drawable/ic_launcher_background.xml"
 private const val ICON_FOREGROUND_PATH = "src/main/res/drawable/ic_launcher_foreground.xml"
 
@@ -666,6 +669,142 @@ class FixCrashGuideTool @Inject constructor(
 }
 
 @Singleton
+class InspectUiTool @Inject constructor(
+    private val pluginManager: PluginManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = INSPECT_UI,
+        description = "Get the View tree of the currently running plugin UI.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {})
+            put("required", buildJsonArray {})
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val inspector = pluginManager.getInspector(context.projectId)
+            ?: return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive("plugin not running"))
+                    put("hint", JsonPrimitive("Please build and run the app first using run_build_pipeline."))
+                },
+            )
+        return try {
+            val viewTree = inspector.dumpViewTree()
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = JsonPrimitive(viewTree),
+            )
+        } catch (e: Exception) {
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive(e.message ?: "inspection failed"))
+                },
+                isError = true,
+            )
+        }
+    }
+}
+
+@Singleton
+class InteractUiTool @Inject constructor(
+    private val pluginManager: PluginManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = INTERACT_UI,
+        description = "Perform a UI action (click, input, scroll) on the running plugin and return the updated View tree.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("action", buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("description", JsonPrimitive("Action type: click, input, scroll"))
+                    put("enum", buildJsonArray {
+                        add(JsonPrimitive("click"))
+                        add(JsonPrimitive("input"))
+                        add(JsonPrimitive("scroll"))
+                    })
+                })
+                put("selector", buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("description", JsonPrimitive("""JSON selector: {"type":"id","value":"btn_submit"} or {"type":"text","value":"Submit"}"""))
+                })
+                put("value", buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("description", JsonPrimitive("Text to input (for action=input) or scroll direction up/down/left/right (for action=scroll)"))
+                })
+                put("amount", buildJsonObject {
+                    put("type", JsonPrimitive("integer"))
+                    put("description", JsonPrimitive("Scroll distance in pixels (for action=scroll, default 500)"))
+                })
+            })
+            put("required", buildJsonArray {
+                add(JsonPrimitive("action"))
+                add(JsonPrimitive("selector"))
+            })
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val inspector = pluginManager.getInspector(context.projectId)
+            ?: return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive("plugin not running"))
+                    put("hint", JsonPrimitive("Please build and run the app first using run_build_pipeline."))
+                },
+            )
+
+        val args = call.arguments.jsonObject
+        val action = args["action"]?.jsonPrimitive?.content ?: ""
+        val selector = args["selector"]?.jsonPrimitive?.content ?: ""
+        val value = args["value"]?.jsonPrimitive?.content ?: ""
+        val amount = args["amount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 500
+
+        return try {
+            val actionResult = when (action) {
+                "click" -> inspector.performClick(selector)
+                "input" -> inspector.inputText(selector, value)
+                "scroll" -> inspector.scroll(selector, value, amount)
+                else -> """{"success":false,"error":"unknown action: $action"}"""
+            }
+
+            // Auto-append updated View tree after action
+            val viewTree = try { inspector.dumpViewTree() } catch (_: Exception) { null }
+
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("result", JsonPrimitive(actionResult))
+                    if (viewTree != null) {
+                        put("view_tree", JsonPrimitive(viewTree))
+                    }
+                },
+            )
+        } catch (e: Exception) {
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive(e.message ?: "interaction failed"))
+                },
+                isError = true,
+            )
+        }
+    }
+}
+
+@Singleton
 class DefaultAgentToolRegistry @Inject constructor(
     readProjectFileTool: ReadProjectFileTool,
     writeProjectFileTool: WriteProjectFileTool,
@@ -677,6 +816,8 @@ class DefaultAgentToolRegistry @Inject constructor(
     updateProjectIconTool: UpdateProjectIconTool,
     readRuntimeLogTool: ReadRuntimeLogTool,
     fixCrashGuideTool: FixCrashGuideTool,
+    inspectUiTool: InspectUiTool,
+    interactUiTool: InteractUiTool,
 ) : AgentToolRegistry {
 
     private val tools = listOf(
@@ -690,6 +831,8 @@ class DefaultAgentToolRegistry @Inject constructor(
         updateProjectIconTool,
         readRuntimeLogTool,
         fixCrashGuideTool,
+        inspectUiTool,
+        interactUiTool,
     )
 
     override fun listDefinitions(): List<AgentToolDefinition> = tools.map { it.definition }

@@ -33,6 +33,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     private var pluginTheme: Resources.Theme? = null
     private var pluginContext: Context? = null // ContextWrapper with plugin resources/theme/ClassLoader
     private var projectId: String? = null
+    private var slotIndex: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +42,10 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         val mainClass = intent.getStringExtra(EXTRA_MAIN_CLASS)
         val pluginLabel = intent.getStringExtra(EXTRA_PLUGIN_LABEL)
         projectId = intent.getStringExtra(EXTRA_PROJECT_ID)
+        slotIndex = intent.getIntExtra(EXTRA_SLOT_INDEX, -1)
+        if (slotIndex >= 0) {
+            ActivityHolder.set(slotIndex, this)
+        }
 
         if (apkPath == null || mainClass == null) {
             Log.e(TAG, "Missing apkPath or mainClass in intent")
@@ -161,6 +166,9 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         } catch (e: Exception) {
             Log.e(TAG, "Plugin crashed during onDestroy", e)
             writeCrashLog(e)
+        }
+        if (slotIndex >= 0) {
+            ActivityHolder.clear(slotIndex)
         }
         pluginActivity = null
         super.onDestroy()
