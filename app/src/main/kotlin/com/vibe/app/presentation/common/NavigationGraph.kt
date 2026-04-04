@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
@@ -27,8 +25,6 @@ import com.vibe.app.presentation.ui.setup.SetupCompleteScreen
 import com.vibe.app.presentation.ui.setup.SetupPlatformTypeScreen
 import com.vibe.app.presentation.ui.setup.SetupPlatformWizardScreen
 import com.vibe.app.presentation.ui.setup.SetupViewModelV2
-import com.vibe.app.presentation.ui.startscreen.StartScreen
-import com.vibe.app.presentation.ui.startscreen.StartViewModel
 
 @Composable
 fun SetupNavGraph(navController: NavHostController) {
@@ -40,22 +36,9 @@ fun SetupNavGraph(navController: NavHostController) {
         startDestination = Route.CHAT_LIST
     ) {
         homeScreenNavigation(navController)
-        startScreenNavigation(navController)
         setupNavigation(navController)
         settingNavigation(navController)
         chatScreenNavigation(navController)
-    }
-}
-
-fun NavGraphBuilder.startScreenNavigation(navController: NavHostController) {
-    composable(Route.GET_STARTED) {
-        val startViewModel: StartViewModel = hiltViewModel()
-        val uiState by startViewModel.uiState.collectAsState()
-        StartScreen(
-            onStartClick = { navController.navigate(Route.SETUP_ROUTE) },
-            isInitializing = uiState.isInitializing,
-            statusMessage = uiState.statusMessage,
-        )
     }
 }
 
@@ -100,7 +83,7 @@ fun NavGraphBuilder.setupNavigation(
             SetupCompleteScreen(
                 onNavigate = { route ->
                     navController.navigate(route) {
-                        popUpTo(Route.GET_STARTED) { inclusive = true }
+                        popUpTo(Route.SETUP_ROUTE) { inclusive = true }
                     }
                 },
                 onBackAction = { navController.navigateUp() }
@@ -142,6 +125,9 @@ fun NavGraphBuilder.chatScreenNavigation(navController: NavHostController) {
         )
     ) {
         ChatScreen(
+            onNavigateToAddPlatform = {
+                navController.navigate(Route.SETUP_ROUTE) { launchSingleTop = true }
+            },
             onBackAction = { navController.navigateUp() }
         )
     }

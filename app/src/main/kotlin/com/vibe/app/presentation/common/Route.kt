@@ -1,9 +1,6 @@
 package com.vibe.app.presentation.common
 
 object Route {
-
-    const val GET_STARTED = "get_started"
-
     const val SETUP_ROUTE = "setup_route"
     const val SETUP_PLATFORM_TYPE = "setup_platform_type"
     const val SETUP_PLATFORM_WIZARD = "setup_platform_wizard"
@@ -14,7 +11,6 @@ object Route {
 
     const val SETTING_ROUTE = "setting_route"
     const val SETTINGS = "settings"
-    const val ADD_PLATFORM = "add_platform"
     const val PLATFORM_SETTINGS = "platform_settings/{platformUid}"
     const val ABOUT_PAGE = "about"
     const val LICENSE = "license"

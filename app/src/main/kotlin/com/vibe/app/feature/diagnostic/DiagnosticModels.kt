@@ -241,6 +241,7 @@ fun ClientType.toDiagnosticProviderType(): String = when (this) {
     ClientType.OLLAMA -> "ollama"
     ClientType.OPENROUTER -> "openrouter"
     ClientType.CUSTOM -> "custom"
+    ClientType.MINIMAX -> "minimax"
 }
 
 fun String.clipPreview(maxLength: Int = 240): String {

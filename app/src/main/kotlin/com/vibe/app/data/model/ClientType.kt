@@ -10,4 +10,5 @@ enum class ClientType {
     CUSTOM,
     QWEN,
     KIMI,
+    MINIMAX,
 }

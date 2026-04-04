@@ -1,9 +1,12 @@
 package com.vibe.app.plugin
 
 import android.app.ActivityManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.os.IBinder
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -24,6 +27,17 @@ class PluginManager @Inject constructor(
 
     private val slots = arrayOfNulls<SlotInfo>(MAX_SLOTS)
 
+    private val inspectorConnections = arrayOfNulls<ServiceConnection>(MAX_SLOTS)
+    private val inspectors = arrayOfNulls<IPluginInspector>(MAX_SLOTS)
+
+    private val inspectorServices: Array<Class<*>> = arrayOf(
+        PluginInspectorSlot0::class.java,
+        PluginInspectorSlot1::class.java,
+        PluginInspectorSlot2::class.java,
+        PluginInspectorSlot3::class.java,
+        PluginInspectorSlot4::class.java,
+    )
+
     private val slotActivities: Array<Class<*>> = arrayOf(
         PluginSlot0::class.java,
         PluginSlot1::class.java,
@@ -32,7 +46,7 @@ class PluginManager @Inject constructor(
         PluginSlot4::class.java,
     )
 
-    fun launchPlugin(apkPath: String, packageName: String, projectId: String = apkPath) {
+    fun launchPlugin(apkPath: String, packageName: String, projectId: String = apkPath, projectName: String? = null) {
         val mainClassName = findMainActivity(apkPath, packageName)
         val slotIndex = allocateSlot(projectId)
         Log.d(TAG, "Launching plugin in slot $slotIndex: apk=$apkPath, main=$mainClassName")
@@ -43,7 +57,7 @@ class PluginManager @Inject constructor(
         val intent = Intent(context, slotActivities[slotIndex]).apply {
             putExtra(PluginContainerActivity.EXTRA_APK_PATH, apkPath)
             putExtra(PluginContainerActivity.EXTRA_MAIN_CLASS, mainClassName)
-            putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, packageName.substringAfterLast('.'))
+            putExtra(PluginContainerActivity.EXTRA_PLUGIN_LABEL, projectName ?: packageName.substringAfterLast('.'))
             putExtra(PluginContainerActivity.EXTRA_SLOT_INDEX, slotIndex)
             putExtra(PluginContainerActivity.EXTRA_PROJECT_ID, projectId)
             // NEW_TASK: separate task (taskAffinity gives each slot its own)
@@ -54,6 +68,7 @@ class PluginManager @Inject constructor(
             )
         }
         context.startActivity(intent)
+        bindInspector(slotIndex)
     }
 
     /**
@@ -91,6 +106,7 @@ class PluginManager @Inject constructor(
      * Plugin processes share the same UID as the host, so killProcess is permitted.
      */
     private fun killPluginProcess(slotIndex: Int) {
+        unbindInspector(slotIndex)
         val processName = "${context.packageName}:plugin$slotIndex"
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         am.runningAppProcesses?.forEach { info ->
@@ -110,6 +126,42 @@ class PluginManager @Inject constructor(
             Log.w(TAG, "Failed to parse plugin manifest, using default", e)
             "$packageName.MainActivity"
         }
+    }
+
+    /**
+     * Returns the IPluginInspector for the given project, or null if no plugin is running.
+     */
+    fun getInspector(projectId: String): IPluginInspector? {
+        val slotIndex = slots.indices.firstOrNull { slots[it]?.projectId == projectId }
+            ?: return null
+        return inspectors[slotIndex]
+    }
+
+    private fun bindInspector(slotIndex: Int) {
+        unbindInspector(slotIndex)
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName, service: IBinder) {
+                inspectors[slotIndex] = IPluginInspector.Stub.asInterface(service)
+                Log.d(TAG, "Inspector bound for slot $slotIndex")
+            }
+            override fun onServiceDisconnected(name: ComponentName) {
+                inspectors[slotIndex] = null
+                Log.d(TAG, "Inspector disconnected for slot $slotIndex")
+            }
+        }
+        inspectorConnections[slotIndex] = connection
+        val intent = Intent(context, inspectorServices[slotIndex])
+        context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+    }
+
+    private fun unbindInspector(slotIndex: Int) {
+        inspectorConnections[slotIndex]?.let { conn ->
+            try {
+                context.unbindService(conn)
+            } catch (_: Exception) { /* already unbound */ }
+        }
+        inspectorConnections[slotIndex] = null
+        inspectors[slotIndex] = null
     }
 
     companion object {

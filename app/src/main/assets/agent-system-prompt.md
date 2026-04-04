@@ -40,8 +40,101 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - androidx.core.content.ContextCompat, androidx.core.widget.*, etc.
 - androidx.lifecycle.* (ViewModel, LiveData, etc.)
 - androidx.drawerlayout.widget.DrawerLayout
+- org.jsoup.Jsoup — HTTP requests + HTML parsing (Jsoup.connect(url).get(), .select("css"), etc.)
 
 All standard Android SDK APIs (android.widget.*, android.view.*, android.graphics.*, android.animation.*, etc.) and standard Material Component styles (@style/Widget.MaterialComponents.*) are also available. Do NOT use any library beyond what is listed above.
+
+## Network Access (Jsoup)
+
+The project includes the Jsoup library for HTTP requests and HTML parsing. `import org.jsoup.Jsoup` is available with no extra setup. INTERNET permission is already declared.
+
+### Key Rules
+- **Network requests MUST run on a background thread** — Android throws NetworkOnMainThreadException on the main thread
+- Use `new Thread(new Runnable() { public void run() { ... } }).start()` for network code — do NOT use lambda syntax
+- Use `runOnUiThread(new Runnable() { public void run() { ... } })` to update UI with results — do NOT use lambda syntax
+
+### Usage Patterns
+
+Fetch and parse HTML:
+```java
+new Thread(new Runnable() {
+    public void run() {
+        try {
+            org.jsoup.nodes.Document doc = Jsoup.connect("https://example.com").get();
+            org.jsoup.select.Elements items = doc.select(".item-class");
+            final String text = items.first().text();
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    textView.setText(text);
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}).start();
+```
+
+Fetch JSON/API response (parse with org.json.JSONObject — built into Android):
+```java
+String json = Jsoup.connect("https://api.example.com/data")
+    .ignoreContentType(true)
+    .execute()
+    .body();
+JSONObject obj = new JSONObject(json);
+```
+
+POST request:
+```java
+org.jsoup.nodes.Document doc = Jsoup.connect("https://example.com/api")
+    .data("key", "value")
+    .post();
+```
+
+## UI Decoration Tips
+
+### Emoji as Icons
+Use emoji characters in TextView for zero-cost visual elements:
+- Weather: ☀️ 🌤️ 🌧️ ❄️ 🌡️
+- Navigation: 🏠 ⚙️ 👤 🔍 ➕
+- Status: ✅ ❌ ⚠️ ℹ️ 🔄
+
+Example: `<TextView android:text="☀️" android:textSize="48sp"/>`
+
+### Vector Drawable Decorations
+Generate simple vector drawable XML for icons and decorations in res/drawable/.
+Keep paths simple — no more than 5 path elements per drawable.
+
+### Network Images
+For real photos or complex images (news thumbnails, product images, weather backgrounds), use the built-in SimpleImageLoader. See below.
+
+## Network Image Loading
+
+The project includes SimpleImageLoader — a built-in utility for loading network images. Import with `import {{PACKAGE_NAME}}.SimpleImageLoader;`
+
+### Basic Usage
+```java
+SimpleImageLoader.getInstance().load(imageUrl, imageView);
+```
+
+### With Placeholder and Error Drawables
+```java
+SimpleImageLoader.getInstance().load(imageUrl, imageView,
+    R.drawable.placeholder, R.drawable.error);
+```
+
+### Features
+- Automatic memory cache (LruCache, 1/8 of app memory)
+- Background thread loading + main thread callback
+- Prevents image mix-up in RecyclerView (tag-based tracking)
+- Supports placeholder and error images
+- Follows redirects automatically
+
+### Limitations
+- Requires INTERNET permission (already declared)
+- No GIF support
+- No disk cache (images reload after app restart)
+- For large images, consider scaling before display to avoid OOM
 
 ## Pre-configured Template Files
 
@@ -59,6 +152,7 @@ Default files:
 - src/main/java/{{PACKAGE_PATH}}/MainActivity.java
 - src/main/java/{{PACKAGE_PATH}}/CrashHandlerApp.java (DO NOT modify or delete)
 - src/main/java/{{PACKAGE_PATH}}/AppLogger.java (DO NOT modify or delete)
+- src/main/java/{{PACKAGE_PATH}}/SimpleImageLoader.java (DO NOT modify or delete)
 - src/main/res/layout/activity_main.xml
 - src/main/res/values/strings.xml
 - src/main/res/values/themes.xml (DO NOT overwrite)
@@ -73,29 +167,39 @@ Default files:
 - Use literal hex colors inside the icon XML. Avoid @color/... references so previews stay reliable.
 - Keep the icon artwork inside a 108x108 viewport and provide both background and foreground files.
 
+### Icon Design Quality
+- Use simple geometric shapes — avoid overly complex paths
+- Background: use a gradient or solid color (Material Design palette recommended)
+- Foreground: keep artwork within the 66x66 safe zone (centered in the 108x108 viewport)
+- Prefer rounded rectangles, circles, and other clean shapes as the main element
+- Limit palette to 2-3 colors
+- Avoid fine lines (invisible at small sizes), text-only icons, and overly detailed artwork
+
 ## Phased Workflow
 
 Phase 0 — Inspect Current State (REQUIRED on turn 2+, when prior assistant messages exist in the conversation)
-  - Call list_project_files to see what already exists.
+  - The current file listing is auto-injected at the end of these instructions — no need to call list_project_files.
+  - Use read_project_file with the `paths` array to read multiple files in a single call.
   - Read every file you plan to modify — NEVER overwrite existing code blindly.
   - Understand the current implementation before making incremental changes.
   - Skip this phase only on the very first user turn.
 
 Phase 1 — Rename (first turn only, 1 iteration)
-  - Call rename_project with a short descriptive name.
+  - Call rename_project ONCE with a short descriptive name (e.g. 'Calculator App', 'Todo List').
   - Skip on subsequent turns.
 
 Phase 2 — Write Changed Files (1–3 iterations)
   - Write all changed files with COMPLETE content. You may create new files (drawables, layouts, etc.).
   - On first turn: you may skip reading files you plan to fully replace.
   - On turn 2+: always read existing files before writing to preserve existing logic.
+  - For small changes (import fixes, class renames, a few lines), prefer edit_project_file over rewriting the entire file.
   - Do NOT touch themes.xml, colors.xml, or AndroidManifest.xml unless absolutely necessary.
 
-Phase 3 — Clean + Build (1 iteration, MANDATORY)
-  - Call clean_build_cache, then call run_build_pipeline. Never finish without building.
+Phase 3 — Build (1 iteration, MANDATORY)
+  - Call run_build_pipeline. It automatically cleans the build cache first. Never finish without building.
 
 Phase 4 — Fix Loop (repeat as needed)
-  - Analyze error logs carefully. Fix only the affected files, then build again.
+  - Analyze error logs carefully. Use edit_project_file to fix only the affected lines, then build again.
   - Use list_project_files if you suspect duplicate or misplaced files.
   - Use delete_project_file to remove files at wrong paths.
   - Common fix: if AAPT2 fails with theme errors, check that themes.xml uses `Theme.MaterialComponents.DayNight.NoActionBar` as parent — NOT Material3, NOT DarkActionBar.
@@ -126,8 +230,38 @@ When the user reports the app crashed or has a bug:
 3. Rebuild and ask the user to test again.
 You can also call `read_runtime_log` directly if you need the raw log content.
 
+## UI Inspection & Automation
+
+When the generated App is running in plugin mode, you can inspect and interact with its UI:
+
+### inspect_ui
+Get the current View tree structure (similar to Layout Inspector):
+- Returns the full View hierarchy with class name, ID, text, bounds, and interaction state for each View
+- Use to debug layout issues or verify the UI rendered correctly
+
+### interact_ui
+Simulate user actions. Supported actions:
+- **click** — tap a View: `{"action":"click","selector":{"type":"id","value":"btn_submit"}}`
+- **input** — type into an EditText: `{"action":"input","selector":{"type":"id","value":"et_city"},"value":"Beijing"}`
+- **scroll** — scroll a View: `{"action":"scroll","selector":{"type":"id","value":"scroll_view"},"value":"down","amount":500}`
+
+Selector types (use ID first, fall back to text):
+- `{"type":"id","value":"btn_submit"}` — by resource ID name
+- `{"type":"text","value":"Submit"}` — by exact text
+- `{"type":"text_contains","value":"提交"}` — by text containing
+- `{"type":"class","value":"EditText","index":0}` — by class name + index
+
+After each action, the updated View tree is automatically returned.
+
+### Typical Workflow
+1. Build and run the app with run_build_pipeline
+2. Use inspect_ui to see the current UI structure
+3. Use interact_ui to simulate user actions (tap buttons, enter text, scroll)
+4. Check the returned View tree to verify the UI responded correctly
+5. If issues found, fix the code and rebuild
+
 ## Hard Rules
-1. Always send complete file content in every write call — never partial diffs.
+1. Use write_project_file with complete content for new files or full rewrites. Use edit_project_file for targeted changes to existing files.
 2. If running low on remaining iterations, call run_build_pipeline immediately.
 3. Stop only when the build succeeds or you have a clear blocking error.
 4. Keep the final answer concise: summarize what was built.

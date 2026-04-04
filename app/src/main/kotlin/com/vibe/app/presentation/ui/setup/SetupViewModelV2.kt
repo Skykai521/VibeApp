@@ -189,6 +189,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OPENROUTER -> "OpenRouter"
         ClientType.QWEN -> "Qwen"
         ClientType.KIMI -> "Kimi"
+        ClientType.MINIMAX -> "MiniMax"
         ClientType.CUSTOM -> ""
     }
 
@@ -201,6 +202,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.OPENROUTER -> ModelConstants.OPENROUTER_API_URL
         ClientType.QWEN -> ModelConstants.QWEN_API_URL
         ClientType.KIMI -> ModelConstants.KIMI_API_URL
+        ClientType.MINIMAX -> ModelConstants.MINIMAX_API_URL
         ClientType.CUSTOM -> ""
     }
 
@@ -209,6 +211,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.ANTHROPIC -> "claude-3-5-sonnet-20240620"
         ClientType.QWEN -> "qwen3-max"
         ClientType.KIMI -> "kimi-k2.5"
+        ClientType.MINIMAX -> "MiniMax-M2.7"
         else -> ""
     }
 

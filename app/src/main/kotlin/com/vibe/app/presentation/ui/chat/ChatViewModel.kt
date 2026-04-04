@@ -292,7 +292,7 @@ class ChatViewModel @Inject constructor(
                         projectId = projectId,
                         triggerSource = BuildTriggerSource.CHAT_BUTTON,
                         progressListener = buildProgressListener(),
-                        buildMode = BuildMode.PLUGIN,
+                        buildMode = BuildMode.STANDALONE,
                     )
                 }
                 Log.d("RunBuild", "buildProject finished: status=${result.status}")
@@ -302,7 +302,7 @@ class ChatViewModel @Inject constructor(
                     Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
                     if (signedApkPath != null) {
                         val packageName = projectInitializer.projectPackageName(projectId)
-                        pluginManager.launchPlugin(signedApkPath, packageName, projectId)
+                        pluginManager.launchPlugin(signedApkPath, packageName, projectId, _projectName.value)
                     } else {
                         Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
                     }

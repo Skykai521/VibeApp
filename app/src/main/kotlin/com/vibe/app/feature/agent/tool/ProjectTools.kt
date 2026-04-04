@@ -10,6 +10,7 @@ import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.service.BuildMutex
 import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.plugin.PluginManager
 import com.vibe.build.engine.model.BuildResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -28,12 +29,14 @@ private const val READ_PROJECT_FILE = "read_project_file"
 private const val WRITE_PROJECT_FILE = "write_project_file"
 private const val DELETE_PROJECT_FILE = "delete_project_file"
 private const val LIST_PROJECT_FILES = "list_project_files"
-private const val CLEAN_BUILD_CACHE = "clean_build_cache"
 private const val RUN_BUILD_PIPELINE = "run_build_pipeline"
+private const val EDIT_PROJECT_FILE = "edit_project_file"
 private const val RENAME_PROJECT = "rename_project"
 private const val UPDATE_PROJECT_ICON = "update_project_icon"
 private const val READ_RUNTIME_LOG = "read_runtime_log"
 private const val FIX_CRASH_GUIDE = "fix_crash_guide"
+private const val INSPECT_UI = "inspect_ui"
+private const val INTERACT_UI = "interact_ui"
 private const val ICON_BACKGROUND_PATH = "src/main/res/drawable/ic_launcher_background.xml"
 private const val ICON_FOREGROUND_PATH = "src/main/res/drawable/ic_launcher_foreground.xml"
 
@@ -44,7 +47,7 @@ class ReadProjectFileTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = READ_PROJECT_FILE,
-        description = "Read a UTF-8 text file from the template Android project workspace by relative path.",
+        description = "Read one or more text files from the project workspace.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -54,25 +57,67 @@ class ReadProjectFileTool @Inject constructor(
                         "path",
                         buildJsonObject {
                             put("type", JsonPrimitive("string"))
-                            put("description", JsonPrimitive("Relative file path under the Android app module."))
+                            put("description", JsonPrimitive("Relative file path. Use this OR paths, not both."))
+                        },
+                    )
+                    put(
+                        "paths",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("array"))
+                            put("items", buildJsonObject { put("type", JsonPrimitive("string")) })
+                            put("description", JsonPrimitive("Multiple relative file paths to read at once."))
                         },
                     )
                 },
             )
-            put("required", JsonArray(listOf(JsonPrimitive("path"))))
         },
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
-        val path = call.arguments.requireString("path")
+        val singlePath = call.arguments.jsonObject["path"]?.jsonPrimitive?.content
+            ?.takeIf { it.isNotBlank() }
+        val multiPaths = call.arguments.jsonObject["paths"]
+            ?.let { (it as? JsonArray)?.mapNotNull { el -> el.jsonPrimitive.content.takeIf { s -> s.isNotBlank() } } }
+
+        val pathsToRead = multiPaths ?: listOfNotNull(singlePath)
+        require(pathsToRead.isNotEmpty()) { "Provide either 'path' or 'paths'." }
+
         val workspace = projectManager.openWorkspace(context.projectId)
-        val content = workspace.readTextFile(path)
+
+        if (pathsToRead.size == 1) {
+            val path = pathsToRead.first()
+            return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("path", JsonPrimitive(path))
+                    put("content", JsonPrimitive(workspace.readTextFile(path)))
+                },
+            )
+        }
+
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
             output = buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("content", JsonPrimitive(content))
+                put(
+                    "files",
+                    buildJsonArray {
+                        pathsToRead.forEach { path ->
+                            val content = runCatching { workspace.readTextFile(path) }
+                            add(
+                                buildJsonObject {
+                                    put("path", JsonPrimitive(path))
+                                    if (content.isSuccess) {
+                                        put("content", JsonPrimitive(content.getOrThrow()))
+                                    } else {
+                                        put("error", JsonPrimitive(content.exceptionOrNull()?.message ?: "Read failed"))
+                                    }
+                                },
+                            )
+                        }
+                    },
+                )
             },
         )
     }
@@ -85,7 +130,7 @@ class WriteProjectFileTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = WRITE_PROJECT_FILE,
-        description = "Write a UTF-8 text file into the template Android project workspace by relative path. Always send the full file content.",
+        description = "Create or overwrite a file in the project workspace with complete content.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -110,11 +155,7 @@ class WriteProjectFileTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("bytes", JsonPrimitive(content.encodeToByteArray().size))
-                put("written", JsonPrimitive(true))
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -126,7 +167,7 @@ class DeleteProjectFileTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = DELETE_PROJECT_FILE,
-        description = "Delete a file from the project workspace. Use this to remove unwanted or duplicate files.",
+        description = "Delete a file from the project workspace.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -152,10 +193,7 @@ class DeleteProjectFileTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("deleted", JsonPrimitive(true))
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -167,8 +205,7 @@ class ListProjectFilesTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = LIST_PROJECT_FILES,
-        description = "List all files in the project workspace. Returns relative paths. " +
-            "Use this to understand the current project structure before making changes.",
+        description = "List all files in the project workspace as relative paths.",
         inputSchema = buildJsonObject {},
     )
 
@@ -180,32 +217,6 @@ class ListProjectFilesTool @Inject constructor(
             toolName = call.name,
             output = buildJsonObject {
                 put("files", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
-                put("count", JsonPrimitive(files.size))
-            },
-        )
-    }
-}
-
-@Singleton
-class CleanBuildCacheTool @Inject constructor(
-    private val projectManager: ProjectManager,
-) : AgentTool {
-
-    override val definition: AgentToolDefinition = AgentToolDefinition(
-        name = CLEAN_BUILD_CACHE,
-        description = "Delete all compiled build artifacts (build/ directory) for the current project. " +
-            "Call this before run_build_pipeline to ensure a clean build from scratch.",
-        inputSchema = buildJsonObject {},
-    )
-
-    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
-        val workspace = projectManager.openWorkspace(context.projectId)
-        workspace.cleanBuildCache()
-        return AgentToolResult(
-            toolCallId = call.id,
-            toolName = call.name,
-            output = buildJsonObject {
-                put("cleaned", JsonPrimitive(true))
             },
         )
     }
@@ -219,20 +230,154 @@ class RunBuildPipelineTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = RUN_BUILD_PIPELINE,
-        description = "Run the on-device Android build pipeline for the current template project and return structured logs.",
-        inputSchema = buildJsonObject {},
+        description = "Clean build cache and run the on-device Android build pipeline. Returns errors on failure.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "clean",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("boolean"))
+                            put("description", JsonPrimitive("Clean build cache before building. Defaults to true."))
+                        },
+                    )
+                },
+            )
+        },
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val clean = call.arguments.jsonObject["clean"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: true
         val workspace = projectManager.openWorkspace(context.projectId)
+        if (clean) {
+            workspace.cleanBuildCache()
+        }
         val result = buildMutex.withBuildLock {
             workspace.buildProject()
         }
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = result.toJson(),
+            output = result.toFilteredJson(),
             isError = result.errorMessage != null,
+        )
+    }
+}
+
+@Singleton
+class EditProjectFileTool @Inject constructor(
+    private val projectManager: ProjectManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = EDIT_PROJECT_FILE,
+        description = "Apply search-and-replace edits to an existing project file. " +
+            "More efficient than rewriting the whole file for small changes.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "path",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("string"))
+                            put("description", JsonPrimitive("Relative file path to edit."))
+                        },
+                    )
+                    put(
+                        "edits",
+                        buildJsonObject {
+                            put("type", JsonPrimitive("array"))
+                            put(
+                                "items",
+                                buildJsonObject {
+                                    put("type", JsonPrimitive("object"))
+                                    put(
+                                        "properties",
+                                        buildJsonObject {
+                                            put(
+                                                "old_string",
+                                                buildJsonObject {
+                                                    put("type", JsonPrimitive("string"))
+                                                    put("description", JsonPrimitive("Exact text to find."))
+                                                },
+                                            )
+                                            put(
+                                                "new_string",
+                                                buildJsonObject {
+                                                    put("type", JsonPrimitive("string"))
+                                                    put("description", JsonPrimitive("Replacement text."))
+                                                },
+                                            )
+                                        },
+                                    )
+                                    put(
+                                        "required",
+                                        buildJsonArray {
+                                            add(JsonPrimitive("old_string"))
+                                            add(JsonPrimitive("new_string"))
+                                        },
+                                    )
+                                },
+                            )
+                            put("description", JsonPrimitive("List of search-and-replace operations to apply in order."))
+                        },
+                    )
+                },
+            )
+            put(
+                "required",
+                JsonArray(listOf(JsonPrimitive("path"), JsonPrimitive("edits"))),
+            )
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val path = call.arguments.requireString("path")
+        val editsArray = call.arguments.jsonObject["edits"]
+            ?: throw IllegalArgumentException("Missing required field: edits")
+
+        val workspace = projectManager.openWorkspace(context.projectId)
+        var content = workspace.readTextFile(path)
+        val results = mutableListOf<JsonObject>()
+
+        for (editElement in (editsArray as JsonArray)) {
+            val edit = editElement.jsonObject
+            val oldString = edit["old_string"]?.jsonPrimitive?.content
+                ?: throw IllegalArgumentException("Each edit must have old_string")
+            val newString = edit["new_string"]?.jsonPrimitive?.content
+                ?: throw IllegalArgumentException("Each edit must have new_string")
+
+            if (!content.contains(oldString)) {
+                results.add(
+                    buildJsonObject {
+                        put("old_string", JsonPrimitive(oldString.take(80)))
+                        put("matched", JsonPrimitive(false))
+                    },
+                )
+                continue
+            }
+            content = content.replaceFirst(oldString, newString)
+            results.add(
+                buildJsonObject {
+                    put("old_string", JsonPrimitive(oldString.take(80)))
+                    put("matched", JsonPrimitive(true))
+                },
+            )
+        }
+
+        workspace.writeTextFile(path, content)
+
+        return AgentToolResult(
+            toolCallId = call.id,
+            toolName = call.name,
+            output = buildJsonObject {
+                put("path", JsonPrimitive(path))
+                put("edits", buildJsonArray { results.forEach { add(it) } })
+            },
         )
     }
 }
@@ -244,9 +389,7 @@ class RenameProjectTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = RENAME_PROJECT,
-        description = "Rename the current project to a short, descriptive name that reflects what the user is building. " +
-            "Call this ONCE when you understand the user's intent from their first message. " +
-            "Use a concise name like 'Calculator App', 'Todo List', 'Weather App'.",
+        description = "Rename the current project.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -280,10 +423,7 @@ class RenameProjectTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("renamed", JsonPrimitive(true))
-                put("name", JsonPrimitive(name))
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -295,9 +435,7 @@ class UpdateProjectIconTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = UPDATE_PROJECT_ICON,
-        description = "Update the current project's Android launcher icon. " +
-            "Writes complete XML files to the fixed launcher icon paths. " +
-            "Use self-contained Android vector drawable XML with literal colors.",
+        description = "Update the launcher icon with background and foreground vector drawable XML.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -341,16 +479,7 @@ class UpdateProjectIconTool @Inject constructor(
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
-            output = buildJsonObject {
-                put("updated", JsonPrimitive(true))
-                put(
-                    "paths",
-                    buildJsonArray {
-                        add(JsonPrimitive(ICON_BACKGROUND_PATH))
-                        add(JsonPrimitive(ICON_FOREGROUND_PATH))
-                    },
-                )
-            },
+            output = buildJsonObject { put("ok", JsonPrimitive(true)) },
         )
     }
 }
@@ -362,9 +491,7 @@ class ReadRuntimeLogTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = READ_RUNTIME_LOG,
-        description = "Read runtime logs from the generated app. " +
-            "Returns app logs (written by AppLogger) and/or crash stack traces " +
-            "produced during the app's execution.",
+        description = "Read runtime app logs and/or crash stack traces.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -422,7 +549,6 @@ class ReadRuntimeLogTool @Inject constructor(
                 if (logType == "crash" || logType == "all") {
                     put("crash_log", JsonPrimitive(readTail(File(logDir, "crash.log"), tail)))
                 }
-                put("log_dir_exists", JsonPrimitive(logDir.exists()))
             },
         )
     }
@@ -442,9 +568,7 @@ class FixCrashGuideTool @Inject constructor(
 
     override val definition: AgentToolDefinition = AgentToolDefinition(
         name = FIX_CRASH_GUIDE,
-        description = "Diagnose a runtime crash and return step-by-step fix instructions. " +
-            "Reads crash.log and relevant project files automatically. " +
-            "Call this FIRST when the user reports a crash.",
+        description = "Read crash log and auto-include source files referenced in the stack trace.",
         inputSchema = buildJsonObject {},
     )
 
@@ -457,7 +581,8 @@ class FixCrashGuideTool @Inject constructor(
                 toolCallId = call.id,
                 toolName = call.name,
                 output = buildJsonObject {
-                    put("diagnosis", JsonPrimitive("No crash log found. The app may not have crashed, or logs were cleared."))
+                    put("crash_log", JsonPrimitive(""))
+                    put("note", JsonPrimitive("No crash log found."))
                 },
             )
         }
@@ -470,191 +595,212 @@ class FixCrashGuideTool @Inject constructor(
             crashLog
         }
 
-        // Match known crash patterns and generate fix instructions
-        val diagnosis = diagnoseCrash(lastCrash, context)
+        // Auto-resolve source files referenced in the stack trace
+        val workspace = projectManager.openWorkspace(context.projectId)
+        val projectFiles = workspace.listFiles()
+        val referencedFiles = extractReferencedFiles(lastCrash, projectFiles)
+
+        // Auto-read referenced source files (max 3 to avoid bloat)
+        val fileContents = mutableListOf<JsonObject>()
+        for (path in referencedFiles.take(3)) {
+            val content = runCatching { workspace.readTextFile(path) }
+            fileContents.add(
+                buildJsonObject {
+                    put("path", JsonPrimitive(path))
+                    if (content.isSuccess) {
+                        put("content", JsonPrimitive(content.getOrThrow()))
+                    } else {
+                        put("error", JsonPrimitive(content.exceptionOrNull()?.message ?: "Read failed"))
+                    }
+                },
+            )
+        }
 
         return AgentToolResult(
             toolCallId = call.id,
             toolName = call.name,
             output = buildJsonObject {
                 put("crash_log", JsonPrimitive(lastCrash.take(2000)))
-                put("diagnosis", JsonPrimitive(diagnosis.summary))
-                put("fix_instructions", JsonPrimitive(diagnosis.instructions))
-                diagnosis.filesToRead?.let { files ->
-                    put("files_to_read", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
-                }
-                diagnosis.filesToFix?.let { files ->
-                    put("files_to_fix", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
+                if (fileContents.isNotEmpty()) {
+                    put("source_files", buildJsonArray { fileContents.forEach { add(it) } })
                 }
             },
         )
     }
 
-    private data class CrashDiagnosis(
-        val summary: String,
-        val instructions: String,
-        val filesToRead: List<String>? = null,
-        val filesToFix: List<String>? = null,
+    /**
+     * Extracts project source files mentioned in a crash stack trace.
+     * Matches lines like "at com.vibe.generated.p123.MainActivity(MainActivity.java:42)"
+     * and resolves the .java filename against the project file listing.
+     */
+    private fun extractReferencedFiles(crashLog: String, projectFiles: List<String>): List<String> {
+        val javaFileNames = Regex("""\((\S+\.java):\d+\)""")
+            .findAll(crashLog)
+            .map { it.groupValues[1] }
+            .distinct()
+            .toList()
+
+        // Also match layout names from InflateException: "layout/activity_main"
+        val layoutNames = Regex("""layout/(\w+)""")
+            .findAll(crashLog)
+            .map { "src/main/res/layout/${it.groupValues[1]}.xml" }
+            .distinct()
+            .toList()
+
+        val resolved = mutableListOf<String>()
+
+        // Resolve .java filenames to actual project paths
+        for (fileName in javaFileNames) {
+            val match = projectFiles.firstOrNull { it.endsWith(fileName) }
+            if (match != null && match !in resolved) {
+                resolved.add(match)
+            }
+        }
+
+        // Add layout files if they exist in project
+        for (layoutPath in layoutNames) {
+            if (layoutPath in projectFiles && layoutPath !in resolved) {
+                resolved.add(layoutPath)
+            }
+        }
+
+        return resolved
+    }
+}
+
+@Singleton
+class InspectUiTool @Inject constructor(
+    private val pluginManager: PluginManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = INSPECT_UI,
+        description = "Get the View tree of the currently running plugin UI.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {})
+            put("required", buildJsonArray {})
+        },
     )
 
-    private suspend fun diagnoseCrash(crashLog: String, context: AgentToolContext): CrashDiagnosis {
-        // Pattern 1: Not a ShadowActivity subclass
-        if (crashLog.contains("is not a ShadowActivity subclass")) {
-            val activityName = Regex("""(\S+) is not a ShadowActivity subclass""")
-                .find(crashLog)?.groupValues?.get(1)
-            val simpleClassName = activityName?.substringAfterLast('.') ?: "MainActivity"
-            val packagePath = "{{PACKAGE_PATH}}".let {
-                // Try to find the actual file
-                val workspace = projectManager.openWorkspace(context.projectId)
-                val files = workspace.listFiles()
-                files.firstOrNull { it.endsWith("$simpleClassName.java") }
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val inspector = pluginManager.getInspector(context.projectId)
+            ?: return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive("plugin not running"))
+                    put("hint", JsonPrimitive("Please build and run the app first using run_build_pipeline."))
+                },
+            )
+        return try {
+            val viewTree = inspector.dumpViewTree()
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = JsonPrimitive(viewTree),
+            )
+        } catch (e: Exception) {
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive(e.message ?: "inspection failed"))
+                },
+                isError = true,
+            )
+        }
+    }
+}
+
+@Singleton
+class InteractUiTool @Inject constructor(
+    private val pluginManager: PluginManager,
+) : AgentTool {
+
+    override val definition: AgentToolDefinition = AgentToolDefinition(
+        name = INTERACT_UI,
+        description = "Perform a UI action (click, input, scroll) on the running plugin and return the updated View tree.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {
+                put("action", buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("description", JsonPrimitive("Action type: click, input, scroll"))
+                    put("enum", buildJsonArray {
+                        add(JsonPrimitive("click"))
+                        add(JsonPrimitive("input"))
+                        add(JsonPrimitive("scroll"))
+                    })
+                })
+                put("selector", buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("description", JsonPrimitive("""JSON selector: {"type":"id","value":"btn_submit"} or {"type":"text","value":"Submit"}"""))
+                })
+                put("value", buildJsonObject {
+                    put("type", JsonPrimitive("string"))
+                    put("description", JsonPrimitive("Text to input (for action=input) or scroll direction up/down/left/right (for action=scroll)"))
+                })
+                put("amount", buildJsonObject {
+                    put("type", JsonPrimitive("integer"))
+                    put("description", JsonPrimitive("Scroll distance in pixels (for action=scroll, default 500)"))
+                })
+            })
+            put("required", buildJsonArray {
+                add(JsonPrimitive("action"))
+                add(JsonPrimitive("selector"))
+            })
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        val inspector = pluginManager.getInspector(context.projectId)
+            ?: return AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive("plugin not running"))
+                    put("hint", JsonPrimitive("Please build and run the app first using run_build_pipeline."))
+                },
+            )
+
+        val args = call.arguments.jsonObject
+        val action = args["action"]?.jsonPrimitive?.content ?: ""
+        val selector = args["selector"]?.jsonPrimitive?.content ?: ""
+        val value = args["value"]?.jsonPrimitive?.content ?: ""
+        val amount = args["amount"]?.jsonPrimitive?.content?.toIntOrNull() ?: 500
+
+        return try {
+            val actionResult = when (action) {
+                "click" -> inspector.performClick(selector)
+                "input" -> inspector.inputText(selector, value)
+                "scroll" -> inspector.scroll(selector, value, amount)
+                else -> """{"success":false,"error":"unknown action: $action"}"""
             }
 
-            return CrashDiagnosis(
-                summary = "FATAL: $simpleClassName does not extend ShadowActivity. " +
-                    "All Activity classes MUST extend com.tencent.shadow.core.runtime.ShadowActivity, " +
-                    "NOT AppCompatActivity or Activity directly.",
-                instructions = """
-Step 1: Read the file containing $simpleClassName (use read_project_file).
-Step 2: Change the class declaration from:
-  public class $simpleClassName extends AppCompatActivity {
-  (or extends Activity, or extends FragmentActivity)
-TO:
-  public class $simpleClassName extends ShadowActivity {
-Step 3: Change the import from:
-  import androidx.appcompat.app.AppCompatActivity;
-TO:
-  import com.tencent.shadow.core.runtime.ShadowActivity;
-Step 4: Keep everything else unchanged. ShadowActivity extends AppCompatActivity internally, so all AppCompatActivity APIs (setSupportActionBar, getSupportFragmentManager, etc.) still work.
-Step 5: Write the fixed file with write_project_file, then clean_build_cache and run_build_pipeline.
-""".trimIndent(),
-                filesToRead = listOfNotNull(packagePath),
-                filesToFix = listOfNotNull(packagePath),
-            )
-        }
+            // Auto-append updated View tree after action
+            val viewTree = try { inspector.dumpViewTree() } catch (_: Exception) { null }
 
-        // Pattern 2: InflateException with Toolbar
-        if (crashLog.contains("InflateException") && crashLog.contains("Toolbar")) {
-            return CrashDiagnosis(
-                summary = "FATAL: Toolbar inflation failed. This is usually caused by a theme conflict " +
-                    "in the plugin runtime. Using androidx.appcompat.widget.Toolbar directly causes crashes.",
-                instructions = """
-Step 1: Read the layout XML file mentioned in the crash log (use read_project_file).
-Step 2: Replace any <androidx.appcompat.widget.Toolbar> or <android.widget.Toolbar> with:
-  <com.google.android.material.appbar.MaterialToolbar
-      android:id="@+id/toolbar"
-      android:layout_width="match_parent"
-      android:layout_height="?attr/actionBarSize"
-      android:background="?attr/colorPrimary"
-      app:titleTextColor="@android:color/white" />
-Step 3: In the Activity's onCreate, after setContentView, add:
-  MaterialToolbar toolbar = findViewById(R.id.toolbar);
-  setSupportActionBar(toolbar);
-Step 4: Make sure the Activity imports:
-  import com.google.android.material.appbar.MaterialToolbar;
-Step 5: Do NOT modify themes.xml. The theme must stay as Theme.MaterialComponents.DayNight.NoActionBar.
-Step 6: Write the fixed files, then clean_build_cache and run_build_pipeline.
-""".trimIndent(),
-                filesToRead = listOf("src/main/res/layout/activity_main.xml"),
-                filesToFix = listOf("src/main/res/layout/activity_main.xml"),
-            )
-        }
-
-        // Pattern 3: InflateException with theme errors
-        if (crashLog.contains("InflateException")) {
-            val layoutMatch = Regex("""in (\S+):layout/(\S+):""").find(crashLog)
-            val layoutName = layoutMatch?.groupValues?.get(2) ?: "activity_main"
-            val classMatch = Regex("""Error inflating class (\S+)""").find(crashLog)
-            val className = classMatch?.groupValues?.get(1)
-
-            return CrashDiagnosis(
-                summary = "FATAL: Layout inflation error${className?.let { " for class $it" } ?: ""}. " +
-                    "A view in layout/$layoutName cannot be created, usually due to a missing style, " +
-                    "wrong widget class, or theme misconfiguration.",
-                instructions = """
-Step 1: Read src/main/res/layout/$layoutName.xml to find the problematic view.
-Step 2: Read src/main/res/values/themes.xml to verify the theme is correct.
-Step 3: Check that:
-  - themes.xml parent is Theme.MaterialComponents.DayNight.NoActionBar (do NOT change it)
-  - All widgets use Material Components or standard Android widgets
-  - No Material3 widgets are used (MaterialSwitch, etc.)
-  - All custom attributes (app:...) are valid for the widget type
-  - No android:cx, android:cy, or android:r attributes are used
-${className?.let { "Step 4: If '$it' is not a valid widget, replace it with the correct Material Components equivalent." } ?: ""}
-Step 5: Write the fixed files, then clean_build_cache and run_build_pipeline.
-""".trimIndent(),
-                filesToRead = listOf("src/main/res/layout/$layoutName.xml", "src/main/res/values/themes.xml"),
-                filesToFix = listOf("src/main/res/layout/$layoutName.xml"),
-            )
-        }
-
-        // Pattern 4: NullPointerException
-        if (crashLog.contains("NullPointerException")) {
-            val atLine = Regex("""at (\S+)\((\S+\.java):(\d+)\)""").find(crashLog)
-            val fileName = atLine?.groupValues?.get(2)
-            val lineNum = atLine?.groupValues?.get(3)
-
-            return CrashDiagnosis(
-                summary = "NullPointerException${fileName?.let { " in $it at line $lineNum" } ?: ""}. " +
-                    "A variable is null when it should not be.",
-                instructions = """
-Step 1: Read the crash stack trace to find the exact file and line number.
-Step 2: Read the source file with read_project_file.
-Step 3: Check for common causes:
-  - findViewById() returning null — is the ID correct? Is it in the right layout?
-  - Calling methods on objects before they are initialized
-  - Missing null checks on optional data
-Step 4: Add null checks or fix the initialization order.
-Step 5: Write the fixed file, then clean_build_cache and run_build_pipeline.
-""".trimIndent(),
-                filesToRead = fileName?.let {
-                    val workspace = projectManager.openWorkspace(context.projectId)
-                    val files = workspace.listFiles()
-                    files.filter { f -> f.endsWith(it) }.take(1)
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("result", JsonPrimitive(actionResult))
+                    if (viewTree != null) {
+                        put("view_tree", JsonPrimitive(viewTree))
+                    }
                 },
-                filesToFix = null,
+            )
+        } catch (e: Exception) {
+            AgentToolResult(
+                toolCallId = call.id,
+                toolName = call.name,
+                output = buildJsonObject {
+                    put("error", JsonPrimitive(e.message ?: "interaction failed"))
+                },
+                isError = true,
             )
         }
-
-        // Pattern 5: ClassNotFoundException or NoClassDefFoundError
-        if (crashLog.contains("ClassNotFoundException") || crashLog.contains("NoClassDefFoundError")) {
-            val classMatch = Regex("""(?:ClassNotFoundException|NoClassDefFoundError):\s*(\S+)""").find(crashLog)
-            val missingClass = classMatch?.groupValues?.get(1)
-
-            return CrashDiagnosis(
-                summary = "Class not found: ${missingClass ?: "unknown"}. " +
-                    "This class is not available in the bundled libraries.",
-                instructions = """
-Step 1: The class '${missingClass ?: "unknown"}' does not exist in the available libraries.
-Step 2: Only these libraries are available — do NOT try to import anything else:
-  - Standard Android SDK (android.widget.*, android.view.*, etc.)
-  - AndroidX (androidx.appcompat, androidx.recyclerview, androidx.constraintlayout, etc.)
-  - Material Components (com.google.android.material.*)
-  - ShadowActivity (com.tencent.shadow.core.runtime.ShadowActivity)
-Step 3: Replace the missing class with an equivalent from the available libraries.
-Step 4: Write the fixed file, then clean_build_cache and run_build_pipeline.
-""".trimIndent(),
-                filesToRead = null,
-                filesToFix = null,
-            )
-        }
-
-        // Generic fallback
-        return CrashDiagnosis(
-            summary = "Runtime crash detected. Read the stack trace below and fix the root cause.",
-            instructions = """
-Step 1: Read the crash stack trace in the crash_log field.
-Step 2: Identify the exception type and the file/line where it occurred.
-Step 3: Use read_project_file to read the relevant source files.
-Step 4: Fix the issue and rebuild with clean_build_cache then run_build_pipeline.
-Important reminders:
-  - All Activities MUST extend ShadowActivity (not AppCompatActivity)
-  - Do NOT modify themes.xml
-  - Do NOT use libraries that are not bundled
-""".trimIndent(),
-            filesToRead = null,
-            filesToFix = null,
-        )
     }
 }
 
@@ -662,27 +808,31 @@ Important reminders:
 class DefaultAgentToolRegistry @Inject constructor(
     readProjectFileTool: ReadProjectFileTool,
     writeProjectFileTool: WriteProjectFileTool,
+    editProjectFileTool: EditProjectFileTool,
     deleteProjectFileTool: DeleteProjectFileTool,
     listProjectFilesTool: ListProjectFilesTool,
-    cleanBuildCacheTool: CleanBuildCacheTool,
     runBuildPipelineTool: RunBuildPipelineTool,
     renameProjectTool: RenameProjectTool,
     updateProjectIconTool: UpdateProjectIconTool,
     readRuntimeLogTool: ReadRuntimeLogTool,
     fixCrashGuideTool: FixCrashGuideTool,
+    inspectUiTool: InspectUiTool,
+    interactUiTool: InteractUiTool,
 ) : AgentToolRegistry {
 
     private val tools = listOf(
         readProjectFileTool,
         writeProjectFileTool,
+        editProjectFileTool,
         deleteProjectFileTool,
         listProjectFilesTool,
-        cleanBuildCacheTool,
         runBuildPipelineTool,
         renameProjectTool,
         updateProjectIconTool,
         readRuntimeLogTool,
         fixCrashGuideTool,
+        inspectUiTool,
+        interactUiTool,
     )
 
     override fun listDefinitions(): List<AgentToolDefinition> = tools.map { it.definition }
@@ -697,39 +847,33 @@ private fun JsonElement.requireString(key: String): String {
         ?: throw IllegalArgumentException("Missing required string field: $key")
 }
 
-private fun BuildResult.toJson(): JsonObject {
+private fun BuildResult.toFilteredJson(): JsonObject {
+    val isSuccess = errorMessage == null
     return buildJsonObject {
         put("status", JsonPrimitive(status.name))
         errorMessage?.let { put("errorMessage", JsonPrimitive(it)) }
-        put(
-            "artifacts",
-            buildJsonArray {
-                artifacts.forEach { artifact ->
-                    add(
-                        buildJsonObject {
-                            put("stage", JsonPrimitive(artifact.stage.name))
-                            put("path", JsonPrimitive(artifact.path))
-                            put("description", JsonPrimitive(artifact.description))
-                        },
-                    )
-                }
-            },
-        )
-        put(
-            "logs",
-            buildJsonArray {
-                logs.forEach { log ->
-                    add(
-                        buildJsonObject {
-                            put("stage", JsonPrimitive(log.stage.name))
-                            put("level", JsonPrimitive(log.level.name))
-                            put("message", JsonPrimitive(log.message))
-                            log.sourcePath?.let { put("sourcePath", JsonPrimitive(it)) }
-                            log.line?.let { put("line", JsonPrimitive(it)) }
-                        },
-                    )
-                }
-            },
-        )
+        // Only include WARNING/ERROR logs, and skip entirely on success
+        val filteredLogs = logs.filter {
+            it.level == com.vibe.build.engine.model.BuildLogLevel.WARNING ||
+                it.level == com.vibe.build.engine.model.BuildLogLevel.ERROR
+        }
+        if (!isSuccess && filteredLogs.isNotEmpty()) {
+            put(
+                "logs",
+                buildJsonArray {
+                    filteredLogs.forEach { log ->
+                        add(
+                            buildJsonObject {
+                                put("stage", JsonPrimitive(log.stage.name))
+                                put("level", JsonPrimitive(log.level.name))
+                                put("message", JsonPrimitive(log.message))
+                                log.sourcePath?.let { put("sourcePath", JsonPrimitive(it)) }
+                                log.line?.let { put("line", JsonPrimitive(it)) }
+                            },
+                        )
+                    }
+                },
+            )
+        }
     }
 }

@@ -99,7 +99,8 @@ class HomeViewModel @Inject constructor(
 
     fun createNewProject() {
         val enabledPlatforms = _platformState.value.filter { it.enabled }.map { it.uid }
-        if (enabledPlatforms.isEmpty()) return
+        val hasConfiguredPlatforms = _platformState.value.isNotEmpty()
+        if (enabledPlatforms.isEmpty() && hasConfiguredPlatforms) return
 
         viewModelScope.launch {
             _projectListState.update {

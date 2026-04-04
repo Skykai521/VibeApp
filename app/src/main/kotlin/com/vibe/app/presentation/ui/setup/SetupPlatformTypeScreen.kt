@@ -59,6 +59,11 @@ private val platformTypes = listOf(
         clientType = ClientType.KIMI,
         titleResId = R.string.kimi,
         descriptionResId = R.string.kimi_description
+    ),
+    PlatformTypeInfo(
+        clientType = ClientType.MINIMAX,
+        titleResId = R.string.minimax,
+        descriptionResId = R.string.minimax_description
     )
 )
 

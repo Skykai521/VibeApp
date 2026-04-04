@@ -108,6 +108,7 @@ open class JavacCompiler(
         val classpath = input.classpathEntries.map(::File).filter { it.exists() } +
             listOfNotNull(workspace.androidxClassesJar) +
             listOfNotNull(workspace.shadowRuntimeJar) +
+            listOfNotNull(workspace.jsoupJar) +
             workspace.classesDir
         fileManager.setLocation(StandardLocation.CLASS_OUTPUT, listOf(workspace.classesDir))
         fileManager.setLocation(

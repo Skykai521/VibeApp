@@ -16,6 +16,7 @@ public class BuildModule {
     private static File sAndroidxClassesJar;
     private static File sAndroidxResCompiledDir;
     private static File sShadowRuntimeJar;
+    private static File sJsoupJar;
 
     public static void initialize(Context applicationContext) {
             sApplicationContext = applicationContext.getApplicationContext();
@@ -100,6 +101,22 @@ public class BuildModule {
             }
         }
         return sShadowRuntimeJar;
+    }
+
+    public static File getJsoupJar() {
+        if (sJsoupJar == null) {
+            Context context = BuildModule.getContext();
+            if (context == null) {
+                return null;
+            }
+            sJsoupJar = new File(context.getFilesDir(), "jsoup.jar");
+            if (!sJsoupJar.exists()) {
+                Decompress.unzipFromAssets(BuildModule.getContext(),
+                        "jsoup.jar.zip",
+                        sJsoupJar.getParentFile().getAbsolutePath());
+            }
+        }
+        return sJsoupJar;
     }
 
     public static void setAndroidJar(@NonNull File jar) {

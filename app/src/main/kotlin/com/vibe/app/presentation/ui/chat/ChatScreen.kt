@@ -42,7 +42,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +57,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -105,6 +108,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ChatScreen(
     chatViewModel: ChatViewModel = hiltViewModel(),
+    onNavigateToAddPlatform: () -> Unit,
     onBackAction: () -> Unit
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
@@ -140,6 +144,7 @@ fun ChatScreen(
             allPlatforms.firstOrNull { it.uid == uid }
         }
     }
+    val hasConfiguredPlatforms = allPlatforms.isNotEmpty()
     val canUseChat = appEnabledPlatforms.isNotEmpty()
     val imageInputSupportedTypes = setOf(ClientType.KIMI, ClientType.OPENAI, ClientType.ANTHROPIC)
     val isImageInputEnabled = chatPlatforms.isNotEmpty() &&
@@ -151,11 +156,18 @@ fun ChatScreen(
     val isProjectMenuEnabled = currentProjectId != null
     val context = LocalContext.current
     val imageInputNotSupportedText = stringResource(R.string.image_input_not_supported)
+    val disabledInputPlaceholder = if (hasConfiguredPlatforms) {
+        stringResource(R.string.some_platforms_disabled)
+    } else {
+        stringResource(R.string.add_api_key_to_start_chatting)
+    }
+    val showPlatformSetupPrompt = !hasConfiguredPlatforms && groupedMessages.userMessages.isEmpty()
 
     val scope = rememberCoroutineScope()
+    val platformSetupPromptCount = if (showPlatformSetupPrompt) 1 else 0
     // +1 for the bottom spacer item appended to LazyColumn, +1 if crash prompt visible
     val crashPromptCount = if (crashPrompt != null) 1 else 0
-    val bottomSpacerIndex = groupedMessages.userMessages.size * 2 + crashPromptCount
+    val bottomSpacerIndex = groupedMessages.userMessages.size * 2 + crashPromptCount + platformSetupPromptCount
 
     LaunchedEffect(isIdle) {
         listState.scrollToItem(bottomSpacerIndex)
@@ -272,6 +284,13 @@ fun ChatScreen(
                     state = listState
                 ) {
                     Log.d("ChatScreen", "GroupMessage: $groupedMessages")
+                    if (showPlatformSetupPrompt) {
+                        item {
+                            MissingPlatformPromptCard(
+                                onAddApiKeyClick = onNavigateToAddPlatform,
+                            )
+                        }
+                    }
                     groupedMessages.userMessages.forEachIndexed { i, message ->
                         // i: index of nth message
                         val platformIndexState = indexStates.getOrElse(i) { 0 }
@@ -384,6 +403,7 @@ fun ChatScreen(
                 value = question,
                 onValueChange = { s -> chatViewModel.updateQuestion(s) },
                 chatEnabled = canUseChat,
+                disabledPlaceholderText = disabledInputPlaceholder,
                 sendButtonEnabled = question.trim().isNotBlank() && isIdle,
                 isResponding = !isIdle,
                 imageInputEnabled = isImageInputEnabled,
@@ -435,6 +455,73 @@ fun ChatScreen(
                 ) {
                     Text(selectedText)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MissingPlatformPromptCard(
+    onAddApiKeyClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(id = R.drawable.ic_key),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .padding(start = 14.dp)
+                        .weight(1f)
+                ) {
+                    Text(
+                        text = stringResource(R.string.add_api_key_prompt_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        modifier = Modifier.padding(top = 4.dp),
+                        text = stringResource(R.string.add_api_key_prompt_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            FilledTonalButton(
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .align(Alignment.End),
+                onClick = onAddApiKeyClick,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.add_api_key))
             }
         }
     }
@@ -760,6 +847,7 @@ fun ChatInputBox(
     value: String = "",
     onValueChange: (String) -> Unit = {},
     chatEnabled: Boolean = true,
+    disabledPlaceholderText: String = "Some APIs are disabled",
     sendButtonEnabled: Boolean = true,
     isResponding: Boolean = false,
     imageInputEnabled: Boolean = false,
@@ -856,7 +944,11 @@ fun ChatInputBox(
                         if (value.isEmpty()) {
                             Text(
                                 modifier = Modifier.alpha(0.38f),
-                                text = if (chatEnabled) stringResource(R.string.ask_a_question) else stringResource(R.string.some_platforms_disabled)
+                                text = if (chatEnabled) {
+                                    stringResource(R.string.ask_a_question)
+                                } else {
+                                    disabledPlaceholderText
+                                }
                             )
                         }
                         innerTextField()

@@ -555,5 +555,6 @@ private fun getApiHelpUrl(clientType: ClientType): String? = when (clientType) {
     ClientType.OPENROUTER -> "https://openrouter.ai/keys"
     ClientType.QWEN -> "https://bailian.console.aliyun.com/cn-beijing/?tab=api#/api"
     ClientType.KIMI -> "https://platform.moonshot.cn/console/api-keys"
+    ClientType.MINIMAX -> "https://platform.minimaxi.com/user-center/basic-information/interface-key"
     ClientType.CUSTOM -> null
 }

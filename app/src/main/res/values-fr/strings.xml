@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VibeApp</string>
-    <string name="welcome_title">Créez des applis Android natives\navec l\'IA, directement\nsur votre téléphone.</string>
-    <string name="welcome_description">Décrivez ce que vous voulez créer,\ngénérez le code, construisez l\'APK et installez-le sur l\'appareil.</string>
     <string name="switched_platform_hint">Switched to %1$s, previous platform disabled</string>
     <string name="stop">Stop</string>
     <string name="select_image">Select Image</string>
-    <string name="kimi_image_input_only_supported">Image selection is currently supported only for Kimi chats.</string>
-    <string name="kimi_supported_image_formats">Kimi currently supports png, jpeg, webp, and gif images only.</string>
     <string name="image_input_not_supported">La sélection d\'images n\'est prise en charge que pour les chats OpenAI, Anthropic et Kimi.</string>
     <string name="supported_image_formats">Seuls les formats png, jpeg, webp et gif sont actuellement pris en charge.</string>
     <string name="failed_to_select_image">Failed to select image.</string>
@@ -20,7 +16,7 @@
     <string name="tool_name_write_project_file">Écrire fichier</string>
     <string name="tool_name_delete_project_file">Supprimer fichier</string>
     <string name="tool_name_list_project_files">Lister fichiers</string>
-    <string name="tool_name_clean_build_cache">Vider le cache</string>
+    <string name="tool_name_edit_project_file">Modifier le fichier</string>
     <string name="tool_name_run_build_pipeline">Lancer la compilation</string>
     <string name="tool_name_rename_project">Renommer le projet</string>
     <string name="tool_name_update_project_icon">Mettre à jour l\'icône</string>
@@ -30,5 +26,10 @@
     <string name="crash_auto_fix">Réparation auto</string>
     <string name="crash_dismiss">Ignorer</string>
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
-    <string name="client_type_kimi_desc">Kimi chat completions API (OpenAI compatible)</string>
+    <string name="add_api_key">Add API Key</string>
+    <string name="add_api_key_to_start_chatting">Add an API key to start chatting</string>
+    <string name="add_api_key_prompt_title">Add an API key before your first message</string>
+    <string name="add_api_key_prompt_description">No platform is configured yet. Add a provider first, then come back here to start the conversation.</string>
+    <string name="minimax_description">Creator of MiniMax.</string>
+    <string name="install_apk">Install APK</string>
 </resources>
