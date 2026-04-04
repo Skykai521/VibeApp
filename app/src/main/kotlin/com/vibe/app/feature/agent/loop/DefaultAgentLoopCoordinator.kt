@@ -205,12 +205,54 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             conversationDelta = toolResultItems
         }
 
-        emit(
-            AgentLoopEvent.LoopFailed(
-                message = "Agent loop exceeded max iterations: ${request.policy.maxIterations}",
-                iteration = request.policy.maxIterations,
-            ),
+        // All iterations exhausted — give the model one final chance to produce a summary
+        // instead of hard-failing. Inject a wind-down message and force text-only response.
+        val windDownMessage = AgentConversationItem(
+            role = AgentMessageRole.USER,
+            text = "[System] You have used all available iterations. Do NOT call any more tools. " +
+                "Summarize what you have accomplished so far and what still needs to be done. " +
+                "The user can continue in the next message.",
         )
+        fullConversation += windDownMessage
+        conversationDelta = listOf(windDownMessage)
+
+        emit(AgentLoopEvent.ModelTurnStarted(request.policy.maxIterations + 1))
+        val finalOutput = StringBuilder()
+        agentModelGateway.streamTurn(
+            AgentModelRequest(
+                platform = request.platform,
+                diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
+                conversation = conversationDelta,
+                fullConversation = fullConversation.toList(),
+                instructions = buildInstructions(request),
+                tools = emptyList(),
+                policy = request.policy.copy(toolChoiceMode = AgentToolChoiceMode.NONE),
+                previousResponseId = previousResponseId,
+            ),
+        ).collect { event ->
+            when (event) {
+                is AgentModelEvent.OutputDelta -> {
+                    finalOutput.append(event.delta)
+                    emit(AgentLoopEvent.OutputDelta(request.policy.maxIterations + 1, event.delta))
+                }
+                is AgentModelEvent.ThinkingDelta -> {
+                    emit(AgentLoopEvent.ThinkingDelta(request.policy.maxIterations + 1, event.delta))
+                }
+                else -> Unit
+            }
+        }
+
+        val summary = finalOutput.toString().trim()
+        if (summary.isNotEmpty()) {
+            emit(AgentLoopEvent.LoopCompleted(finalText = summary, toolResults = collectedToolResults.toList()))
+        } else {
+            emit(
+                AgentLoopEvent.LoopFailed(
+                    message = "Agent loop exceeded max iterations: ${request.policy.maxIterations}",
+                    iteration = request.policy.maxIterations,
+                ),
+            )
+        }
     }
 
     private fun buildInitialConversation(request: AgentLoopRequest): List<AgentConversationItem> {
