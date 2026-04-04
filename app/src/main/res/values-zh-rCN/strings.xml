@@ -176,4 +176,9 @@
     <string name="notification_task_failed">任务失败</string>
     <string name="notification_task_failed_text">「%s」任务失败，点击查看错误。</string>
     <string name="notification_project_default_name">项目</string>
+
+    <!-- Clear chat history -->
+    <string name="clear_chat_history">清空聊天记录</string>
+    <string name="clear_chat_history_title">清空聊天记录？</string>
+    <string name="clear_chat_history_message">这将删除本次对话中的所有消息以重置上下文。已生成的代码文件不会受到影响。</string>
 </resources>

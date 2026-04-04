@@ -247,6 +247,27 @@ class ChatViewModel @Inject constructor(
 
     fun closeProjectNameDialog() = _isProjectNameDialogOpen.update { false }
 
+    fun clearChatHistory() {
+        val chatId = _chatRoom.value.id
+        viewModelScope.launch {
+            // Delete all messages from the database
+            if (chatId > 0) {
+                val messages = chatRepository.fetchMessagesV2(chatId)
+                if (messages.isNotEmpty()) {
+                    withContext(Dispatchers.IO) {
+                        chatRepository.deleteChatsV2(listOf(_chatRoom.value))
+                    }
+                }
+            }
+            // Reset in-memory state
+            _groupedMessages.update { GroupedMessages() }
+            _indexStates.update { emptyList() }
+            _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
+            // Re-create the chat room so new messages still get saved
+            _chatRoom.update { it.copy(id = 0) }
+        }
+    }
+
     fun closeEditQuestionDialog() {
         _editedQuestion.update { MessageV2(chatId = chatRoomId, content = "", platformType = null) }
         _isEditQuestionDialogOpen.update { false }

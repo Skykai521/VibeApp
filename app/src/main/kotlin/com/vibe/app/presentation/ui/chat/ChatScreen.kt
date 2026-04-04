@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,6 +61,7 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -168,6 +170,7 @@ fun ChatScreen(
         stringResource(R.string.add_api_key_to_start_chatting)
     }
     val showPlatformSetupPrompt = !hasConfiguredPlatforms && groupedMessages.userMessages.isEmpty()
+    var isClearChatDialogOpen by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -312,7 +315,8 @@ fun ChatScreen(
                             Toast.makeText(context, "No built APK found. Please run a build first.", Toast.LENGTH_SHORT).show()
                         }
                     }
-                }
+                },
+                onClearChatHistoryClick = { isClearChatDialogOpen = true }
             )
         }
     ) { innerPadding ->
@@ -530,6 +534,27 @@ fun ChatScreen(
             }
         }
 
+        if (isClearChatDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { isClearChatDialogOpen = false },
+                title = { Text(stringResource(R.string.clear_chat_history_title)) },
+                text = { Text(stringResource(R.string.clear_chat_history_message)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        chatViewModel.clearChatHistory()
+                        isClearChatDialogOpen = false
+                    }) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { isClearChatDialogOpen = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+
         if (isProjectNameDialogOpen) {
             ProjectNameDialog(
                 initialProjectName = projectName ?: chatRoom.title,
@@ -650,7 +675,8 @@ private fun ChatTopBar(
     onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
-    onExportApkItemClick: () -> Unit
+    onExportApkItemClick: () -> Unit,
+    onClearChatHistoryClick: () -> Unit
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
@@ -702,6 +728,10 @@ private fun ChatTopBar(
                     onExportApkItemClick = {
                         onExportApkItemClick()
                         isDropDownMenuExpanded = false
+                    },
+                    onClearChatHistoryClick = {
+                        onClearChatHistoryClick()
+                        isDropDownMenuExpanded = false
                     }
                 )
             },
@@ -730,7 +760,8 @@ fun ChatDropdownMenu(
     onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
-    onExportApkItemClick: () -> Unit
+    onExportApkItemClick: () -> Unit,
+    onClearChatHistoryClick: () -> Unit
 ) {
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
@@ -764,6 +795,11 @@ fun ChatDropdownMenu(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.export_apk)) },
             onClick = onExportApkItemClick
+        )
+        DropdownMenuItem(
+            enabled = isChatMenuEnabled,
+            text = { Text(text = stringResource(R.string.clear_chat_history)) },
+            onClick = onClearChatHistoryClick
         )
     }
 }

@@ -196,4 +196,9 @@
     <string name="notification_task_failed">Task Failed</string>
     <string name="notification_task_failed_text">Task failed for \'%s\'. Tap to see errors.</string>
     <string name="notification_project_default_name">Project</string>
+
+    <!-- Clear chat history -->
+    <string name="clear_chat_history">Clear Chat History</string>
+    <string name="clear_chat_history_title">Clear Chat History?</string>
+    <string name="clear_chat_history_message">This will delete all messages in this conversation to reset the context. Generated code files will not be affected.</string>
 </resources>
