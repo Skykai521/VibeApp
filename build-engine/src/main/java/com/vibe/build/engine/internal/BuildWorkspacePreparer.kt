@@ -64,6 +64,7 @@ object BuildWorkspacePreparer {
                 <uses-sdk
                     android:minSdkVersion="${input.minSdk}"
                     android:targetSdkVersion="${input.targetSdk}" />
+                <uses-permission android:name="android.permission.INTERNET"/>
                 <application
                     android:allowBackup="true"
                     android:label="${xmlEscape(input.projectName)}"

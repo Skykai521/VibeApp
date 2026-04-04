@@ -28,7 +28,7 @@ object PreDexCache {
     private const val CACHE_DIR_NAME = "predex-cache"
     // Bump when the pre-dex pipeline changes (e.g. R-class stripping added
     // in v2) to invalidate stale caches on device.
-    private const val CACHE_VERSION = 2
+    private const val CACHE_VERSION = 3
 
     data class CachedDexFiles(
         val dexFiles: List<File>,
@@ -45,6 +45,7 @@ object PreDexCache {
         val jarsToPreDex = buildList {
             BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() }?.let { add(it) }
             BuildModule.getShadowRuntimeJar()?.takeIf { it.exists() }?.let { add(it) }
+            BuildModule.getJsoupJar()?.takeIf { it.exists() }?.let { add(it) }
         }
 
         if (jarsToPreDex.isEmpty()) {
@@ -106,6 +107,7 @@ object PreDexCache {
         val jars = buildList {
             BuildModule.getAndroidxClassesJar()?.takeIf { it.exists() }?.let { add(it) }
             BuildModule.getShadowRuntimeJar()?.takeIf { it.exists() }?.let { add(it) }
+            BuildModule.getJsoupJar()?.takeIf { it.exists() }?.let { add(it) }
         }
         if (jars.isEmpty()) return false
 

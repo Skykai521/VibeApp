@@ -63,6 +63,7 @@ class D8DexConverter(
                 addAll(input.classpathEntries.map(::File).filter { it.exists() }.map { it.toPath() })
                 workspace.androidxClassesJar?.let { add(it.toPath()) }
                 workspace.shadowRuntimeJar?.let { add(it.toPath()) }
+                workspace.jsoupJar?.let { add(it.toPath()) }
             }
 
             val command = D8Command.builder(diagnosticsHandler)
@@ -104,6 +105,9 @@ class D8DexConverter(
             }
             if (workspace.shadowRuntimeJar != null) {
                 programFiles.add(workspace.shadowRuntimeJar.toPath())
+            }
+            if (workspace.jsoupJar != null) {
+                programFiles.add(workspace.jsoupJar.toPath())
             }
 
             val command = D8Command.builder(diagnosticsHandler)

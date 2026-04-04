@@ -40,8 +40,56 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - androidx.core.content.ContextCompat, androidx.core.widget.*, etc.
 - androidx.lifecycle.* (ViewModel, LiveData, etc.)
 - androidx.drawerlayout.widget.DrawerLayout
+- org.jsoup.Jsoup — HTTP requests + HTML parsing (Jsoup.connect(url).get(), .select("css"), etc.)
 
 All standard Android SDK APIs (android.widget.*, android.view.*, android.graphics.*, android.animation.*, etc.) and standard Material Component styles (@style/Widget.MaterialComponents.*) are also available. Do NOT use any library beyond what is listed above.
+
+## Network Access (Jsoup)
+
+The project includes the Jsoup library for HTTP requests and HTML parsing. `import org.jsoup.Jsoup` is available with no extra setup. INTERNET permission is already declared.
+
+### Key Rules
+- **Network requests MUST run on a background thread** — Android throws NetworkOnMainThreadException on the main thread
+- Use `new Thread(new Runnable() { public void run() { ... } }).start()` for network code — do NOT use lambda syntax
+- Use `runOnUiThread(new Runnable() { public void run() { ... } })` to update UI with results — do NOT use lambda syntax
+
+### Usage Patterns
+
+Fetch and parse HTML:
+```java
+new Thread(new Runnable() {
+    public void run() {
+        try {
+            org.jsoup.nodes.Document doc = Jsoup.connect("https://example.com").get();
+            org.jsoup.select.Elements items = doc.select(".item-class");
+            final String text = items.first().text();
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    textView.setText(text);
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}).start();
+```
+
+Fetch JSON/API response (parse with org.json.JSONObject — built into Android):
+```java
+String json = Jsoup.connect("https://api.example.com/data")
+    .ignoreContentType(true)
+    .execute()
+    .body();
+JSONObject obj = new JSONObject(json);
+```
+
+POST request:
+```java
+org.jsoup.nodes.Document doc = Jsoup.connect("https://example.com/api")
+    .data("key", "value")
+    .post();
+```
 
 ## Pre-configured Template Files
 
