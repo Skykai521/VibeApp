@@ -728,7 +728,9 @@ class ChatViewModel @Inject constructor(
     }
 
     private suspend fun fetchGroupedMessages(chatId: Int): GroupedMessages {
-        val messages = chatRepository.fetchMessagesV2(chatId).sortedBy { it.createdAt }
+        val messages = chatRepository.fetchMessagesV2(chatId)
+            .sortedBy { it.createdAt }
+            .distinctBy { it.id }
         val platformOrderMap = _enabledPlatformsInChat.value.withIndex().associate { (idx, uuid) -> uuid to idx }
 
         val userMessages = mutableListOf<MessageV2>()
@@ -739,6 +741,7 @@ class ChatViewModel @Inject constructor(
                 userMessages.add(message)
                 assistantMessages.add(mutableListOf())
             } else {
+                if (assistantMessages.isEmpty()) return@forEach
                 assistantMessages.last().add(message)
             }
         }
@@ -890,6 +893,7 @@ class ChatViewModel @Inject constructor(
      */
     private suspend fun observeAgentSessionState(sessionChatId: Int) {
         val stateFlow = sessionManager.getMessageState(sessionChatId) ?: return
+        var sessionFinished = false
 
         // Also watch session status to detect completion
         val statusJob = viewModelScope.launch {
@@ -904,12 +908,15 @@ class ChatViewModel @Inject constructor(
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
                     // Refresh project name in case the agent called rename_project
                     _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+                    sessionFinished = true
                 }
             }
         }
 
         try {
             stateFlow.collect { sessionState ->
+                // Stop mirroring after session finishes to prevent overwriting DB-synced data
+                if (sessionFinished) return@collect
                 // Mirror the session's message state into the ViewModel's UI state
                 _groupedMessages.update {
                     GroupedMessages(

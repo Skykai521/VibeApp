@@ -55,8 +55,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
+import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCode
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
+import com.mikepenz.markdown.m3.markdownTypography
 import com.vibe.app.R
 import com.vibe.app.presentation.theme.VibeAppTheme
 import java.io.File
@@ -93,6 +98,8 @@ fun UserChatBubble(
                 content = text.trimIndent(),
                 modifier = Modifier.padding(16.dp),
                 colors = chatMarkdownColors(),
+                typography = chatMarkdownTypography(),
+                components = chatMarkdownComponents(),
             )
         }
         UserFileThumbnailRow(
@@ -135,6 +142,8 @@ fun OpponentChatBubble(
                         .padding(16.dp)
                         .then(if (isLoading) Modifier.animateContentSize() else Modifier),
                     colors = chatMarkdownColors(),
+                    typography = chatMarkdownTypography(),
+                    components = chatMarkdownComponents(),
                 )
             }
 
@@ -403,6 +412,40 @@ private fun UserFileThumbnail(
 @Composable
 private fun chatMarkdownColors() = markdownColor(
     codeBackground = MaterialTheme.colorScheme.surfaceVariant,
+)
+
+@Composable
+fun chatMarkdownTypography() = markdownTypography(
+    h1 = MaterialTheme.typography.headlineSmall,
+    h2 = MaterialTheme.typography.titleLarge,
+    h3 = MaterialTheme.typography.titleMedium,
+    h4 = MaterialTheme.typography.titleSmall,
+    h5 = MaterialTheme.typography.bodyLarge,
+    h6 = MaterialTheme.typography.bodyMedium,
+)
+
+@Composable
+fun chatMarkdownComponents() = markdownComponents(
+    codeFence = {
+        MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style ->
+            MarkdownHighlightedCode(
+                code = code,
+                language = language ?: "java",
+                style = style,
+                showHeader = true,
+            )
+        }
+    },
+    codeBlock = {
+        MarkdownCodeBlock(it.content, it.node, it.typography.code) { code, language, style ->
+            MarkdownHighlightedCode(
+                code = code,
+                language = language ?: "java",
+                style = style,
+                showHeader = true,
+            )
+        }
+    },
 )
 
 @Composable

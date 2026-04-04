@@ -194,17 +194,12 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(isIdle) {
-        // Wait for LazyColumn to lay out items before scrolling
-        snapshotFlow { listState.layoutInfo.totalItemsCount }
-            .first { it > 0 }
-        listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
-    }
-
+    // Scroll to bottom when messages are first loaded from database
     LaunchedEffect(isLoaded) {
         if (isLoaded) {
+            // Wait for message items to appear in the LazyColumn (more than just the spacer)
             snapshotFlow { listState.layoutInfo.totalItemsCount }
-                .first { it > 0 }
+                .first { it > 1 }
             listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
         }
     }
@@ -337,7 +332,7 @@ fun ChatScreen(
                 ) {
                     Log.d("ChatScreen", "GroupMessage: $groupedMessages")
                     if (showPlatformSetupPrompt) {
-                        item {
+                        item(key = "platform_setup_prompt") {
                             MissingPlatformPromptCard(
                                 onAddApiKeyClick = onNavigateToAddPlatform,
                             )
@@ -349,7 +344,7 @@ fun ChatScreen(
                         val assistantMessages = groupedMessages.assistantMessages.getOrNull(i) ?: emptyList()
                         val assistantContent = assistantMessages.getOrNull(platformIndexState)?.content ?: ""
                         val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
-                        item {
+                        item(key = "user_$i") {
                             var isDropDownMenuExpanded by remember { mutableStateOf(false) }
                             Column(
                                 modifier = Modifier
@@ -380,7 +375,7 @@ fun ChatScreen(
                         val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
 
                         // Platform header
-                        item {
+                        item(key = "platform_$i") {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -428,7 +423,7 @@ fun ChatScreen(
                         }
 
                         // Final output bubble (the assistant's text response)
-                        item {
+                        item(key = "assistant_$i") {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -451,7 +446,7 @@ fun ChatScreen(
                     }
                     // Crash auto-fix prompt (shown when plugin crash is detected)
                     if (crashPrompt != null) {
-                        item {
+                        item(key = "crash_prompt") {
                             CrashAutoFixCard(
                                 crashSummary = crashPrompt!!.crashSummary,
                                 onAutoFix = { chatViewModel.autoFixCrash() },
@@ -460,7 +455,7 @@ fun ChatScreen(
                         }
                     }
                     // Bottom spacer so scrolling to this item reveals the full last message
-                    item {
+                    item(key = "bottom_spacer") {
                         Spacer(modifier = Modifier.height(1.dp))
                     }
                 }

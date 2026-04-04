@@ -181,4 +181,19 @@
     <string name="install_apk">Install APK</string>
     <string name="export_source_code">Export Source Code</string>
     <string name="export_apk">Export APK</string>
+
+    <!-- Notification strings -->
+    <string name="notification_channel_ongoing">Agent Working</string>
+    <string name="notification_channel_ongoing_desc">Shows when AI agent tasks are running in the background</string>
+    <string name="notification_channel_result">Task Results</string>
+    <string name="notification_channel_result_desc">Notifications when AI agent tasks complete or fail</string>
+    <string name="notification_ongoing_title">VibeApp - Working</string>
+    <string name="notification_ongoing_single">1 task in progress</string>
+    <string name="notification_ongoing_multiple">%d tasks in progress</string>
+    <string name="notification_cancel_all">Cancel All</string>
+    <string name="notification_task_completed">Task Completed</string>
+    <string name="notification_task_completed_text">\'%s\' is ready! Tap to view.</string>
+    <string name="notification_task_failed">Task Failed</string>
+    <string name="notification_task_failed_text">Task failed for \'%s\'. Tap to see errors.</string>
+    <string name="notification_project_default_name">Project</string>
 </resources>

@@ -161,4 +161,19 @@
     <string name="delete_selected_projects">删除所选项目？</string>
     <string name="deleted_projects">已删除 %d 个项目.</string>
     <string name="install_apk">安装应用</string>
+
+    <!-- Notification strings -->
+    <string name="notification_channel_ongoing">后台任务</string>
+    <string name="notification_channel_ongoing_desc">AI 代理任务在后台运行时显示</string>
+    <string name="notification_channel_result">任务结果</string>
+    <string name="notification_channel_result_desc">AI 代理任务完成或失败时的通知</string>
+    <string name="notification_ongoing_title">意造 - 运行中</string>
+    <string name="notification_ongoing_single">1 个任务正在进行中</string>
+    <string name="notification_ongoing_multiple">%d 个任务正在进行中</string>
+    <string name="notification_cancel_all">取消全部</string>
+    <string name="notification_task_completed">任务完成</string>
+    <string name="notification_task_completed_text">「%s」已完成！点击查看。</string>
+    <string name="notification_task_failed">任务失败</string>
+    <string name="notification_task_failed_text">「%s」任务失败，点击查看错误。</string>
+    <string name="notification_project_default_name">项目</string>
 </resources>
