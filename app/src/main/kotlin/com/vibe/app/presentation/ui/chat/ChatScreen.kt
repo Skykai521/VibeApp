@@ -74,6 +74,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -924,6 +926,14 @@ fun ChatInputBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black.copy(alpha = 0.1f),
+                spotColor = Color.Black.copy(alpha = 0.15f),
+            )
+            .clip(RoundedCornerShape(20.dp))
             .background(color = MaterialTheme.colorScheme.surface)
     ) {
         if (selectedFiles.isNotEmpty()) {
@@ -943,15 +953,14 @@ fun ChatInputBox(
             decorationBox = { innerTextField ->
                 Row(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
                         .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 12.dp))
-                        .padding(all = 8.dp),
+                        .height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         enabled = chatEnabled,
+                        modifier = Modifier.size(44.dp),
                         onClick = {
                             if (imageInputEnabled) {
                                 filePickerLauncher.launch("image/*")
@@ -962,14 +971,15 @@ fun ChatInputBox(
                     ) {
                         Icon(
                             imageVector = ImageVector.vectorResource(R.drawable.ic_add_file),
-                            contentDescription = stringResource(R.string.select_image)
+                            contentDescription = stringResource(R.string.select_image),
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .align(Alignment.CenterVertically)
-                            .padding(start = 8.dp)
+                            .padding(start = 4.dp)
                     ) {
                         if (value.isEmpty()) {
                             Text(
@@ -985,16 +995,26 @@ fun ChatInputBox(
                     }
                     if (isResponding) {
                         IconButton(
+                            modifier = Modifier.size(44.dp),
                             onClick = { onStopClick() }
                         ) {
-                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_pause), contentDescription = stringResource(R.string.stop))
+                            Icon(
+                                imageVector = ImageVector.vectorResource(id = R.drawable.ic_pause),
+                                contentDescription = stringResource(R.string.stop),
+                                modifier = Modifier.size(26.dp)
+                            )
                         }
                     } else {
                         IconButton(
                             enabled = chatEnabled && sendButtonEnabled,
+                            modifier = Modifier.size(44.dp),
                             onClick = { onSendButtonClick(value) }
                         ) {
-                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn), contentDescription = stringResource(R.string.send))
+                            Icon(
+                                imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn),
+                                contentDescription = stringResource(R.string.send),
+                                modifier = Modifier.size(26.dp)
+                            )
                         }
                     }
                 }
