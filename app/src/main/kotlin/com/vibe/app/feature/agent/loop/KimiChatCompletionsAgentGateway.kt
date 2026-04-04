@@ -175,12 +175,16 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {
         val messages = mutableListOf<QwenChatMessage>()
         val toolRequired = request.policy.toolChoiceMode == AgentToolChoiceMode.REQUIRED
+        val hasTools = request.tools.isNotEmpty()
 
         val systemContent = buildString {
             request.instructions?.takeIf { it.isNotBlank() }?.let { append(it) }
-            if (toolRequired && request.tools.isNotEmpty()) {
+            if (toolRequired && hasTools) {
                 append("\n\n")
                 append(TOOL_REQUIRED_INSTRUCTION)
+            } else if (hasTools) {
+                append("\n\n")
+                append(TOOL_ENCOURAGE_INSTRUCTION)
             }
         }.trim()
 
@@ -269,6 +273,11 @@ class KimiChatCompletionsAgentGateway @Inject constructor(
 You MUST call at least one tool in your response. Do NOT reply with only text.
 Analyze the user's request and use the appropriate tools to fulfill it.
 Every response MUST include one or more tool calls — a text-only answer is NOT acceptable."""
+
+        private const val TOOL_ENCOURAGE_INSTRUCTION =
+            """## IMPORTANT: Continue Using Tools
+You have tools available. When the user's request requires reading, writing, or modifying project files, or building the project, you MUST use the appropriate tools instead of describing what to do in text.
+Do NOT assume you already know the file contents — always use tools to read and write files."""
     }
 }
 
