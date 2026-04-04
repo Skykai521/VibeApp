@@ -328,11 +328,28 @@ fun ChatScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
+                // Structural state derived from groupedMessages — only changes when the
+                // *number* of items changes (new message / new agent step), NOT on every
+                // streaming token.  This prevents the LazyColumn DSL from re-executing on
+                // every token update, which was causing visual duplicates during scroll.
+                val messageCount by remember {
+                    derivedStateOf { groupedMessages.userMessages.size }
+                }
+                // Per-turn list of step indices that should be shown (non-OUTPUT steps).
+                val stepIndicesPerTurn by remember {
+                    derivedStateOf {
+                        groupedMessages.agentSteps.map { steps ->
+                            steps.indices.filter { idx ->
+                                steps[idx].type != com.vibe.app.feature.agent.AgentStepType.OUTPUT
+                            }
+                        }
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState
                 ) {
-                    Log.d("ChatScreen", "GroupMessage: $groupedMessages")
                     if (showPlatformSetupPrompt) {
                         item(key = "platform_setup_prompt") {
                             MissingPlatformPromptCard(
@@ -340,13 +357,14 @@ fun ChatScreen(
                             )
                         }
                     }
-                    groupedMessages.userMessages.forEachIndexed { i, message ->
-                        // i: index of nth message
-                        val platformIndexState = indexStates.getOrElse(i) { 0 }
-                        val assistantMessages = groupedMessages.assistantMessages.getOrNull(i) ?: emptyList()
-                        val assistantContent = assistantMessages.getOrNull(platformIndexState)?.content ?: ""
-                        val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                    // Iterate using structural count — DSL only re-executes when
+                    // messageCount or stepIndicesPerTurn changes.
+                    (0 until messageCount).forEach { i ->
+
                         item(key = "user_$i") {
+                            // Content reads inside item lambda — only this item recomposes
+                            // when content changes, without rebuilding the full item list.
+                            val message = groupedMessages.userMessages.getOrNull(i) ?: return@item
                             var isDropDownMenuExpanded by remember { mutableStateOf(false) }
                             Column(
                                 modifier = Modifier
@@ -371,13 +389,11 @@ fun ChatScreen(
                                 }
                             }
                         }
-                        // Agent step items (thinking, tool calls) — each as its own list item
-                        val turnSteps = groupedMessages.agentSteps.getOrNull(i) ?: emptyList()
-                        val isLastTurn = i == groupedMessages.assistantMessages.size - 1
-                        val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
 
                         // Platform header
                         item(key = "platform_$i") {
+                            val platformIndexState = indexStates.getOrElse(i) { 0 }
+                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -387,7 +403,8 @@ fun ChatScreen(
                             ) {
                                 VibeAppIcon(if (isLastTurn) !isIdle else false)
                                 run {
-                                    val assistantMsg = assistantMessages.getOrNull(platformIndexState)
+                                    val assistantMsg = groupedMessages.assistantMessages.getOrNull(i)
+                                        ?.getOrNull(platformIndexState)
                                     val platformName = assistantMsg?.platformType
                                         ?.let { uid ->
                                             allPlatforms.find { it.uid == uid }?.name
@@ -408,24 +425,34 @@ fun ChatScreen(
                             }
                         }
 
-                        // Render each step as its own item
-                        if (turnSteps.isNotEmpty()) {
-                            turnSteps.forEachIndexed { stepIdx, step ->
-                                if (step.type != com.vibe.app.feature.agent.AgentStepType.OUTPUT) {
-                                    item(key = "step_${i}_${stepIdx}") {
-                                        val isLiveStep = isTurnLoading && stepIdx == turnSteps.lastIndex
-                                        AgentStepBubble(
-                                            step = step,
-                                            isLive = isLiveStep,
-                                            modifier = Modifier.padding(horizontal = 4.dp),
-                                        )
-                                    }
-                                }
+                        // Agent step items (thinking, tool calls)
+                        val turnStepIndices = stepIndicesPerTurn.getOrElse(i) { emptyList() }
+                        turnStepIndices.forEach { stepIdx ->
+                            item(key = "step_${i}_${stepIdx}") {
+                                val step = groupedMessages.agentSteps.getOrNull(i)
+                                    ?.getOrNull(stepIdx) ?: return@item
+                                val platformIndexState = indexStates.getOrElse(i) { 0 }
+                                val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                                val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                                val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+                                val allSteps = groupedMessages.agentSteps.getOrNull(i)
+                                val isLiveStep = isTurnLoading && stepIdx == (allSteps?.lastIndex ?: -1)
+                                AgentStepBubble(
+                                    step = step,
+                                    isLive = isLiveStep,
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                )
                             }
                         }
 
                         // Final output bubble (the assistant's text response)
                         item(key = "assistant_$i") {
+                            val platformIndexState = indexStates.getOrElse(i) { 0 }
+                            val assistantContent = groupedMessages.assistantMessages.getOrNull(i)
+                                ?.getOrNull(platformIndexState)?.content ?: ""
+                            val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                            val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
