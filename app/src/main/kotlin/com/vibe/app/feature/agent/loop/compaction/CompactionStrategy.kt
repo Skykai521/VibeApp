@@ -14,6 +14,7 @@ enum class CompactionStrategyType {
     TOOL_RESULT_TRIM,
     STRUCTURAL_SUMMARY,
     MODEL_SUMMARY,
+    TEXT_TRUNCATION,
 }
 
 interface CompactionStrategy {

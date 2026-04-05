@@ -16,6 +16,7 @@ import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.loop.compaction.CompactionStrategyType
 import com.vibe.app.feature.agent.loop.compaction.ConversationCompactor
+import com.vibe.app.feature.agent.loop.compaction.ProviderContextBudget
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.DiagnosticLevels
 import com.vibe.app.feature.project.ProjectManager
@@ -387,6 +388,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         }
     }
 
+    /**
+     * Build the initial conversation from Room-persisted messages, applying
+     * cross-turn compaction (Phase A) to keep the context within budget.
+     *
+     * Room messages are flat USER/ASSISTANT text pairs. A single assistant
+     * message can be hundreds of KB (full agent loop output from 30 iterations).
+     * Phase A applies recency-weighted truncation so older turns are summarized
+     * while the most recent turn retains more detail.
+     */
     private fun buildInitialConversation(request: AgentLoopRequest): List<AgentConversationItem> {
         val items = mutableListOf<AgentConversationItem>()
 
@@ -400,7 +410,63 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             }
         }
 
-        return items
+        return compactCrossTurnHistory(items, request)
+    }
+
+    /**
+     * Phase A: Cross-turn compaction.
+     *
+     * Applies recency-weighted truncation to assistant messages loaded from Room
+     * (identified by having no toolCalls). Budget allocation:
+     * - 60% of initial conversation budget for system prompt + tools headroom
+     * - Most recent assistant: up to [MAX_RECENT_ASSISTANT_CHARS]
+     * - Second most recent: up to [MAX_OLDER_ASSISTANT_CHARS]
+     * - Older assistants: structural summary of ~[MAX_SUMMARY_CHARS]
+     */
+    private fun compactCrossTurnHistory(
+        items: List<AgentConversationItem>,
+        request: AgentLoopRequest,
+    ): List<AgentConversationItem> {
+        val budget = ProviderContextBudget.forProvider(request.platform.compatibleType)
+        // Reserve 40% of budget for system prompt, tools, and within-loop growth
+        val historyBudget = (budget.maxTokens * 0.6).toInt()
+        val currentTokens = ConversationContextManager.estimateTokens(items)
+        if (currentTokens <= historyBudget) return items
+
+        // Find assistant items (flat text from Room, no toolCalls) in reverse order (newest first)
+        val assistantIndices = items.indices
+            .filter { items[it].role == AgentMessageRole.ASSISTANT && items[it].toolCalls.isNullOrEmpty() }
+            .reversed()
+
+        if (assistantIndices.isEmpty()) return items
+
+        val result = items.toMutableList()
+        assistantIndices.forEachIndexed { rank, itemIndex ->
+            val item = result[itemIndex]
+            val text = item.text ?: return@forEachIndexed
+            val maxChars = when (rank) {
+                0 -> MAX_RECENT_ASSISTANT_CHARS   // most recent: keep more detail
+                1 -> MAX_OLDER_ASSISTANT_CHARS     // second recent: moderate
+                else -> MAX_SUMMARY_CHARS          // older: summary only
+            }
+            if (text.length > maxChars) {
+                result[itemIndex] = item.copy(
+                    text = text.take(maxChars) + "\n\n[... earlier content truncated for context budget]",
+                    reasoningContent = null,
+                )
+            }
+        }
+
+        return result
+    }
+
+    companion object {
+        /** Most recent assistant message from Room: preserve enough for continuity. */
+        private const val MAX_RECENT_ASSISTANT_CHARS = 4000
+        /** Second most recent: moderate detail. */
+        private const val MAX_OLDER_ASSISTANT_CHARS = 1500
+        /** Older turns: summary-level only. */
+        private const val MAX_SUMMARY_CHARS = 500
     }
 
     private fun MessageV2.toAgentConversationItem(): AgentConversationItem {

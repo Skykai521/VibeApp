@@ -4,6 +4,7 @@ import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.feature.agent.AgentConversationItem
+import com.vibe.app.feature.agent.AgentMessageRole
 import com.vibe.app.feature.agent.loop.ConversationContextManager
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -82,12 +83,86 @@ class ConversationCompactor @Inject constructor(
             }
         }
 
-        // All strategies exhausted — return best result we have
-        return structuralResult ?: trimResult ?: CompactionResult(
+        // All strategies exhausted or insufficient — enforce budget by truncating text
+        val bestResult = structuralResult ?: trimResult
+        val bestItems = bestResult?.items ?: items
+        val bestTokens = bestResult?.estimatedTokens
+            ?: ConversationContextManager.estimateTokens(bestItems)
+
+        if (bestTokens > budget.maxTokens) {
+            val truncated = truncateToFitBudget(bestItems, budget.maxTokens)
+            val truncatedTokens = ConversationContextManager.estimateTokens(truncated)
+            return CompactionResult(
+                items = truncated,
+                estimatedTokens = truncatedTokens,
+                strategyUsed = CompactionStrategyType.TEXT_TRUNCATION,
+                turnsCompacted = 0,
+            )
+        }
+
+        return bestResult ?: CompactionResult(
             items = items,
             estimatedTokens = currentTokens,
             strategyUsed = CompactionStrategyType.NONE,
             turnsCompacted = 0,
         )
+    }
+
+    /**
+     * Last-resort budget enforcement: progressively truncate assistant text
+     * from oldest to newest until the conversation fits within the token budget.
+     *
+     * Only truncates flat assistant text (items without toolCalls), which are
+     * the cross-turn messages loaded from Room. Items with toolCalls are from
+     * the current agent loop and must be preserved for tool result pairing.
+     */
+    private fun truncateToFitBudget(
+        items: List<AgentConversationItem>,
+        tokenBudget: Int,
+    ): List<AgentConversationItem> {
+        val result = items.toMutableList()
+
+        // Phase 1: Truncate older assistant text (no toolCalls) to MAX_TRUNCATED_TEXT chars
+        for (i in result.indices) {
+            if (ConversationContextManager.estimateTokens(result) <= tokenBudget) break
+            val item = result[i]
+            if (item.role == AgentMessageRole.ASSISTANT &&
+                item.toolCalls.isNullOrEmpty() &&
+                (item.text?.length ?: 0) > MAX_TRUNCATED_TEXT
+            ) {
+                result[i] = item.copy(
+                    text = item.text!!.take(MAX_TRUNCATED_TEXT) + TRUNCATION_MARKER,
+                    reasoningContent = null,
+                )
+            }
+        }
+
+        // Phase 2: If still over budget, truncate more aggressively
+        for (i in result.indices) {
+            if (ConversationContextManager.estimateTokens(result) <= tokenBudget) break
+            val item = result[i]
+            if (item.role == AgentMessageRole.ASSISTANT &&
+                item.toolCalls.isNullOrEmpty() &&
+                (item.text?.length ?: 0) > MIN_TRUNCATED_TEXT
+            ) {
+                result[i] = item.copy(
+                    text = item.text!!.take(MIN_TRUNCATED_TEXT) + TRUNCATION_MARKER,
+                    reasoningContent = null,
+                )
+            }
+        }
+
+        // Phase 3: Drop oldest non-recent user-assistant pairs if still over budget
+        while (result.size > 2 && ConversationContextManager.estimateTokens(result) > tokenBudget) {
+            result.removeAt(0)
+        }
+
+        return result
+    }
+
+    companion object {
+        private const val MAX_TRUNCATED_TEXT = 1500
+        private const val MIN_TRUNCATED_TEXT = 300
+        private const val TRUNCATION_MARKER = "\n\n[...truncated for context budget]"
     }
 }
