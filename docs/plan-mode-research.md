@@ -381,6 +381,53 @@ if (currentPlan != null) {
 
 **Phase 4（用户交互）**：支持用户在计划创建后确认/修改再执行（需要 UI 中断 + 恢复机制）。
 
+### 5.5 自动测试与 Plan Mode 的集成（Phase 2 待实施）
+
+> 前置依赖：`launch_app` 工具已在 Phase 1 中实现（2026-04-05），Agent 已具备启动应用和 UI 检查的能力。
+
+#### 5.5.1 目标
+
+让 `create_plan` 工具在生成计划时**自动决定是否需要测试步骤**，并将测试作为计划步骤纳入执行流程。
+
+#### 5.5.2 自动决策规则
+
+在 `create_plan` 的 system prompt 指令中定义触发规则：
+
+| 场景 | 是否生成测试步骤 | 测试范围 |
+|------|----------------|---------|
+| 简单文本/颜色修改 | ❌ | — |
+| 新增 UI 布局 | ✅ | `launch_app` + `inspect_ui` 验证 View 树结构 |
+| 涉及网络请求 | ✅ | `launch_app` + `read_runtime_log` 检查网络错误 |
+| 涉及用户交互（按钮/输入/列表） | ✅ | `interact_ui` 模拟点击/输入/滚动 |
+| 用户报告 bug/崩溃 | ✅ | 完整测试：启动 + 操作 + 日志验证 |
+| 修复编译错误 | ❌ | — |
+
+#### 5.5.3 计划中的测试步骤示例
+
+```
+📋 执行计划 (3/5 完成)
+  ✅ 1. 创建新闻列表布局 (activity_main.xml + item_news.xml)
+  ✅ 2. 实现 MainActivity 数据加载和 RecyclerView 绑定
+  ✅ 3. 构建 APK
+  🔄 4. 启动应用并验证列表正常显示    ← launch_app + inspect_ui
+  ⬜ 5. 验证下拉加载和列表滚动        ← interact_ui scroll + inspect_ui
+```
+
+#### 5.5.4 实现要点
+
+1. **`create_plan` 工具逻辑**：在解析用户请求后，根据上述规则自动追加测试步骤到计划末尾
+2. **`update_plan_step` 更新**：测试步骤的完成条件是 `inspect_ui` 或 `interact_ui` 返回的结果中无异常
+3. **上下文管理**：测试步骤产生的 View tree 数据较大，在 `ToolResultTrimStrategy` 中应优先裁剪已完成测试步骤的 view_tree payload
+4. **迭代预算**：如果剩余迭代 ≤ 5 且计划中有未执行的测试步骤，自动将其标记为 skipped 并在 wind-down 中说明
+
+#### 5.5.5 需额外修改的文件
+
+| 文件 | 修改内容 |
+|------|---------|
+| `feature/agent/tool/PlanTools.kt`（新建） | `create_plan` 中集成测试步骤生成逻辑 |
+| `agent-system-prompt.md` | 在 Task Planning 段落中增加"测试步骤自动规划"的指令和规则 |
+| `feature/agent/loop/compaction/ToolResultTrimStrategy.kt` | 对 `launch_app` 和 `inspect_ui` 的结果应用与 `run_build_pipeline` 相同的裁剪策略 |
+
 ## 6. 关键技术风险
 
 | 风险 | 影响 | 缓解措施 |

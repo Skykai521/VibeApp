@@ -9,6 +9,7 @@ import com.vibe.app.feature.agent.service.BuildMutex
 import com.vibe.app.feature.project.ProjectManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
@@ -41,8 +42,20 @@ class RunBuildPipelineTool @Inject constructor(
         val result = buildMutex.withBuildLock {
             workspace.buildProject()
         }
+        val output = result.toFilteredJson().let { json ->
+            if (result.errorMessage == null) {
+                // Add hint so the model knows it can launch and test the app
+                JsonObject(json.toMutableMap().apply {
+                    put("hint", JsonPrimitive(
+                        "Build succeeded. Call launch_app to start the app, then use inspect_ui to verify the UI."
+                    ))
+                })
+            } else {
+                json
+            }
+        }
         return call.result(
-            output = result.toFilteredJson(),
+            output = output,
             isError = result.errorMessage != null,
         )
     }

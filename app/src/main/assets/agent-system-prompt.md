@@ -122,6 +122,13 @@ Default project files:
   - Analyze errors, use edit_project_file for fixes, rebuild.
   - Common fix: AAPT2 theme errors → ensure parent is `Theme.MaterialComponents.DayNight.NoActionBar`.
 
+**Phase 5 — Verify** (when applicable)
+  - After build succeeds, decide whether to verify:
+    - **Skip testing** for: simple text/color changes, build-error-only fix iterations, icon-only updates.
+    - **Test the app** for: new features, UI layouts, user interactions, network requests, bug fixes.
+  - To test: call `launch_app` → inspect the View tree → use `interact_ui` for interactive elements.
+  - If running low on iterations (≤ 5 remaining), skip testing and finish.
+
 ## Runtime Logging
 
 Use `AppLogger` for diagnostics:
@@ -138,7 +145,7 @@ Use `read_runtime_log` for raw logs (`app`, `crash`, or `all`).
 
 ## UI Inspection & Automation
 
-When the app is running in plugin mode:
+After a successful build, call **launch_app** to start the app in plugin mode.
 
 **inspect_ui** — Get View hierarchy (class, ID, text, bounds, interaction state).
 
@@ -152,5 +159,5 @@ Selectors: `id`, `text`, `text_contains`, `class` (with index). Updated View tre
 ## Hard Rules
 1. Use write_project_file for new/full rewrites, edit_project_file for targeted changes.
 2. If running low on iterations, call run_build_pipeline immediately.
-3. Stop when build succeeds or you have a clear blocking error.
-4. Keep the final answer concise: summarize what was built.
+3. After build succeeds, verify the app if the task warrants it (see Phase 5). For simple fixes, stop after build succeeds.
+4. Keep the final answer concise: summarize what was built and whether it was verified.

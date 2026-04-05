@@ -19,7 +19,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * - read_project_file: file contents → "[File: path, N lines — trimmed]"
  * - run_build_pipeline: build logs → "[Build: STATUS — errors, logs trimmed]"
  * - fix_crash_guide: source files → trimmed
- * - inspect_ui / interact_ui: view trees → trimmed
+ * - launch_app / inspect_ui / interact_ui: view trees → trimmed
  * - read_runtime_log: log contents → trimmed
  *
  * Only applies to turns outside the recent window.
@@ -77,6 +77,10 @@ class ToolResultTrimStrategy : CompactionStrategy {
             "read_project_file" -> trimReadFilePayload(payload)
             "run_build_pipeline" -> trimBuildPayload(payload)
             "fix_crash_guide" -> trimCrashGuidePayload(payload)
+            "launch_app" -> buildJsonObject {
+                put("status", payload["status"] ?: JsonPrimitive("trimmed"))
+                put("view_tree", JsonPrimitive("[View tree trimmed — use inspect_ui for current state]"))
+            }
             "inspect_ui" -> buildJsonObject {
                 put("trimmed", JsonPrimitive("[View tree trimmed — use inspect_ui to get current state]"))
             }
