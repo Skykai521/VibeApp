@@ -59,9 +59,20 @@
 # Build-engine public API
 -keep class com.vibe.build.engine.** { *; }
 
-# Build-logic / common modules used by build-engine
--keep class com.vibe.build.logic.** { *; }
--keep class com.vibe.build.common.** { *; }
+# Build-logic / common / logging / project modules (com.tyron.* namespace)
+-keep class com.tyron.** { *; }
+
+# AAPT2 JNI wrapper (com.android.tools.aapt2)
+-keep class com.android.tools.aapt2.** { *; }
+
+# Android SDK libraries used by build-tools (sdklib, r8, etc.)
+-keep class com.android.sdklib.** { *; }
+-keep class com.android.tools.r8.** { *; }
+-dontwarn com.android.tools.r8.**
+
+# kxml2 XML parser used by build-tools
+-keep class org.kxml2.** { *; }
+-keep class org.xmlpull.** { *; }
 
 # ---------------------------------------------------------------------------
 # JAXP / XML Parsers (used by build-engine for resource processing)
@@ -194,3 +205,14 @@
 -dontwarn sun.security.pkcs.**
 -dontwarn sun.security.util.**
 -dontwarn sun.security.x509.**
+
+# Bundletool excluded from classpath but referenced by com.tyron.builder
+-dontwarn com.android.tools.build.bundletool.**
+-dontwarn com.android.bundle.**
+
+# Android IDE / project model classes (optional, not shipped)
+-dontwarn com.android.ide.common.**
+-dontwarn com.android.projectmodel.**
+
+# javax.xml.bind (JAXB – not available on Android)
+-dontwarn javax.xml.bind.**
