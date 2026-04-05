@@ -25,6 +25,9 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi")
+        }
     }
 
     //noinspection WrongGradleMethod
@@ -34,8 +37,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -52,7 +55,7 @@ android {
     }
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            useLegacyPackaging = false
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -69,6 +72,21 @@ android {
             excludes += "about_files/LICENSE-2.0.txt"
             excludes += "plugin.xml"
             excludes += "plugin.properties"
+            // Javac compiler localized messages (not visible to users)
+            excludes += "com/sun/tools/javac/resources/compiler_ja.properties"
+            excludes += "com/sun/tools/javac/resources/compiler_zh_CN.properties"
+            excludes += "com/sun/tools/javac/resources/javac_ja.properties"
+            excludes += "com/sun/tools/javac/resources/javac_zh_CN.properties"
+            excludes += "com/sun/tools/javac/resources/launcher_ja.properties"
+            excludes += "com/sun/tools/javac/resources/launcher_zh_CN.properties"
+            // Javap / doclint localized messages (unused)
+            excludes += "com/sun/tools/javap/resources/javap_ja.properties"
+            excludes += "com/sun/tools/javap/resources/javap_zh_CN.properties"
+            excludes += "com/sun/tools/doclint/resources/doclint_ja.properties"
+            excludes += "com/sun/tools/doclint/resources/doclint_zh_CN.properties"
+            // JAXP/Xerces localized messages
+            excludes += "org/openjdk/com/sun/org/apache/xerces/internal/impl/msg/*_*.properties"
+            excludes += "org/openjdk/com/sun/org/apache/xml/internal/serializer/output_*.properties"
         }
     }
     lint {
@@ -78,6 +96,8 @@ android {
 
 configurations.all {
     exclude(group = "com.intellij", module = "annotations")
+    // bundletool JAR contains both DEX and Java bytecode, which breaks R8
+    exclude(group = "com.android.tools.build", module = "bundletool")
 }
 
 dependencies {
