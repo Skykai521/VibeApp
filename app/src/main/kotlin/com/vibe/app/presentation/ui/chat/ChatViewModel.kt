@@ -814,6 +814,11 @@ class ChatViewModel @Inject constructor(
     }
 
     fun refreshMessages() {
+        // Skip if an agent session is running — its StateFlow is the source of truth.
+        // Calling fetchMessages() during streaming would overwrite live state with stale
+        // DB data and reset loadingStates to Idle, killing the streaming observation.
+        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+        if (sessionManager.getMessageState(effectiveChatId) != null) return
         viewModelScope.launch {
             fetchMessages()
         }

@@ -1,6 +1,7 @@
 package com.vibe.app.presentation.ui.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -112,12 +117,17 @@ private fun ThinkingStep(
 ) {
     if (step.content.isBlank()) return
 
+    // Collapsed by default to prevent layout jumps during streaming.
+    // Users can tap to expand and see the full thinking content.
+    var isExpanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .clickable { isExpanded = !isExpanded }
             .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -130,13 +140,23 @@ private fun ThinkingStep(
                 text = stringResource(R.string.thinking_in_progress),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.weight(1f),
+            )
+            if (!isExpanded) {
+                Text(
+                    text = stringResource(R.string.expand),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                )
+            }
+        }
+        if (isExpanded) {
+            Text(
+                text = if (isLive) step.content + "\u25CF" else step.content,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
-        Text(
-            text = if (isLive) step.content + "\u25CF" else step.content,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-            modifier = Modifier.padding(top = 4.dp),
-        )
     }
 }
