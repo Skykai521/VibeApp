@@ -58,6 +58,7 @@ import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCode
+import com.mikepenz.markdown.compose.elements.MarkdownTable
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
@@ -442,6 +443,9 @@ fun chatMarkdownComponents() = markdownComponents(
                 showHeader = true,
             )
         }
+    },
+    table = {
+        MarkdownTable(it.content, it.node, it.typography.table)
     },
 )
 
