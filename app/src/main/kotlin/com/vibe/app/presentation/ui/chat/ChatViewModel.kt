@@ -258,6 +258,9 @@ class ChatViewModel @Inject constructor(
                 withContext(Dispatchers.IO) {
                     chatRepository.deleteMessagesByChatId(chatId)
                 }
+                // Clear cached session state so reconnectToExistingSession() won't
+                // restore stale messages when the user re-enters this chat.
+                sessionManager.clearMessageState(chatId)
             }
             // Reset in-memory state
             _groupedMessages.update { GroupedMessages() }

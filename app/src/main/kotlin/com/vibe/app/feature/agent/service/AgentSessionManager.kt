@@ -186,6 +186,15 @@ class AgentSessionManager @Inject constructor(
     }
 
     /**
+     * Clear cached message state for a chat. Called when the user clears chat history
+     * to prevent stale session data from being restored on re-entry.
+     */
+    fun clearMessageState(chatId: Int) {
+        messageStates.remove(chatId)
+        saveContexts.remove(chatId)
+    }
+
+    /**
      * Observe the evolving message state for a session.
      * Returns null if no session (active or recently completed) exists for this chatId.
      */
