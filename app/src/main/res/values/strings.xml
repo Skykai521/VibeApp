@@ -197,6 +197,12 @@
     <string name="notification_task_failed_text">Task failed for \'%s\'. Tap to see errors.</string>
     <string name="notification_project_default_name">Project</string>
 
+    <!-- Notification permission -->
+    <string name="notification_permission_title">Enable Notifications</string>
+    <string name="notification_permission_rationale">With notification permission, VibeApp can work in the background — you don\'t need to stay on this page. You\'ll be notified when the task is done.</string>
+    <string name="notification_permission_grant">Enable</string>
+    <string name="notification_permission_skip">Not Now</string>
+
     <!-- Clear chat history -->
     <string name="clear_chat_history">Clear Chat History</string>
     <string name="clear_chat_history_title">Clear Chat History?</string>

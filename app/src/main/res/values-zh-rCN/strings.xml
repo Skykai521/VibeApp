@@ -177,6 +177,12 @@
     <string name="notification_task_failed_text">「%s」任务失败，点击查看错误。</string>
     <string name="notification_project_default_name">项目</string>
 
+    <!-- Notification permission -->
+    <string name="notification_permission_title">开启通知权限</string>
+    <string name="notification_permission_rationale">开启通知权限后，意造可以在后台继续工作，无需停留在当前页面。任务完成后会主动通知你。</string>
+    <string name="notification_permission_grant">开启</string>
+    <string name="notification_permission_skip">暂不开启</string>
+
     <!-- Clear chat history -->
     <string name="clear_chat_history">清空聊天记录</string>
     <string name="clear_chat_history_title">清空聊天记录？</string>

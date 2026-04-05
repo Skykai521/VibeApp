@@ -1,13 +1,16 @@
 package com.vibe.app.presentation.ui.chat
 
+import android.Manifest
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -171,6 +174,24 @@ fun ChatScreen(
     }
     val showPlatformSetupPrompt = !hasConfiguredPlatforms && groupedMessages.userMessages.isEmpty()
     var isClearChatDialogOpen by remember { mutableStateOf(false) }
+    var showNotificationRationale by remember { mutableStateOf(false) }
+
+    // Notification permission request (Android 13+)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* granted or denied — agent session proceeds regardless */ }
+
+    // Check and request notification permission before first agent session
+    fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                showNotificationRationale = true
+            }
+        }
+    }
 
     val scope = rememberCoroutineScope()
 
@@ -530,6 +551,7 @@ fun ChatScreen(
                 },
                 onStopClick = { chatViewModel.stopResponding() }
             ) {
+                ensureNotificationPermission()
                 chatViewModel.askQuestion()
                 focusManager.clearFocus()
             }
@@ -551,6 +573,29 @@ fun ChatScreen(
                 dismissButton = {
                     TextButton(onClick = { isClearChatDialogOpen = false }) {
                         Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+
+        if (showNotificationRationale) {
+            AlertDialog(
+                onDismissRequest = { showNotificationRationale = false },
+                title = { Text(stringResource(R.string.notification_permission_title)) },
+                text = { Text(stringResource(R.string.notification_permission_rationale)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showNotificationRationale = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }) {
+                        Text(stringResource(R.string.notification_permission_grant))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNotificationRationale = false }) {
+                        Text(stringResource(R.string.notification_permission_skip))
                     }
                 }
             )
