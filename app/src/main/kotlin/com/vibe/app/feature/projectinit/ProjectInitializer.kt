@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.diagnostic.BuildTriggerSource
+import com.vibe.app.feature.projecticon.ProjectIconRenderer
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.DiagnosticContext
 import com.vibe.build.engine.model.BuildMode
@@ -367,6 +368,8 @@ class ProjectInitializer @Inject constructor(
                 overwrite = overwrite,
             )
         }
+        // Render density-specific PNG fallbacks from the vector drawables
+        ProjectIconRenderer.renderPngIcons(appModuleDir.absolutePath)
     }
 
     private fun syncTemplateFileToWorkspace(

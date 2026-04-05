@@ -7,6 +7,7 @@ import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.feature.projecticon.ProjectIconRenderer
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.JsonPrimitive
@@ -85,6 +86,8 @@ class UpdateProjectIconTool @Inject constructor(
         val workspace = projectManager.openWorkspace(context.projectId)
         workspace.writeTextFile(ICON_BACKGROUND_PATH, backgroundXml)
         workspace.writeTextFile(ICON_FOREGROUND_PATH, foregroundXml)
+        // Re-render density-specific PNG fallbacks to match the updated vector drawables
+        ProjectIconRenderer.renderPngIcons(workspace.rootDir.absolutePath)
         return call.okResult()
     }
 }
