@@ -31,4 +31,7 @@ interface MessageV2Dao {
 
     @Delete
     suspend fun deleteMessages(vararg message: MessageV2)
+
+    @Query("DELETE FROM messages_v2 WHERE chat_id=:chatId")
+    suspend fun deleteMessagesByChatId(chatId: Int)
 }

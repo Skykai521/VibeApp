@@ -263,12 +263,13 @@ fun ChatScreen(
         }
     }
 
-    // Re-sync platforms and check for new crash logs when returning from plugin/settings
+    // Re-sync platforms, messages, and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 chatViewModel.refreshPlatforms()
+                chatViewModel.refreshMessages()
                 chatViewModel.checkForNewCrashLog()
             }
         }

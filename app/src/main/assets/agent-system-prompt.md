@@ -125,7 +125,7 @@ Default project files:
   - After build succeeds, decide whether to verify:
     - **Skip testing** for: simple text/color changes, build-error-only fix iterations, icon-only updates.
     - **Test the app** for: new features, UI layouts, user interactions, network requests, bug fixes.
-  - To test: call `launch_app` → inspect the View tree → use `interact_ui` for interactive elements.
+  - To test: call `launch_app` → inspect the View tree → use `interact_ui` for interactive elements → call `close_app` to return to VibeApp.
   - If running low on iterations (≤ 5 remaining), skip testing and finish.
 
 ## Runtime Logging
@@ -154,6 +154,8 @@ After a successful build, call **launch_app** to start the app in plugin mode.
 - scroll: `{"action":"scroll","selector":{"type":"id","value":"scroll_view"},"value":"down","amount":500}`
 
 Selectors: `id`, `text`, `text_contains`, `class` (with index). Updated View tree returned after each action.
+
+**close_app** — Close the plugin and return to VibeApp. **ALWAYS call this after you finish inspecting/testing the UI.** Do not leave the plugin running in the foreground.
 
 ## Hard Rules
 1. Use write_project_file for new/full rewrites, edit_project_file for targeted changes.

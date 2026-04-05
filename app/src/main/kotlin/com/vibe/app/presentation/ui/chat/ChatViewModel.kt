@@ -253,21 +253,16 @@ class ChatViewModel @Inject constructor(
     fun clearChatHistory() {
         val chatId = _chatRoom.value.id
         viewModelScope.launch {
-            // Delete all messages from the database
+            // Delete only messages, keep the chat room and project intact
             if (chatId > 0) {
-                val messages = chatRepository.fetchMessagesV2(chatId)
-                if (messages.isNotEmpty()) {
-                    withContext(Dispatchers.IO) {
-                        chatRepository.deleteChatsV2(listOf(_chatRoom.value))
-                    }
+                withContext(Dispatchers.IO) {
+                    chatRepository.deleteMessagesByChatId(chatId)
                 }
             }
             // Reset in-memory state
             _groupedMessages.update { GroupedMessages() }
             _indexStates.update { emptyList() }
             _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
-            // Re-create the chat room so new messages still get saved
-            _chatRoom.update { it.copy(id = 0) }
         }
     }
 
@@ -812,6 +807,12 @@ class ChatViewModel @Inject constructor(
     fun refreshPlatforms() {
         viewModelScope.launch {
             refreshPlatformsInternal()
+        }
+    }
+
+    fun refreshMessages() {
+        viewModelScope.launch {
+            fetchMessages()
         }
     }
 

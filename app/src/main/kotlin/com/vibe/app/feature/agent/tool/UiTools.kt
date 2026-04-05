@@ -44,6 +44,36 @@ class InspectUiTool @Inject constructor(
 }
 
 @Singleton
+class CloseAppTool @Inject constructor(
+    private val pluginManager: PluginManager,
+) : AgentTool {
+
+    override val definition = AgentToolDefinition(
+        name = "close_app",
+        description = "Close the running plugin app and return to VibeApp. " +
+            "Call this after you finish inspecting or testing the UI.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put("properties", buildJsonObject {})
+            put("required", buildJsonArray {})
+        },
+    )
+
+    override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
+        return try {
+            pluginManager.finishPluginAndReturn(context.projectId)
+            call.result(
+                buildJsonObject {
+                    put("status", JsonPrimitive("closed"))
+                },
+            )
+        } catch (e: Exception) {
+            call.errorResult(e.message ?: "failed to close app")
+        }
+    }
+}
+
+@Singleton
 class InteractUiTool @Inject constructor(
     private val pluginManager: PluginManager,
 ) : AgentTool {

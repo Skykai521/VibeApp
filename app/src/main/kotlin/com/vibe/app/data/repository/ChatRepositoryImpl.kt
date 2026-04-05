@@ -821,6 +821,10 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun deleteChatsV2(chatRooms: List<ChatRoomV2>) {
         chatRoomV2Dao.deleteChatRooms(*chatRooms.toTypedArray())
     }
+
+    override suspend fun deleteMessagesByChatId(chatId: Int) {
+        messageV2Dao.deleteMessagesByChatId(chatId)
+    }
 }
 
 private fun PlatformV2.qwenResponseFormatOrNull(): ResponseFormat? {

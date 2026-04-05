@@ -24,4 +24,5 @@ interface ChatRepository {
     suspend fun updateChatTitle(chatRoom: ChatRoomV2, title: String)
     suspend fun saveChat(chatRoom: ChatRoomV2, messages: List<MessageV2>, chatPlatformModels: Map<String, String>): ChatRoomV2
     suspend fun deleteChatsV2(chatRooms: List<ChatRoomV2>)
+    suspend fun deleteMessagesByChatId(chatId: Int)
 }

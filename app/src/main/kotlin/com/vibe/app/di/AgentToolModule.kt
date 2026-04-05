@@ -4,6 +4,7 @@ import com.vibe.app.feature.agent.AgentTool
 import com.vibe.app.feature.agent.tool.DeleteProjectFileTool
 import com.vibe.app.feature.agent.tool.EditProjectFileTool
 import com.vibe.app.feature.agent.tool.FixCrashGuideTool
+import com.vibe.app.feature.agent.tool.CloseAppTool
 import com.vibe.app.feature.agent.tool.InspectUiTool
 import com.vibe.app.feature.agent.tool.LaunchAppTool
 import com.vibe.app.feature.agent.tool.InteractUiTool
@@ -37,4 +38,5 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindLaunchApp(tool: LaunchAppTool): AgentTool
     @Binds @IntoSet abstract fun bindInspectUi(tool: InspectUiTool): AgentTool
     @Binds @IntoSet abstract fun bindInteractUi(tool: InteractUiTool): AgentTool
+    @Binds @IntoSet abstract fun bindCloseApp(tool: CloseAppTool): AgentTool
 }
