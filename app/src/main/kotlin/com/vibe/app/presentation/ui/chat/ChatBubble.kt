@@ -427,7 +427,7 @@ fun chatMarkdownComponents() = markdownComponents(
         MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style ->
             MarkdownHighlightedCode(
                 code = code,
-                language = language ?: "java",
+                language = language ?: "txt",
                 style = style,
                 showHeader = true,
             )
@@ -437,7 +437,7 @@ fun chatMarkdownComponents() = markdownComponents(
         MarkdownCodeBlock(it.content, it.node, it.typography.code) { code, language, style ->
             MarkdownHighlightedCode(
                 code = code,
-                language = language ?: "java",
+                language = language ?: "txt",
                 style = style,
                 showHeader = true,
             )
