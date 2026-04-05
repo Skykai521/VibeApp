@@ -163,6 +163,7 @@ class AgentSessionManager @Inject constructor(
         val session = AgentSession(
             chatId = chatId,
             projectId = projectId,
+            platformName = platform.name,
             job = job,
             status = statusFlow,
         )
@@ -204,6 +205,13 @@ class AgentSessionManager @Inject constructor(
 
     fun getSessionStatus(chatId: Int): StateFlow<AgentSessionStatus>? {
         return _sessions.value[chatId]?.status
+    }
+
+    /**
+     * Returns the platform name for an active session, or null if no session is running.
+     */
+    fun getActiveSessionPlatformName(chatId: Int): String? {
+        return _sessions.value[chatId]?.platformName
     }
 
     fun isSessionRunning(chatId: Int): Boolean {

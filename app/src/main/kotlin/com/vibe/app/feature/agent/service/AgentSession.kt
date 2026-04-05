@@ -13,6 +13,7 @@ enum class AgentSessionStatus {
 data class AgentSession(
     val chatId: Int,
     val projectId: String?,
+    val platformName: String,
     val job: Job,
     val status: StateFlow<AgentSessionStatus>,
 )
