@@ -394,6 +394,23 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                     put("errorCount", result.logs.count { it.level == BuildLogLevel.ERROR })
                     put("warningCount", result.logs.count { it.level == BuildLogLevel.WARNING })
                     putIfNotNull("errorMessagePreview", result.errorMessage?.clipPreview())
+                    // Include actual error/warning log entries so exported diagnostics contain actionable detail
+                    val errorAndWarningLogs = result.logs.filter {
+                        it.level == BuildLogLevel.ERROR || it.level == BuildLogLevel.WARNING
+                    }
+                    if (errorAndWarningLogs.isNotEmpty()) {
+                        putJsonArray("errorLogs") {
+                            errorAndWarningLogs.take(20).forEach { log ->
+                                add(buildJsonObject {
+                                    put("stage", log.stage.name)
+                                    put("level", log.level.name)
+                                    put("message", log.message.clipPreview())
+                                    putIfNotNull("sourcePath", log.sourcePath)
+                                    putIfNotNull("line", log.line)
+                                })
+                            }
+                        }
+                    }
                     putJsonArray("artifactSummary") {
                         result.artifacts.forEach { artifact ->
                             add(JsonPrimitive("${artifact.stage.name}:${File(artifact.path).name}"))

@@ -106,6 +106,9 @@ class ChatViewModel @Inject constructor(
     private val _enabledPlatformsInChat = MutableStateFlow(enabledPlatformString.split(',').filter { it.isNotBlank() })
     val enabledPlatformsInChat: StateFlow<List<String>> = _enabledPlatformsInChat.asStateFlow()
 
+    /** Set to true after AgentSessionManager.saveToRoom() completes, so observeStateChanges() skips the redundant save. */
+    private var agentSessionSavedToRoom = false
+
     private val _currentProjectId = MutableStateFlow<String?>(null)
     val currentProjectId: StateFlow<String?> = _currentProjectId.asStateFlow()
 
@@ -859,6 +862,15 @@ class ChatViewModel @Inject constructor(
                 ) {
                     Log.d("ChatViewModel", "GroupMessage: ${_groupedMessages.value}")
 
+                    if (agentSessionSavedToRoom) {
+                        // Agent session already persisted to Room — skip redundant save,
+                        // just sync message IDs from the database.
+                        agentSessionSavedToRoom = false
+                        fetchMessages()
+                        finalizeActiveTurnIfNeeded()
+                        return@collect
+                    }
+
                     // Save the chat & chat room
                     val previousChatId = _chatRoom.value.id
                     _chatRoom.update {
@@ -924,8 +936,10 @@ class ChatViewModel @Inject constructor(
                     // so observeStateChanges() does an UPDATE instead of a duplicate INSERT.
                     sessionManager.getSavedChatRoom(sessionChatId)?.let { savedRoom ->
                         _chatRoom.update { savedRoom }
+                        // Agent session already persisted — skip the redundant save in observeStateChanges()
+                        agentSessionSavedToRoom = true
                     }
-                    // Session finished — set loading to idle so observeStateChanges() can trigger save
+                    // Session finished — set loading to idle so observeStateChanges() can trigger sync
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
                     // Refresh project name in case the agent called rename_project
                     _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
