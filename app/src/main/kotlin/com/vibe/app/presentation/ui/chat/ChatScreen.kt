@@ -73,6 +73,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -218,21 +219,29 @@ fun ChatScreen(
         }
     }
 
-    // Scroll to bottom when messages are first loaded from database
+    // Scroll to bottom when messages are first loaded from database.
     LaunchedEffect(isLoaded) {
         if (isLoaded) {
-            // Wait for message items to appear in the LazyColumn (more than just the spacer)
             snapshotFlow { listState.layoutInfo.totalItemsCount }
                 .first { it > 1 }
+            delay(80)
             listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
         }
     }
 
-    // Auto-scroll when a new conversation round starts (new user message added)
+    // Auto-scroll when a new user message is sent (not on initial load).
+    // Uses a remembered baseline to distinguish DB-loaded messages from new ones.
     val messageCount = groupedMessages.userMessages.size
+    var loadedMessageCount by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(isLoaded) {
+        if (isLoaded) {
+            loadedMessageCount = messageCount
+        }
+    }
     LaunchedEffect(messageCount) {
-        if (messageCount > 0) {
-            listState.animateScrollToItem(lastItemIndex)
+        if (loadedMessageCount >= 0 && messageCount > loadedMessageCount) {
+            loadedMessageCount = messageCount
+            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
         }
     }
 

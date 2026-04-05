@@ -203,6 +203,10 @@ class ChatViewModel @Inject constructor(
             fetchMessages()
             // Reconnect to an existing agent session if one is running for this chat
             reconnectToExistingSession()
+            // Signal that all messages (DB + session cache) are ready for display.
+            // Must be AFTER reconnect so the scroll-to-bottom LaunchedEffect targets
+            // the final item count, not an intermediate state.
+            _isLoaded.update { true }
         }
         observeStateChanges()
         viewModelScope.launch {
@@ -738,7 +742,6 @@ class ChatViewModel @Inject constructor(
                 _indexStates.update { List(_groupedMessages.value.assistantMessages.size) { 0 } }
             }
             _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
-            _isLoaded.update { true } // Finish fetching
             return
         }
 
@@ -1006,7 +1009,6 @@ class ChatViewModel @Inject constructor(
                 )
             }
             _indexStates.update { List(currentState.userMessages.size) { 0 } }
-            _isLoaded.update { true }
         }
 
         if (hasActiveSession) {
