@@ -7,7 +7,6 @@ This project uses an on-device build pipeline (Javac + D8 + AAPT2), NOT Gradle.
 The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries are available.
 
 ### NEVER do these:
-- NEVER modify build.gradle — it is not used by the build pipeline
 - NEVER change the package name — it MUST stay as {{PACKAGE_NAME}} everywhere
 - NEVER change the package in AndroidManifest.xml
 - NEVER use Java lambdas (->), method references (::), or try-with-resources

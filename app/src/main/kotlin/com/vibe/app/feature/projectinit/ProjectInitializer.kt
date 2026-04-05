@@ -288,7 +288,6 @@ class ProjectInitializer @Inject constructor(
         }
 
         replacePlaceholders(File(appModuleDir, "src/main/AndroidManifest.xml"))
-        replacePlaceholders(File(appModuleDir, "build.gradle"))
 
         targetPackageDir.listFiles()?.forEach { file ->
             if (file.isFile && file.name.endsWith(".java")) {
