@@ -17,6 +17,7 @@ import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.loop.compaction.CompactionStrategyType
 import com.vibe.app.feature.agent.loop.compaction.ConversationCompactor
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import com.vibe.app.feature.diagnostic.DiagnosticLevels
 import com.vibe.app.feature.project.ProjectManager
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 @Singleton
 class DefaultAgentLoopCoordinator @Inject constructor(
@@ -36,12 +38,27 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 ) : AgentLoopCoordinator {
 
     override suspend fun run(request: AgentLoopRequest): Flow<AgentLoopEvent> = flow {
+        val loopStartedAt = System.currentTimeMillis()
         emit(
             AgentLoopEvent.LoopStarted(
                 chatId = request.chatId,
                 platformUid = request.platform.uid,
             ),
         )
+        request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+            diagnosticLogger.logAgentLoopEvent(
+                context = ctx,
+                action = "loop_started",
+                summary = "Agent loop started (max=${request.policy.maxIterations}, tools=${request.tools.size})",
+                payload = buildJsonObject {
+                    put("action", "loop_started")
+                    put("maxIterations", request.policy.maxIterations)
+                    put("toolCount", request.tools.size)
+                    put("conversationItemCount", request.userMessages.size + request.assistantMessages.size)
+                    put("startedAt", loopStartedAt)
+                },
+            )
+        }
 
         var previousResponseId: String? = null
         val initialConversation = buildInitialConversation(request)
@@ -53,6 +70,18 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
         for (iteration in 1..request.policy.maxIterations) {
             emit(AgentLoopEvent.ModelTurnStarted(iteration))
+            request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                diagnosticLogger.logAgentLoopEvent(
+                    context = ctx,
+                    action = "iteration_started",
+                    summary = "Iteration $iteration started (${fullConversation.size} items)",
+                    payload = buildJsonObject {
+                        put("action", "iteration_started")
+                        put("iteration", iteration)
+                        put("conversationItemCount", fullConversation.size)
+                    },
+                )
+            }
             val pendingToolResults = mutableListOf<AgentToolResult>()
             val pendingCalls = mutableListOf<com.vibe.app.feature.agent.AgentToolCall>()
             val outputBuilder = StringBuilder()
@@ -128,11 +157,42 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             }
 
             if (failureMessage != null) {
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logAgentLoopEvent(
+                        context = ctx,
+                        action = "loop_failed",
+                        level = DiagnosticLevels.ERROR,
+                        summary = "Agent loop failed at iteration $iteration: ${failureMessage.take(120)}",
+                        payload = buildJsonObject {
+                            put("action", "loop_failed")
+                            put("reason", "model_error")
+                            put("iteration", iteration)
+                            put("totalToolCalls", collectedToolResults.size)
+                            put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                            put("errorMessage", failureMessage.take(500))
+                        },
+                    )
+                }
                 emit(AgentLoopEvent.LoopFailed(message = failureMessage, iteration = iteration))
                 return@flow
             }
 
             if (pendingCalls.isEmpty()) {
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logAgentLoopEvent(
+                        context = ctx,
+                        action = "loop_completed",
+                        summary = "Agent loop completed at iteration $iteration (${collectedToolResults.size} tool calls)",
+                        payload = buildJsonObject {
+                            put("action", "loop_completed")
+                            put("reason", "natural")
+                            put("iterationsUsed", iteration)
+                            put("totalToolCalls", collectedToolResults.size)
+                            put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                            put("finalTextChars", outputBuilder.toString().trim().length)
+                        },
+                    )
+                }
                 emit(
                     AgentLoopEvent.LoopCompleted(
                         finalText = outputBuilder.toString().trim(),
@@ -228,6 +288,21 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
         // All iterations exhausted — give the model one final chance to produce a summary
         // instead of hard-failing. Inject a wind-down message and force text-only response.
+        request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+            diagnosticLogger.logAgentLoopEvent(
+                context = ctx,
+                action = "wind_down_started",
+                level = DiagnosticLevels.WARN,
+                summary = "Max iterations (${request.policy.maxIterations}) exhausted, entering wind-down",
+                payload = buildJsonObject {
+                    put("action", "wind_down_started")
+                    put("maxIterations", request.policy.maxIterations)
+                    put("totalToolCalls", collectedToolResults.size)
+                    put("conversationItemCount", fullConversation.size)
+                    put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                },
+            )
+        }
         val windDownMessage = AgentConversationItem(
             role = AgentMessageRole.USER,
             text = "[System] You have used all available iterations. Do NOT call any more tools. " +
@@ -270,8 +345,39 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
         val summary = finalOutput.toString().trim()
         if (summary.isNotEmpty()) {
+            request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                diagnosticLogger.logAgentLoopEvent(
+                    context = ctx,
+                    action = "loop_completed",
+                    level = DiagnosticLevels.WARN,
+                    summary = "Agent loop completed via wind-down (${collectedToolResults.size} tool calls)",
+                    payload = buildJsonObject {
+                        put("action", "loop_completed")
+                        put("reason", "wind_down")
+                        put("iterationsUsed", request.policy.maxIterations)
+                        put("totalToolCalls", collectedToolResults.size)
+                        put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                        put("finalTextChars", summary.length)
+                    },
+                )
+            }
             emit(AgentLoopEvent.LoopCompleted(finalText = summary, toolResults = collectedToolResults.toList()))
         } else {
+            request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                diagnosticLogger.logAgentLoopEvent(
+                    context = ctx,
+                    action = "loop_failed",
+                    level = DiagnosticLevels.ERROR,
+                    summary = "Agent loop failed: exceeded ${request.policy.maxIterations} iterations with no summary",
+                    payload = buildJsonObject {
+                        put("action", "loop_failed")
+                        put("reason", "max_iterations_exhausted")
+                        put("maxIterations", request.policy.maxIterations)
+                        put("totalToolCalls", collectedToolResults.size)
+                        put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                    },
+                )
+            }
             emit(
                 AgentLoopEvent.LoopFailed(
                     message = "Agent loop exceeded max iterations: ${request.policy.maxIterations}",

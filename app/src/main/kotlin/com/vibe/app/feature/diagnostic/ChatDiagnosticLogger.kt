@@ -89,6 +89,22 @@ interface ChatDiagnosticLogger {
         itemsAfter: Int,
     )
 
+    /**
+     * Generic entry point for any [DiagnosticCategories.AGENT_LOOP] event.
+     *
+     * Use this for new agent-loop lifecycle events (loop start/end, iteration start,
+     * wind-down, etc.) instead of adding a bespoke interface method for each one.
+     * The [payload] **must** include an `"action"` key so consumers can distinguish
+     * event subtypes within the AGENT_LOOP category.
+     */
+    suspend fun logAgentLoopEvent(
+        context: DiagnosticContext,
+        action: String,
+        level: String = DiagnosticLevels.INFO,
+        summary: String,
+        payload: JsonObject,
+    )
+
     suspend fun readChatLog(chatId: Int): DiagnosticLogSnapshot?
 
     suspend fun migrateChatLogs(fromChatId: Int, toChatId: Int)
@@ -430,6 +446,29 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
         itemsBefore: Int,
         itemsAfter: Int,
     ) {
+        logAgentLoopEvent(
+            context = context,
+            action = "conversation_compaction",
+            summary = "Conversation compacted: $strategy ($itemsBefore→$itemsAfter items, ~${estimatedTokens}tok)",
+            payload = buildJsonObject {
+                put("action", "conversation_compaction")
+                put("iteration", iteration)
+                put("strategy", strategy)
+                put("turnsCompacted", turnsCompacted)
+                put("estimatedTokens", estimatedTokens)
+                put("itemsBefore", itemsBefore)
+                put("itemsAfter", itemsAfter)
+            },
+        )
+    }
+
+    override suspend fun logAgentLoopEvent(
+        context: DiagnosticContext,
+        action: String,
+        level: String,
+        summary: String,
+        payload: JsonObject,
+    ) {
         val timestamp = System.currentTimeMillis()
         writeEvent(
             DiagnosticEvent(
@@ -437,19 +476,12 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                 timestamp = timestamp,
                 chatId = context.chatId,
                 projectId = context.projectId,
+                platformUid = context.platformUid,
                 turnId = context.turnId,
                 category = DiagnosticCategories.AGENT_LOOP,
-                level = DiagnosticLevels.INFO,
-                summary = "Conversation compacted: $strategy ($itemsBefore→$itemsAfter items, ~${estimatedTokens}tok)",
-                payload = buildJsonObject {
-                    put("action", "conversation_compaction")
-                    put("iteration", iteration)
-                    put("strategy", strategy)
-                    put("turnsCompacted", turnsCompacted)
-                    put("estimatedTokens", estimatedTokens)
-                    put("itemsBefore", itemsBefore)
-                    put("itemsAfter", itemsAfter)
-                },
+                level = level,
+                summary = summary,
+                payload = payload,
             ),
         )
     }
