@@ -55,7 +55,10 @@ android {
     }
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            // Must stay true: libaapt2.so is executed as a binary via ProcessBuilder,
+            // not loaded as a shared library. With false, Android 10+ does not extract
+            // .so to nativeLibraryDir and the fallback files/ dir has noexec mount.
+            useLegacyPackaging = true
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
