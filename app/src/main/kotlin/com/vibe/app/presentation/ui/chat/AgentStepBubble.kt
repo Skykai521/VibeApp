@@ -58,6 +58,7 @@ fun AgentStepBubble(
         AgentStepType.TOOL_CALL -> ToolCallStep(step = step, modifier = modifier)
         AgentStepType.THINKING -> ThinkingStep(step = step, isLive = isLive, modifier = modifier)
         AgentStepType.OUTPUT -> {} // Output steps are rendered by OpponentChatBubble
+        AgentStepType.PLAN -> {} // Plan steps will be rendered by PlanBubble
     }
 }
 
