@@ -265,7 +265,7 @@ private fun DiagnosticEventCard(event: DiagnosticEvent) {
     val clipboardManager = LocalClipboardManager.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val copiedText = context.getString(R.string.diagnostic_event_copied)
+    val copiedText = stringResource(R.string.diagnostic_event_copied)
 
     Column(
         modifier = Modifier
