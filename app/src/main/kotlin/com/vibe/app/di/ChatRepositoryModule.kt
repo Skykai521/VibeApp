@@ -1,21 +1,14 @@
 package com.vibe.app.di
 
-import android.content.Context
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import com.vibe.app.data.database.dao.ChatPlatformModelV2Dao
 import com.vibe.app.data.database.dao.ChatRoomV2Dao
 import com.vibe.app.data.database.dao.MessageV2Dao
-import com.vibe.app.data.network.AnthropicAPI
-import com.vibe.app.data.network.GoogleAPI
-import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.ChatRepositoryImpl
-import com.vibe.app.data.repository.SettingRepository
-import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import javax.inject.Singleton
 
 @Module
@@ -25,24 +18,12 @@ object ChatRepositoryModule {
     @Provides
     @Singleton
     fun provideChatRepository(
-        @ApplicationContext context: Context,
         chatRoomV2Dao: ChatRoomV2Dao,
         messageV2Dao: MessageV2Dao,
         chatPlatformModelV2Dao: ChatPlatformModelV2Dao,
-        settingRepository: SettingRepository,
-        openAIAPI: OpenAIAPI,
-        anthropicAPI: AnthropicAPI,
-        googleAPI: GoogleAPI,
-        diagnosticLogger: ChatDiagnosticLogger,
     ): ChatRepository = ChatRepositoryImpl(
-        context,
         chatRoomV2Dao,
         messageV2Dao,
         chatPlatformModelV2Dao,
-        settingRepository,
-        openAIAPI,
-        anthropicAPI,
-        googleAPI,
-        diagnosticLogger,
     )
 }

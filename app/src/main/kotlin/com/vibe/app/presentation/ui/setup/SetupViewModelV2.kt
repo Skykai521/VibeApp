@@ -126,7 +126,7 @@ class SetupViewModelV2 @Inject constructor(
                     model = _model.value.trim(),
                     temperature = 1.0f,
                     topP = 1.0f,
-                    systemPrompt = ModelConstants.DEFAULT_PROMPT,
+                    systemPrompt = null,
                     stream = true,
                     reasoning = false,
                     timeout = 30
@@ -170,7 +170,6 @@ class SetupViewModelV2 @Inject constructor(
     fun canProceedFromStep(step: Int): Boolean = when (step) {
         0 -> _platformName.value.isNotBlank() && _apiUrl.value.isNotBlank()
 
-        // API key is optional for some providers (e.g., Ollama)
         1 -> _model.value.isNotBlank()
 
         2 -> true
@@ -183,27 +182,17 @@ class SetupViewModelV2 @Inject constructor(
     private fun getDefaultPlatformName(clientType: ClientType): String = when (clientType) {
         ClientType.OPENAI -> "OpenAI"
         ClientType.ANTHROPIC -> "Anthropic"
-        ClientType.GOOGLE -> "Google"
-        ClientType.GROQ -> "Groq"
-        ClientType.OLLAMA -> "Ollama"
-        ClientType.OPENROUTER -> "OpenRouter"
         ClientType.QWEN -> "Qwen"
         ClientType.KIMI -> "Kimi"
         ClientType.MINIMAX -> "MiniMax"
-        ClientType.CUSTOM -> ""
     }
 
     private fun getDefaultApiUrl(clientType: ClientType): String = when (clientType) {
         ClientType.OPENAI -> ModelConstants.OPENAI_API_URL
         ClientType.ANTHROPIC -> ModelConstants.ANTHROPIC_API_URL
-        ClientType.GOOGLE -> ModelConstants.GOOGLE_API_URL
-        ClientType.GROQ -> ModelConstants.GROQ_API_URL
-        ClientType.OLLAMA -> "http://localhost:11434/"
-        ClientType.OPENROUTER -> ModelConstants.OPENROUTER_API_URL
         ClientType.QWEN -> ModelConstants.QWEN_API_URL
         ClientType.KIMI -> ModelConstants.KIMI_API_URL
         ClientType.MINIMAX -> ModelConstants.MINIMAX_API_URL
-        ClientType.CUSTOM -> ""
     }
 
     private fun getDefaultModel(clientType: ClientType): String = when (clientType) {
@@ -212,7 +201,6 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.QWEN -> "qwen3-max"
         ClientType.KIMI -> "kimi-k2.5"
         ClientType.MINIMAX -> "MiniMax-M2.7"
-        else -> ""
     }
 
     companion object {

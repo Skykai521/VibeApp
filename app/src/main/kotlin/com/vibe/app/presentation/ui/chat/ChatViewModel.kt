@@ -10,7 +10,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import com.vibe.app.data.database.entity.ChatRoomV2
 import com.vibe.app.data.database.entity.MessageV2
 import com.vibe.app.data.database.entity.PlatformV2
-import com.vibe.app.data.model.ClientType
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
@@ -24,7 +23,6 @@ import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
 import com.vibe.app.feature.diagnostic.DiagnosticContext
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
-import com.vibe.app.util.handleStates
 import com.vibe.app.util.FileUtils
 import com.vibe.app.plugin.PluginManager
 import com.vibe.build.engine.model.BuildLogLevel
@@ -488,37 +486,20 @@ class ChatViewModel @Inject constructor(
         }
 
         val turnState = startTurn(_groupedMessages.value.userMessages.last(), listOf(platformWithChatModel.uid))
-        if (shouldUseAgentMode(platformWithChatModel)) {
-            val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
-            sessionManager.startSession(
-                chatId = effectiveChatId,
-                projectId = _currentProjectId.value,
-                platform = platformWithChatModel,
-                userMessages = _groupedMessages.value.userMessages,
-                assistantMessages = _groupedMessages.value.assistantMessages,
-                systemPrompt = platformWithChatModel.systemPrompt,
-                diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-                chatRoom = _chatRoom.value,
-                chatPlatformModels = _chatPlatformModels.value,
-            )
-            viewModelScope.launch {
-                observeAgentSessionState(effectiveChatId)
-            }
-        } else {
-            viewModelScope.launch {
-                chatRepository.completeChat(
-                    _groupedMessages.value.userMessages,
-                    _groupedMessages.value.assistantMessages,
-                    platformWithChatModel,
-                    turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-                ).handleStates(
-                    messageFlow = _groupedMessages,
-                    platformIdx = platformIndex,
-                    onLoadingComplete = {
-                        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Idle } }
-                    }
-                )
-            }
+        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+        sessionManager.startSession(
+            chatId = effectiveChatId,
+            projectId = _currentProjectId.value,
+            platform = platformWithChatModel,
+            userMessages = _groupedMessages.value.userMessages,
+            assistantMessages = _groupedMessages.value.assistantMessages,
+            systemPrompt = platformWithChatModel.systemPrompt,
+            diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
+            chatRoom = _chatRoom.value,
+            chatPlatformModels = _chatPlatformModels.value,
+        )
+        viewModelScope.launch {
+            observeAgentSessionState(effectiveChatId)
         }
     }
 
@@ -697,42 +678,24 @@ class ChatViewModel @Inject constructor(
                 return@forEachIndexed
             }
             val platformWithChatModel = resolvePlatformModel(platform)
-            if (shouldUseAgentMode(platformWithChatModel)) {
-                // Delegate to AgentSessionManager — survives ViewModel destruction
-                val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
-                sessionManager.startSession(
-                    chatId = effectiveChatId,
-                    projectId = _currentProjectId.value,
-                    platform = platformWithChatModel,
-                    userMessages = _groupedMessages.value.userMessages,
-                    assistantMessages = _groupedMessages.value.assistantMessages,
-                    systemPrompt = platformWithChatModel.systemPrompt,
-                    diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-                    chatRoom = _chatRoom.value,
-                    chatPlatformModels = _chatPlatformModels.value,
-                )
-                // Observe the session's message state (source of truth)
-                val observeJob = viewModelScope.launch {
-                    observeAgentSessionState(effectiveChatId)
-                }
-                responseJobs.add(observeJob)
-            } else {
-                val job = viewModelScope.launch {
-                    chatRepository.completeChat(
-                        _groupedMessages.value.userMessages,
-                        _groupedMessages.value.assistantMessages,
-                        platformWithChatModel,
-                        turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-                    ).handleStates(
-                        messageFlow = _groupedMessages,
-                        platformIdx = idx,
-                        onLoadingComplete = {
-                            _loadingStates.update { it.toMutableList().apply { this[idx] = LoadingState.Idle } }
-                        }
-                    )
-                }
-                responseJobs.add(job)
+            // Delegate to AgentSessionManager — survives ViewModel destruction
+            val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+            sessionManager.startSession(
+                chatId = effectiveChatId,
+                projectId = _currentProjectId.value,
+                platform = platformWithChatModel,
+                userMessages = _groupedMessages.value.userMessages,
+                assistantMessages = _groupedMessages.value.assistantMessages,
+                systemPrompt = platformWithChatModel.systemPrompt,
+                diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
+                chatRoom = _chatRoom.value,
+                chatPlatformModels = _chatPlatformModels.value,
+            )
+            // Observe the session's message state (source of truth)
+            val observeJob = viewModelScope.launch {
+                observeAgentSessionState(effectiveChatId)
             }
+            responseJobs.add(observeJob)
         }
     }
 
@@ -939,12 +902,6 @@ class ChatViewModel @Inject constructor(
         return platform.copy(model = chatModel)
     }
 
-    private fun shouldUseAgentMode(platform: PlatformV2): Boolean {
-        return _enabledPlatformsInChat.value.size == 1 &&
-            (platform.compatibleType == ClientType.OPENAI || platform.compatibleType == ClientType.ANTHROPIC || platform.compatibleType == ClientType.QWEN || platform.compatibleType == ClientType.KIMI) &&
-            _currentProjectId.value != null
-    }
-
     /**
      * Observe the session manager's message StateFlow, which is the source of truth
      * while a session is running. This works both for newly started sessions and
@@ -1048,9 +1005,7 @@ class ChatViewModel @Inject constructor(
                 turnId = "$diagnosticChatId-$turnIndex-$startedAt",
             ),
             turnIndex = turnIndex,
-            isAgentMode = platformUids.size == 1 && _enabledPlatformsInApp.value
-                .firstOrNull { it.uid == platformUids.firstOrNull() }
-                ?.let { shouldUseAgentMode(resolvePlatformModel(it)) } == true,
+            isAgentMode = true,
             platformUids = platformUids,
             userTextChars = message.content.length,
             attachmentCount = message.files.size,

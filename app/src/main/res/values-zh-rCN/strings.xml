@@ -97,7 +97,7 @@
     <string name="platform_name_hint">我的自定义提供商</string>
     <string name="platform_name_supporting">为你的提供商起个好记的名字吧</string>
     <string name="platform_name_icon">提供商名称的图标</string>
-    <string name="client_type_google_desc">Google Gemini Generative AI API</string>
+
     <string name="api_url_hint">https://api.example.com</string>
     <string name="api_key_hint">sk-…</string>
     <string name="api_key_supporting">你的 API 密钥存储在本地</string>
@@ -141,7 +141,7 @@
     <string name="step_x_of_y">第 %1$d 步，共 %2$d 步</string>
     <string name="platform_basics_description">为你的提供商命名并验证 API 端点</string>
     <string name="api_key_description">请输入你的 API 密钥，它只存储在您的设备上。</string>
-    <string name="api_key_optional_note">对于类似 Ollama 的本地部署模型，API 密钥不是必需的。</string>
+
     <string name="model_description">请输入您使用模型的标识符</string>
     <string name="model_examples">例如：gpt-4o、claude-sonnet-4-20250514、gemini-1.5-pro</string>
     <string name="back">返回</string>

@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.Flow
  *
  * Routing table:
  * - [ClientType.ANTHROPIC] → [AnthropicMessagesAgentGateway]
+ * - [ClientType.MINIMAX]   → [AnthropicMessagesAgentGateway] (Anthropic-compatible API)
  * - [ClientType.QWEN]      → [QwenChatCompletionsAgentGateway]
  * - [ClientType.KIMI]      → [KimiChatCompletionsAgentGateway]
- * - [ClientType.MINIMAX]   → [MiniMaxChatCompletionsAgentGateway]
- * - everything else        → [OpenAiResponsesAgentGateway] (OpenAI-compatible APIs)
+ * - [ClientType.OPENAI]    → [OpenAiResponsesAgentGateway]
  *
  * New providers can be added here without touching the coordinator or DI graph.
  */
@@ -26,17 +26,27 @@ class ProviderAgentGatewayRouter @Inject constructor(
     private val openAiGateway: OpenAiResponsesAgentGateway,
     private val qwenGateway: QwenChatCompletionsAgentGateway,
     private val kimiGateway: KimiChatCompletionsAgentGateway,
-    private val miniMaxGateway: MiniMaxChatCompletionsAgentGateway,
     private val anthropicGateway: AnthropicMessagesAgentGateway,
 ) : AgentModelGateway {
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> {
         return when (request.platform.compatibleType) {
             ClientType.ANTHROPIC -> anthropicGateway.streamTurn(request)
+            ClientType.MINIMAX -> anthropicGateway.streamTurn(request.withMiniMaxAnthropicUrl())
             ClientType.QWEN -> qwenGateway.streamTurn(request)
             ClientType.KIMI -> kimiGateway.streamTurn(request)
-            ClientType.MINIMAX -> miniMaxGateway.streamTurn(request)
-            else -> openAiGateway.streamTurn(request)
+            ClientType.OPENAI -> openAiGateway.streamTurn(request)
         }
     }
+}
+
+/**
+ * Ensures the MiniMax platform URL points to the Anthropic-compatible endpoint.
+ * Migrates old OpenAI-style URLs (e.g. `https://api.minimaxi.com/`) to the
+ * Anthropic path (`https://api.minimaxi.com/anthropic/`).
+ */
+private fun AgentModelRequest.withMiniMaxAnthropicUrl(): AgentModelRequest {
+    val url = platform.apiUrl.trimEnd('/')
+    if (url.endsWith("/anthropic")) return this
+    return copy(platform = platform.copy(apiUrl = "$url/anthropic/"))
 }

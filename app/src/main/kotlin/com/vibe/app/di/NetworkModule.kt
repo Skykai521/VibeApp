@@ -9,8 +9,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import com.vibe.app.data.network.AnthropicAPI
 import com.vibe.app.data.network.AnthropicAPIImpl
-import com.vibe.app.data.network.GoogleAPI
-import com.vibe.app.data.network.GoogleAPIImpl
 import com.vibe.app.data.network.NetworkClient
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.data.network.OpenAIAPIImpl
@@ -45,11 +43,4 @@ object NetworkModule {
         networkClient: NetworkClient,
         diagnosticLogger: ChatDiagnosticLogger,
     ): AnthropicAPI = AnthropicAPIImpl(networkClient, diagnosticLogger)
-
-    @Provides
-    @Singleton
-    fun provideGoogleAPI(
-        networkClient: NetworkClient,
-        diagnosticLogger: ChatDiagnosticLogger,
-    ): GoogleAPI = GoogleAPIImpl(networkClient, diagnosticLogger)
 }

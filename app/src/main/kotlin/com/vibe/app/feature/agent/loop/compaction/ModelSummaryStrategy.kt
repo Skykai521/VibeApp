@@ -16,7 +16,7 @@ import com.vibe.app.feature.agent.AgentMessageRole
  * a concise summary of the conversation history. The summary replaces all
  * older turns with a single USER-role item.
  *
- * Only available for OpenAI-compatible providers (Qwen, Kimi, MiniMax, etc.)
+ * Only available for OpenAI-compatible providers (Qwen, Kimi, etc.)
  * via the existing completeQwenChatCompletion endpoint.
  */
 class ModelSummaryStrategy(
@@ -27,11 +27,6 @@ class ModelSummaryStrategy(
     private val supportedProviders = setOf(
         ClientType.QWEN,
         ClientType.KIMI,
-        ClientType.MINIMAX,
-        ClientType.GROQ,
-        ClientType.OLLAMA,
-        ClientType.OPENROUTER,
-        ClientType.CUSTOM,
     )
 
     /**
