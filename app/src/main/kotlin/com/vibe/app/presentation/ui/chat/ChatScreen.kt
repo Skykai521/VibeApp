@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -121,6 +122,7 @@ import kotlinx.coroutines.withContext
 fun ChatScreen(
     chatViewModel: ChatViewModel = hiltViewModel(),
     onNavigateToAddPlatform: () -> Unit,
+    onNavigateToDiagnostic: () -> Unit,
     onBackAction: () -> Unit
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
@@ -162,6 +164,7 @@ fun ChatScreen(
     val isImageInputEnabled = chatPlatforms.isNotEmpty() &&
         chatPlatforms.size == enabledPlatformsInChat.size &&
         chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
+    val isDebugEnabled by chatViewModel.isDebugEnabled.collectAsStateWithLifecycle()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -321,6 +324,7 @@ fun ChatScreen(
                 runButtonEnabled,
                 isMoreOptionsEnabled = isIdle,
                 isProjectMenuEnabled,
+                isDebugEnabled = isDebugEnabled,
                 buildProgress = buildProgress.progress,
                 isBuildProgressVisible = buildProgress.isVisible,
                 onBackAction,
@@ -347,7 +351,8 @@ fun ChatScreen(
                         }
                     }
                 },
-                onClearChatHistoryClick = { isClearChatDialogOpen = true }
+                onClearChatHistoryClick = { isClearChatDialogOpen = true },
+                onDiagnosticClick = onNavigateToDiagnostic,
             )
         }
     ) { innerPadding ->
@@ -721,6 +726,7 @@ private fun ChatTopBar(
     isRunEnabled: Boolean,
     isMoreOptionsEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
+    isDebugEnabled: Boolean,
     buildProgress: Float,
     isBuildProgressVisible: Boolean,
     onBackAction: () -> Unit,
@@ -731,7 +737,8 @@ private fun ChatTopBar(
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit,
-    onClearChatHistoryClick: () -> Unit
+    onClearChatHistoryClick: () -> Unit,
+    onDiagnosticClick: () -> Unit,
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
@@ -766,6 +773,7 @@ private fun ChatTopBar(
                     isDropdownMenuExpanded = isDropDownMenuExpanded,
                     isChatMenuEnabled = isChatMenuEnabled,
                     isProjectMenuEnabled = isProjectMenuEnabled,
+                    isDebugEnabled = isDebugEnabled,
                     onDismissRequest = { isDropDownMenuExpanded = false },
                     onUpdateProjectNameClick = {
                         onUpdateProjectNameClick.invoke()
@@ -787,7 +795,10 @@ private fun ChatTopBar(
                     onClearChatHistoryClick = {
                         onClearChatHistoryClick()
                         isDropDownMenuExpanded = false
-                    }
+                    },
+                    onDiagnosticClick = {
+                        onDiagnosticClick()
+                    },
                 )
             },
             scrollBehavior = scrollBehavior
@@ -810,19 +821,36 @@ fun ChatDropdownMenu(
     isDropdownMenuExpanded: Boolean,
     isChatMenuEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
+    isDebugEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onUpdateProjectNameClick: () -> Unit,
     onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
     onExportApkItemClick: () -> Unit,
-    onClearChatHistoryClick: () -> Unit
+    onClearChatHistoryClick: () -> Unit,
+    onDiagnosticClick: () -> Unit,
 ) {
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
         expanded = isDropdownMenuExpanded,
         onDismissRequest = onDismissRequest
     ) {
+        if (isDebugEnabled) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.debug_log)) },
+                onClick = {
+                    onDiagnosticClick()
+                    onDismissRequest()
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.BugReport,
+                        contentDescription = null,
+                    )
+                },
+            )
+        }
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.update_project_name)) },

@@ -175,6 +175,9 @@ class ChatViewModel @Inject constructor(
     private val responseJobs = mutableListOf<Job>()
     private var activeTurnState: ActiveTurnState? = null
     private var pendingUnsavedDiagnosticChatId: Int? = null
+    private val _isDebugEnabled = MutableStateFlow(false)
+    val isDebugEnabled = _isDebugEnabled.asStateFlow()
+
     private val json = Json { explicitNulls = false; encodeDefaults = false }
 
     // Used for passing user question to Edit User Message Dialog
@@ -197,6 +200,9 @@ class ChatViewModel @Inject constructor(
     init {
         Log.d("ViewModel", "$chatRoomId")
         Log.d("ViewModel", "${_enabledPlatformsInChat.value}")
+        viewModelScope.launch {
+            _isDebugEnabled.value = settingRepository.getDebugMode()
+        }
         fetchChatRoom()
         viewModelScope.launch {
             refreshPlatformsInternal()
