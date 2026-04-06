@@ -21,12 +21,11 @@ VibeApp is a **fully open-source** Android app that lets anyone **generate, comp
 
 The entire build pipeline runs on-device. Your code never leaves your phone.
 
-### Demo
+### Screenshots
 
-
-|                | Video                                                                                          | Note                                                                                     |
-|----------------|------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
-| Pomodoro timer | <video src="https://github.com/user-attachments/assets/ae3ffc67-9ec4-4eee-9f97-fce75a7491bd"/> | Model: kimi-k2.5. The video has been edited and omits some of the model’s thinking time. |
+| Home | Chat | Add Platform | Settings |
+|:----:|:----:|:------------:|:--------:|
+| <img src="docs/assets/screenshot_home.jpg" alt="Home" width="200"/> | <img src="docs/assets/screenshot_chat_screen.jpg" alt="Chat" width="200"/> | <img src="docs/assets/screenshot_add_platform.jpg" alt="Add Platform" width="200"/> | <img src="docs/assets/screenshot_setting.jpg" alt="Settings" width="200"/> |
 
 ## Why VibeApp
 
@@ -52,7 +51,7 @@ We believe that in the AI era, apps won't disappear — instead, more people wil
 - **On-Device Full Build Pipeline** — AAPT2 + JavacTool + D8 + packaging/signing, the complete build chain runs on your phone
 - **Automatic Error Fix Loop** — Compilation failures are automatically fed back to AI for repair
 - **Multi-Project Management** — Manage multiple app projects simultaneously with version snapshots and build cache
-- **Multi-Model Support** — Claude, GPT, Gemini, Qwen, and OpenAI-compatible local Ollama
+- **Multi-Model Support** — Claude, GPT, Gemini, Qwen, Kimi, MiniMax, Groq, OpenRouter, and OpenAI-compatible local Ollama
 - **Flexible Export** — Install APK directly or export complete source code
 
 ### Code Generation Strategy (Triple Guarantee)
@@ -79,7 +78,7 @@ Stable AI code generation is the product's core. VibeApp uses a triple guarantee
 +--------------------------------------------------------------+
 | Data Layer                                                   |
 | Room + DataStore + Repository + Network API clients          |
-| OpenAI / Anthropic / Google / Qwen                           |
+| OpenAI / Anthropic / Google / Qwen / Kimi / MiniMax / Groq   |
 +--------------------------------------------------------------+
 | Build Engine Module (build-engine)                           |
 | RESOURCE -> COMPILE -> DEX -> PACKAGE -> SIGN                |
@@ -142,7 +141,7 @@ PackageInstaller guides user to install
 ### Requirements
 
 - Android 10.0 (API 29) or above
-- An AI API Key (Claude / GPT-4o / Qwen — pick one) or a local Ollama service
+- An AI API Key (Claude / GPT-4o / Gemini / Qwen / Kimi / MiniMax — pick one) or a local Ollama service
 
 ### Install
 
@@ -173,21 +172,20 @@ VibeApp/
 |   +-- src/main/kotlin/com/vibe/app/
 |   |   +-- presentation/                # Compose UI, navigation, ViewModel, theme
 |   |   |   +-- common/
-|   |   |   +-- icons/
 |   |   |   +-- theme/
 |   |   |   +-- ui/
 |   |   |       +-- chat/
 |   |   |       +-- home/
 |   |   |       +-- main/
-|   |   |       +-- migrate/
 |   |   |       +-- setting/
 |   |   |       +-- setup/
-|   |   |       +-- startscreen/
+|   |   |       +-- diagnostic/
 |   |   +-- feature/                     # Core business orchestration
 |   |   |   +-- agent/                   # Agent loop, gateway, tool registry
 |   |   |   |   +-- loop/
 |   |   |   |   +-- tool/
 |   |   |   |   +-- service/
+|   |   |   +-- diagnostic/              # Chat diagnostic logger
 |   |   |   +-- project/                 # ProjectManager / Workspace abstraction
 |   |   |   +-- projecticon/             # Launcher icon generation
 |   |   |   +-- projectinit/             # Template project init, build entry
@@ -223,7 +221,6 @@ VibeApp/
 +-- build-tools/                         # Bundled build toolchain dependencies
 |   +-- android-stubs/
 |   +-- common/
-|   +-- eclipse-standalone/
 |   +-- javac/
 |   +-- jaxp/
 |   +-- kotlinc/
