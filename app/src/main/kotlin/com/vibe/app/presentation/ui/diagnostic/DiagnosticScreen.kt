@@ -140,7 +140,7 @@ fun DiagnosticScreen(
                     }
                     item {
                         Text(
-                            text = "Events",
+                            text = stringResource(R.string.diagnostic_events),
                             style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
@@ -424,7 +424,7 @@ private fun formatTimestamp(timestamp: Long): String {
 }
 
 private fun formatNumber(n: Int): String {
-    return if (n >= 1000) "${n / 1000}k" else n.toString()
+    return if (n >= 1000) "${"%.1f".format(n / 1000.0)}k" else n.toString()
 }
 
 private fun formatFileSize(bytes: Long): String = when {

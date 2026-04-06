@@ -816,6 +816,12 @@ class ChatViewModel @Inject constructor(
      * Re-fetch platform configuration from settings and sync the chat's enabled platforms
      * with currently enabled ones. Call this when returning from settings screen.
      */
+    fun refreshDebugMode() {
+        viewModelScope.launch {
+            _isDebugEnabled.value = settingRepository.getDebugMode()
+        }
+    }
+
     fun refreshPlatforms() {
         viewModelScope.launch {
             refreshPlatformsInternal()

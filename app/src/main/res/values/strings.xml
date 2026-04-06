@@ -212,7 +212,7 @@
     <string name="clear_chat_history_message">This will delete all messages in this conversation to reset the context. Generated code files will not be affected.</string>
 
     <!-- Developer Options -->
-    <string name="developer_options">Developer Options</string>
+
     <string name="debug_log">Debug Log</string>
     <string name="debug_log_description">Enable diagnostic log viewer in chat page</string>
 
@@ -224,4 +224,5 @@
     <string name="diagnostic_errors">Errors</string>
     <string name="diagnostic_warnings">Warnings</string>
     <string name="diagnostic_log_size">Log Size</string>
+    <string name="diagnostic_events">Events</string>
 </resources>

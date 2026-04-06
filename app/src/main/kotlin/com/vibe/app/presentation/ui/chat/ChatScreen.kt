@@ -304,6 +304,7 @@ fun ChatScreen(
                 chatViewModel.refreshPlatforms()
                 chatViewModel.refreshMessages()
                 chatViewModel.checkForNewCrashLog()
+                chatViewModel.refreshDebugMode()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
