@@ -195,4 +195,13 @@
     <string name="developer_options">开发者选项</string>
     <string name="debug_log">调试日志</string>
     <string name="debug_log_description">在对话页面启用诊断日志查看器</string>
+
+    <!-- Diagnostic summary card -->
+    <string name="diagnostic_summary">摘要</string>
+    <string name="diagnostic_context_size">上下文大小</string>
+    <string name="diagnostic_compaction">上下文压缩</string>
+    <string name="diagnostic_total_events">总事件数</string>
+    <string name="diagnostic_errors">错误</string>
+    <string name="diagnostic_warnings">警告</string>
+    <string name="diagnostic_log_size">日志大小</string>
 </resources>

@@ -215,4 +215,13 @@
     <string name="developer_options">Developer Options</string>
     <string name="debug_log">Debug Log</string>
     <string name="debug_log_description">Enable diagnostic log viewer in chat page</string>
+
+    <!-- Diagnostic summary card -->
+    <string name="diagnostic_summary">Summary</string>
+    <string name="diagnostic_context_size">Context Size</string>
+    <string name="diagnostic_compaction">Context Compaction</string>
+    <string name="diagnostic_total_events">Total Events</string>
+    <string name="diagnostic_errors">Errors</string>
+    <string name="diagnostic_warnings">Warnings</string>
+    <string name="diagnostic_log_size">Log Size</string>
 </resources>
