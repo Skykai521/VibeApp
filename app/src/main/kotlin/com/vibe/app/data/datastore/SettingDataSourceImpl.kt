@@ -3,6 +3,7 @@ package com.vibe.app.data.datastore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import com.vibe.app.data.model.DynamicTheme
 import com.vibe.app.data.model.ThemeMode
@@ -15,6 +16,7 @@ class SettingDataSourceImpl @Inject constructor(
 ) : SettingDataSource {
     private val dynamicThemeKey = intPreferencesKey("dynamic_mode")
     private val themeModeKey = intPreferencesKey("theme_mode")
+    private val debugModeKey = booleanPreferencesKey("debug_mode")
 
     override suspend fun updateDynamicTheme(theme: DynamicTheme) {
         dataStore.edit { pref ->
@@ -42,5 +44,17 @@ class SettingDataSourceImpl @Inject constructor(
         }.first() ?: return null
 
         return ThemeMode.getByValue(mode)
+    }
+
+    override suspend fun updateDebugMode(enabled: Boolean) {
+        dataStore.edit { pref ->
+            pref[debugModeKey] = enabled
+        }
+    }
+
+    override suspend fun getDebugMode(): Boolean {
+        return dataStore.data.map { pref ->
+            pref[debugModeKey]
+        }.first() ?: false
     }
 }

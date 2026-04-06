@@ -8,4 +8,6 @@ interface SettingDataSource {
     suspend fun updateThemeMode(themeMode: ThemeMode)
     suspend fun getDynamicTheme(): DynamicTheme?
     suspend fun getThemeMode(): ThemeMode?
+    suspend fun updateDebugMode(enabled: Boolean)
+    suspend fun getDebugMode(): Boolean
 }
