@@ -264,7 +264,6 @@ VibeApp/
 - [x] AI multimodal support — image input across Anthropic, OpenAI, and Kimi providers
 - [x] Context compaction — multi-strategy conversation compaction to support longer multi-turn sessions
 - [x] Diagnostic logging — structured event tracking for the agent loop, viewable in-app
-- [ ] XML static preview (instant rendering without compilation)
 
 ### Phase 3 — Quality & Capability
 
