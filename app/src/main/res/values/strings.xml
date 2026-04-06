@@ -141,6 +141,9 @@
     <string name="tool_name_fix_crash_guide">Diagnose crash</string>
     <string name="tool_name_inspect_ui">Inspect UI</string>
     <string name="tool_name_interact_ui">Interact UI</string>
+    <string name="tool_name_create_plan">Create plan</string>
+    <string name="tool_name_update_plan_step">Update plan</string>
+    <string name="plan_header">Plan (%1$d/%2$d completed)</string>
     <string name="crash_detected_title">App Crashed</string>
     <string name="crash_auto_fix">Auto Fix</string>
     <string name="crash_dismiss">Dismiss</string>

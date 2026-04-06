@@ -125,6 +125,9 @@
     <string name="tool_name_update_project_icon">更新图标</string>
     <string name="tool_name_read_runtime_log">读取运行日志</string>
     <string name="tool_name_fix_crash_guide">诊断崩溃</string>
+    <string name="tool_name_create_plan">创建计划</string>
+    <string name="tool_name_update_plan_step">更新计划</string>
+    <string name="plan_header">执行计划 (%1$d/%2$d 完成)</string>
     <string name="crash_detected_title">应用崩溃</string>
     <string name="crash_auto_fix">自动修复</string>
     <string name="crash_dismiss">忽略</string>

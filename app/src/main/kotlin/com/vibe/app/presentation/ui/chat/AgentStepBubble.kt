@@ -42,6 +42,8 @@ private val TOOL_NAME_MAP_KEYS = mapOf(
     "fix_crash_guide" to R.string.tool_name_fix_crash_guide,
     "inspect_ui" to R.string.tool_name_inspect_ui,
     "interact_ui" to R.string.tool_name_interact_ui,
+    "create_plan" to R.string.tool_name_create_plan,
+    "update_plan_step" to R.string.tool_name_update_plan_step,
 )
 
 /**
@@ -58,7 +60,11 @@ fun AgentStepBubble(
         AgentStepType.TOOL_CALL -> ToolCallStep(step = step, modifier = modifier)
         AgentStepType.THINKING -> ThinkingStep(step = step, isLive = isLive, modifier = modifier)
         AgentStepType.OUTPUT -> {} // Output steps are rendered by OpponentChatBubble
-        AgentStepType.PLAN -> {} // Plan steps will be rendered by PlanBubble
+        AgentStepType.PLAN -> {
+            step.plan?.let { plan ->
+                PlanBubble(plan = plan, isLive = isLive, modifier = modifier)
+            }
+        }
     }
 }
 
