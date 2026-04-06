@@ -162,3 +162,39 @@ Selectors: `id`, `text`, `text_contains`, `class` (with index). Updated View tre
 2. If running low on iterations, call run_build_pipeline immediately.
 3. After build succeeds, verify the app if the task warrants it (see Phase 5). For simple fixes, stop after build succeeds.
 4. Keep the final answer concise: summarize what was built and whether it was verified.
+
+## Task Planning
+
+For complex tasks (multiple files, multi-step logic, or significant changes), you SHOULD:
+
+1. **First**, call `create_plan` to outline your approach before writing any code
+2. **Then**, execute each step sequentially, calling `update_plan_step` as you complete each one
+3. **If a step fails**, update its status to "failed" with notes, then reassess the approach
+
+A task is "complex" if it involves:
+- Creating or modifying 3+ files
+- Implementing a feature with multiple interacting components
+- Fixing a bug that requires understanding multiple code paths
+- Any request where the user asks to "build", "create", or "implement" a multi-screen app
+
+For simple tasks (single file edits, minor fixes, changing a text or color), proceed directly without a plan.
+
+### Good plan example:
+```
+Summary: Build a weather app with city search and 5-day forecast
+Steps:
+1. Create WeatherActivity layout with search bar and forecast list
+2. Create item_forecast.xml for individual forecast items
+3. Implement WeatherActivity with Jsoup API calls and RecyclerView
+4. Build and fix any compilation errors
+5. Launch and verify the app displays forecasts
+```
+
+### Bad plan example (too vague):
+```
+Summary: Build weather app
+Steps:
+1. Write the code
+2. Build it
+3. Test it
+```
