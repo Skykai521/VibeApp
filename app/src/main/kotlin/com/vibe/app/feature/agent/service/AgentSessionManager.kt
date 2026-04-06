@@ -8,6 +8,7 @@ import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.agent.AgentLoopCoordinator
+import com.vibe.app.feature.agent.AgentPlan
 import com.vibe.app.feature.agent.AgentLoopEvent
 import com.vibe.app.feature.agent.AgentLoopRequest
 import com.vibe.app.feature.agent.AgentStepItem
@@ -290,6 +291,25 @@ class AgentSessionManager @Inject constructor(
                     }
                 }
             }
+            is AgentLoopEvent.PlanCreated -> {
+                stateFlow.update { state ->
+                    val updated = state.updateLastAssistant { msg ->
+                        msg.copy(thoughts = msg.thoughts + "\n[Plan] Created: ${event.plan.summary}\n")
+                    }
+                    updated.addStep(
+                        AgentStepItem(
+                            type = AgentStepType.PLAN,
+                            content = event.plan.summary,
+                            plan = event.plan,
+                        )
+                    )
+                }
+            }
+            is AgentLoopEvent.PlanUpdated -> {
+                stateFlow.update { state ->
+                    state.updateLastPlanStep(event.plan)
+                }
+            }
             else -> Unit
         }
     }
@@ -333,6 +353,21 @@ class AgentSessionManager @Inject constructor(
         val idx = lastTurnSteps.indexOfLast { it.type == AgentStepType.TOOL_CALL && it.toolName == toolName }
         if (idx >= 0) {
             lastTurnSteps[idx] = lastTurnSteps[idx].copy(toolStatus = status)
+            steps[steps.lastIndex] = lastTurnSteps
+        }
+        return copy(agentSteps = steps)
+    }
+
+    /** Update the last PLAN step with the updated plan state. */
+    private fun SessionMessageState.updateLastPlanStep(
+        plan: AgentPlan,
+    ): SessionMessageState {
+        val steps = agentSteps.toMutableList()
+        if (steps.isEmpty()) return this
+        val lastTurnSteps = steps.last().toMutableList()
+        val idx = lastTurnSteps.indexOfLast { it.type == AgentStepType.PLAN }
+        if (idx >= 0) {
+            lastTurnSteps[idx] = lastTurnSteps[idx].copy(plan = plan)
             steps[steps.lastIndex] = lastTurnSteps
         }
         return copy(agentSteps = steps)
