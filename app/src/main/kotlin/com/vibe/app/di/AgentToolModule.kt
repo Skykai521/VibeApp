@@ -17,6 +17,8 @@ import com.vibe.app.feature.agent.tool.UpdateProjectIconTool
 import com.vibe.app.feature.agent.tool.WriteProjectFileTool
 import com.vibe.app.feature.agent.tool.CreatePlanTool
 import com.vibe.app.feature.agent.tool.UpdatePlanStepTool
+import com.vibe.app.feature.agent.tool.WebSearchTool
+import com.vibe.app.feature.agent.tool.FetchWebPageTool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -43,4 +45,6 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindCloseApp(tool: CloseAppTool): AgentTool
     @Binds @IntoSet abstract fun bindCreatePlan(tool: CreatePlanTool): AgentTool
     @Binds @IntoSet abstract fun bindUpdatePlanStep(tool: UpdatePlanStepTool): AgentTool
+    @Binds @IntoSet abstract fun bindWebSearch(tool: WebSearchTool): AgentTool
+    @Binds @IntoSet abstract fun bindFetchWebPage(tool: FetchWebPageTool): AgentTool
 }
