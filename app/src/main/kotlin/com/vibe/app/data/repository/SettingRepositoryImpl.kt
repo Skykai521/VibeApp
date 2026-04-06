@@ -41,4 +41,10 @@ class SettingRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getPlatformV2ById(id: Int): PlatformV2? = platformV2Dao.getPlatform(id)
+
+    override suspend fun getDebugMode(): Boolean = settingDataSource.getDebugMode()
+
+    override suspend fun updateDebugMode(enabled: Boolean) {
+        settingDataSource.updateDebugMode(enabled)
+    }
 }
