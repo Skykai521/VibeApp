@@ -31,8 +31,8 @@ class WebSearchExecutor @Inject constructor(
                 val results = withTimeout(TIMEOUT_MS) {
                     val url = engine.buildSearchUrl(query)
                     val response = httpClient.get(url) {
-                        header(HttpHeaders.UserAgent, USER_AGENT)
-                        header(HttpHeaders.AcceptLanguage, "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
+                        header(HttpHeaders.UserAgent, WebConstants.USER_AGENT)
+                        header(HttpHeaders.AcceptLanguage, WebConstants.ACCEPT_LANGUAGE)
                     }
                     if (!response.status.isSuccess()) {
                         throw RuntimeException("HTTP ${response.status.value} from ${engine.name}")
@@ -60,7 +60,5 @@ class WebSearchExecutor @Inject constructor(
         private const val TAG = "WebSearchExecutor"
         private const val TIMEOUT_MS = 10_000L
         private const val MAX_RESULTS = 5
-        private const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
     }
 }

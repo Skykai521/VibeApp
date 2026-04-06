@@ -159,7 +159,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     // HTML parsing (web search)
-    implementation("org.jsoup:jsoup:1.18.3")
+    implementation(libs.jsoup)
 
     implementation(project(":build-engine"))
     implementation(project(":shadow-runtime"))
