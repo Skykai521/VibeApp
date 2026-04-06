@@ -24,8 +24,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import com.vibe.app.feature.agent.AgentPlan
+import com.vibe.app.feature.agent.AgentPlanStep
+import com.vibe.app.feature.agent.PlanStepStatus
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 @Singleton
@@ -68,6 +75,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         // fullConversation: the entire accumulated history (used by stateless providers like Anthropic)
         val fullConversation = initialConversation.toMutableList()
         val collectedToolResults = mutableListOf<AgentToolResult>()
+        var currentPlan: AgentPlan? = null
 
         for (iteration in 1..request.policy.maxIterations) {
             emit(AgentLoopEvent.ModelTurnStarted(iteration))
@@ -123,7 +131,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
                     conversation = conversationDelta,
                     fullConversation = compactionResult.items,
-                    instructions = buildInstructions(request),
+                    instructions = buildInstructions(request, currentPlan),
                     tools = request.tools,
                     policy = effectivePolicy,
                     previousResponseId = previousResponseId,
@@ -270,6 +278,23 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     )
                 }
                 emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
+                // Handle plan tool results
+                when (call.name) {
+                    "create_plan" -> {
+                        parsePlanFromToolResult(result, iteration)?.let { plan ->
+                            currentPlan = plan
+                            emit(AgentLoopEvent.PlanCreated(iteration, plan))
+                        }
+                    }
+                    "update_plan_step" -> {
+                        currentPlan?.let { plan ->
+                            updatePlanFromToolResult(plan, result)?.let { updated ->
+                                currentPlan = updated
+                                emit(AgentLoopEvent.PlanUpdated(iteration, updated))
+                            }
+                        }
+                    }
+                }
             }
 
             // Build tool result items and append to full history.
@@ -326,7 +351,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
                 conversation = conversationDelta,
                 fullConversation = windDownCompaction.items,
-                instructions = buildInstructions(request),
+                instructions = buildInstructions(request, currentPlan),
                 tools = emptyList(),
                 policy = request.policy.copy(toolChoiceMode = AgentToolChoiceMode.NONE),
                 previousResponseId = previousResponseId,
@@ -460,6 +485,54 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         return result
     }
 
+    private fun parsePlanFromToolResult(result: AgentToolResult, iteration: Int): AgentPlan? {
+        if (result.isError) return null
+        return try {
+            val json = result.output.jsonObject
+            val summary = json["summary"]?.jsonPrimitive?.content ?: return null
+            val stepsArray = json["steps"]?.jsonArray ?: return null
+            val steps = stepsArray.map { element ->
+                val obj = element.jsonObject
+                AgentPlanStep(
+                    id = obj["id"]?.jsonPrimitive?.int ?: 0,
+                    description = obj["description"]?.jsonPrimitive?.content ?: "",
+                    status = PlanStepStatus.PENDING,
+                )
+            }
+            AgentPlan(summary = summary, steps = steps, createdAtIteration = iteration)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun updatePlanFromToolResult(plan: AgentPlan, result: AgentToolResult): AgentPlan? {
+        if (result.isError) return null
+        return try {
+            val json = result.output.jsonObject
+            val stepId = json["step_id"]?.jsonPrimitive?.int ?: return null
+            val statusStr = json["status"]?.jsonPrimitive?.content ?: return null
+            val notes = json["notes"]?.jsonPrimitive?.content
+            val newStatus = when (statusStr) {
+                "COMPLETED" -> PlanStepStatus.COMPLETED
+                "FAILED" -> PlanStepStatus.FAILED
+                "SKIPPED" -> PlanStepStatus.SKIPPED
+                else -> return null
+            }
+            val updatedSteps = plan.steps.map { step ->
+                if (step.id == stepId) {
+                    step.copy(status = newStatus, notes = notes)
+                } else if (step.id == stepId + 1 && newStatus == PlanStepStatus.COMPLETED) {
+                    step.copy(status = PlanStepStatus.IN_PROGRESS)
+                } else {
+                    step
+                }
+            }
+            plan.copy(steps = updatedSteps)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     companion object {
         /** Most recent assistant message from Room: preserve enough for continuity. */
         private const val MAX_RECENT_ASSISTANT_CHARS = 4000
@@ -488,7 +561,10 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         context.assets.open("agent-system-prompt.md").bufferedReader().use { it.readText() }
     }
 
-    private suspend fun buildInstructions(request: AgentLoopRequest): String {
+    private suspend fun buildInstructions(
+        request: AgentLoopRequest,
+        activePlan: AgentPlan? = null,
+    ): String {
         val packageName = request.projectId
             ?.let { "com.vibe.generated.p$it" }
             ?: "com.vibe.generated.emptyactivity"
@@ -520,6 +596,23 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     append("\n\n[Current Project Files]\n")
                     files.forEach { append("- $it\n") }
                 }
+            }
+            if (activePlan != null) {
+                append("\n\n[Active Plan]\n")
+                append("Goal: ${activePlan.summary}\n")
+                activePlan.steps.forEach { step ->
+                    val icon = when (step.status) {
+                        PlanStepStatus.COMPLETED -> "done"
+                        PlanStepStatus.IN_PROGRESS -> "current"
+                        PlanStepStatus.FAILED -> "failed"
+                        PlanStepStatus.SKIPPED -> "skipped"
+                        PlanStepStatus.PENDING -> "pending"
+                    }
+                    append("  [$icon] ${step.id}. ${step.description}")
+                    step.notes?.let { append(" ($it)") }
+                    append("\n")
+                }
+                append("Continue with the next pending step. Call update_plan_step after completing each step.\n")
             }
         }
     }
