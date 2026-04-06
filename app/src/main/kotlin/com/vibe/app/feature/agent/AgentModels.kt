@@ -81,6 +81,8 @@ data class AgentStepItem(
     val content: String = "",
     val timestamp: Long = System.currentTimeMillis(),
     val plan: AgentPlan? = null,
+    /** Consolidated tool calls for a single TOOL_CALL step per turn. */
+    val toolCalls: List<ToolCallInfo> = emptyList(),
 )
 
 enum class AgentStepType {
@@ -95,6 +97,11 @@ enum class AgentToolStatus {
     OK,
     ERROR,
 }
+
+data class ToolCallInfo(
+    val toolName: String,
+    val toolStatus: AgentToolStatus,
+)
 
 enum class PlanStepStatus {
     PENDING,

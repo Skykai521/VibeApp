@@ -28,6 +28,7 @@ import com.vibe.app.R
 import com.vibe.app.feature.agent.AgentStepItem
 import com.vibe.app.feature.agent.AgentStepType
 import com.vibe.app.feature.agent.AgentToolStatus
+import com.vibe.app.feature.agent.ToolCallInfo
 
 private val TOOL_NAME_MAP_KEYS = mapOf(
     "read_project_file" to R.string.tool_name_read_project_file,
@@ -73,46 +74,102 @@ private fun ToolCallStep(
     step: AgentStepItem,
     modifier: Modifier = Modifier,
 ) {
-    val toolNameResId = TOOL_NAME_MAP_KEYS[step.toolName]
-    val displayName = if (toolNameResId != null) stringResource(toolNameResId) else step.toolName ?: "Tool"
+    if (step.toolCalls.isEmpty()) return
 
-    val (icon, label) = when (step.toolStatus) {
-        AgentToolStatus.CALLING -> "\uD83D\uDD27" to stringResource(R.string.tool_calling, displayName)
-        AgentToolStatus.OK -> "\u2705" to stringResource(R.string.tool_result_ok, displayName)
-        AgentToolStatus.ERROR -> "\u274C" to stringResource(R.string.tool_result_error, displayName)
-        null -> "\uD83D\uDD27" to displayName
-    }
+    var isExpanded by remember { mutableStateOf(false) }
 
-    Row(
+    val isAnyCalling = step.toolStatus == AgentToolStatus.CALLING
+    val latestCall = step.toolCalls.last()
+    val latestLabel = formatToolCallLabel(latestCall)
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable { isExpanded = !isExpanded }
+            .padding(12.dp),
     ) {
-        Text(
-            text = icon,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (step.toolStatus == AgentToolStatus.CALLING) {
-            Spacer(modifier = Modifier.width(8.dp))
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+        // Header row: icon + latest tool status + expand hint / spinner
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "\uD83D\uDD27",
+                style = MaterialTheme.typography.bodyMedium,
             )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = latestLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (isAnyCalling) {
+                Spacer(modifier = Modifier.width(8.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+            }
+            if (step.toolCalls.size > 1 && !isExpanded) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.expand),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                )
+            }
         }
+
+        // Expanded: show all tool calls
+        if (isExpanded && step.toolCalls.size > 1) {
+            Column(modifier = Modifier.padding(top = 6.dp)) {
+                step.toolCalls.forEach { call ->
+                    val callIcon = when (call.toolStatus) {
+                        AgentToolStatus.CALLING -> "\uD83D\uDD27"
+                        AgentToolStatus.OK -> "\u2705"
+                        AgentToolStatus.ERROR -> "\u274C"
+                    }
+                    val callLabel = formatToolCallLabel(call)
+                    Row(
+                        modifier = Modifier.padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = callIcon,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = callLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun resolveToolDisplayName(toolName: String): String {
+    val resId = TOOL_NAME_MAP_KEYS[toolName]
+    return if (resId != null) stringResource(resId) else toolName
+}
+
+@Composable
+private fun formatToolCallLabel(call: ToolCallInfo): String {
+    val displayName = resolveToolDisplayName(call.toolName)
+    return when (call.toolStatus) {
+        AgentToolStatus.CALLING -> stringResource(R.string.tool_calling, displayName)
+        AgentToolStatus.OK -> stringResource(R.string.tool_result_ok, displayName)
+        AgentToolStatus.ERROR -> stringResource(R.string.tool_result_error, displayName)
     }
 }
 
@@ -124,9 +181,11 @@ private fun ThinkingStep(
 ) {
     if (step.content.isBlank()) return
 
-    // Collapsed by default to prevent layout jumps during streaming.
-    // Users can tap to expand and see the full thinking content.
     var isExpanded by remember { mutableStateOf(false) }
+
+    val latestLine = remember(step.content) {
+        step.content.lines().lastOrNull { it.isNotBlank() }?.trim().orEmpty()
+    }
 
     Column(
         modifier = modifier
@@ -137,19 +196,39 @@ private fun ThinkingStep(
             .clickable { isExpanded = !isExpanded }
             .padding(12.dp),
     ) {
+        // Header row
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "\uD83D\uDCAD",
                 style = MaterialTheme.typography.bodySmall,
             )
             Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = stringResource(R.string.thinking_in_progress),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.weight(1f),
-            )
-            if (!isExpanded) {
+            if (isExpanded) {
+                Text(
+                    text = stringResource(R.string.thinking_in_progress),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                // Show latest thinking line when collapsed
+                Text(
+                    text = latestLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (isLive) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "\u25CF",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.expand),
                     style = MaterialTheme.typography.labelSmall,
@@ -157,9 +236,10 @@ private fun ThinkingStep(
                 )
             }
         }
+        // Expanded: show all thinking content
         if (isExpanded) {
             Text(
-                text = if (isLive) step.content + "\u25CF" else step.content,
+                text = if (isLive) step.content + " \u25CF" else step.content,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 modifier = Modifier.padding(top = 4.dp),
