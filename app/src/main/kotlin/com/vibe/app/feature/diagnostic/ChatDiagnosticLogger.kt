@@ -108,6 +108,8 @@ interface ChatDiagnosticLogger {
     suspend fun readChatLog(chatId: Int): DiagnosticLogSnapshot?
 
     suspend fun migrateChatLogs(fromChatId: Int, toChatId: Int)
+
+    suspend fun deleteChatLog(chatId: Int)
 }
 
 @Singleton
@@ -545,6 +547,19 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                 }
             }.onFailure {
                 Log.w(TAG, "Failed to migrate chat diagnostics $fromChatId -> $toChatId", it)
+            }
+        }
+    }
+
+    override suspend fun deleteChatLog(chatId: Int) {
+        if (chatId <= 0) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                mutex.withLock {
+                    deleteChatDirectory(chatId)
+                }
+            }.onFailure {
+                Log.w(TAG, "Failed to delete diagnostic log for chatId=$chatId", it)
             }
         }
     }
