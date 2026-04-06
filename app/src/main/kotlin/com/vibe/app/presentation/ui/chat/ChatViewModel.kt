@@ -75,7 +75,8 @@ class ChatViewModel @Inject constructor(
 
     data class GroupedMessages(
         val userMessages: List<MessageV2> = listOf(),
-        val assistantMessages: List<List<MessageV2>> = listOf()
+        val assistantMessages: List<List<MessageV2>> = listOf(),
+        val agentSteps: List<List<com.vibe.app.feature.agent.AgentStepItem>> = listOf(),
     )
 
     data class BuildProgressUiState(
@@ -104,6 +105,9 @@ class ChatViewModel @Inject constructor(
     private val enabledPlatformString: String = checkNotNull(savedStateHandle["enabledPlatforms"])
     private val _enabledPlatformsInChat = MutableStateFlow(enabledPlatformString.split(',').filter { it.isNotBlank() })
     val enabledPlatformsInChat: StateFlow<List<String>> = _enabledPlatformsInChat.asStateFlow()
+
+    /** Set to true after AgentSessionManager.saveToRoom() completes, so observeStateChanges() skips the redundant save. */
+    private var agentSessionSavedToRoom = false
 
     private val _currentProjectId = MutableStateFlow<String?>(null)
     val currentProjectId: StateFlow<String?> = _currentProjectId.asStateFlow()
@@ -171,6 +175,9 @@ class ChatViewModel @Inject constructor(
     private val responseJobs = mutableListOf<Job>()
     private var activeTurnState: ActiveTurnState? = null
     private var pendingUnsavedDiagnosticChatId: Int? = null
+    private val _isDebugEnabled = MutableStateFlow(false)
+    val isDebugEnabled = _isDebugEnabled.asStateFlow()
+
     private val json = Json { explicitNulls = false; encodeDefaults = false }
 
     // Used for passing user question to Edit User Message Dialog
@@ -193,12 +200,19 @@ class ChatViewModel @Inject constructor(
     init {
         Log.d("ViewModel", "$chatRoomId")
         Log.d("ViewModel", "${_enabledPlatformsInChat.value}")
+        viewModelScope.launch {
+            _isDebugEnabled.value = settingRepository.getDebugMode()
+        }
         fetchChatRoom()
         viewModelScope.launch {
             refreshPlatformsInternal()
             fetchMessages()
             // Reconnect to an existing agent session if one is running for this chat
             reconnectToExistingSession()
+            // Signal that all messages (DB + session cache) are ready for display.
+            // Must be AFTER reconnect so the scroll-to-bottom LaunchedEffect targets
+            // the final item count, not an intermediate state.
+            _isLoaded.update { true }
         }
         observeStateChanges()
         viewModelScope.launch {
@@ -245,6 +259,27 @@ class ChatViewModel @Inject constructor(
     }
 
     fun closeProjectNameDialog() = _isProjectNameDialogOpen.update { false }
+
+    fun clearChatHistory() {
+        val chatId = _chatRoom.value.id
+        viewModelScope.launch {
+            // Delete only messages, keep the chat room and project intact
+            if (chatId > 0) {
+                withContext(Dispatchers.IO) {
+                    chatRepository.deleteMessagesByChatId(chatId)
+                }
+                // Clear cached session state so reconnectToExistingSession() won't
+                // restore stale messages when the user re-enters this chat.
+                sessionManager.clearMessageState(chatId)
+                // Clear diagnostic logs for this chat
+                diagnosticLogger.deleteChatLog(chatId)
+            }
+            // Reset in-memory state
+            _groupedMessages.update { GroupedMessages() }
+            _indexStates.update { emptyList() }
+            _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
+        }
+    }
 
     fun closeEditQuestionDialog() {
         _editedQuestion.update { MessageV2(chatId = chatRoomId, content = "", platformType = null) }
@@ -715,7 +750,6 @@ class ChatViewModel @Inject constructor(
                 _indexStates.update { List(_groupedMessages.value.assistantMessages.size) { 0 } }
             }
             _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
-            _isLoaded.update { true } // Finish fetching
             return
         }
 
@@ -727,7 +761,9 @@ class ChatViewModel @Inject constructor(
     }
 
     private suspend fun fetchGroupedMessages(chatId: Int): GroupedMessages {
-        val messages = chatRepository.fetchMessagesV2(chatId).sortedBy { it.createdAt }
+        val messages = chatRepository.fetchMessagesV2(chatId)
+            .sortedBy { it.createdAt }
+            .distinctBy { it.id }
         val platformOrderMap = _enabledPlatformsInChat.value.withIndex().associate { (idx, uuid) -> uuid to idx }
 
         val userMessages = mutableListOf<MessageV2>()
@@ -738,6 +774,7 @@ class ChatViewModel @Inject constructor(
                 userMessages.add(message)
                 assistantMessages.add(mutableListOf())
             } else {
+                if (assistantMessages.isEmpty()) return@forEach
                 assistantMessages.last().add(message)
             }
         }
@@ -751,7 +788,17 @@ class ChatViewModel @Inject constructor(
             )
         }
 
-        return GroupedMessages(userMessages, sortedAssistantMessages)
+        // Parse steps from saved thoughts for display
+        val parsedSteps = sortedAssistantMessages.map { turn ->
+            val msg = turn.firstOrNull()
+            if (msg != null && msg.thoughts.isNotBlank()) {
+                com.vibe.app.feature.agent.service.AgentSessionManager.parseThoughtsToSteps(msg.thoughts)
+            } else {
+                emptyList()
+            }
+        }
+
+        return GroupedMessages(userMessages, sortedAssistantMessages, parsedSteps)
     }
 
     private fun fetchChatRoom() {
@@ -771,9 +818,26 @@ class ChatViewModel @Inject constructor(
      * Re-fetch platform configuration from settings and sync the chat's enabled platforms
      * with currently enabled ones. Call this when returning from settings screen.
      */
+    fun refreshDebugMode() {
+        viewModelScope.launch {
+            _isDebugEnabled.value = settingRepository.getDebugMode()
+        }
+    }
+
     fun refreshPlatforms() {
         viewModelScope.launch {
             refreshPlatformsInternal()
+        }
+    }
+
+    fun refreshMessages() {
+        // Skip if an agent session is running — its StateFlow is the source of truth.
+        // Calling fetchMessages() during streaming would overwrite live state with stale
+        // DB data and reset loadingStates to Idle, killing the streaming observation.
+        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
+        if (sessionManager.getMessageState(effectiveChatId) != null) return
+        viewModelScope.launch {
+            fetchMessages()
         }
     }
 
@@ -823,6 +887,15 @@ class ChatViewModel @Inject constructor(
                     (_groupedMessages.value.userMessages.size == _groupedMessages.value.assistantMessages.size)
                 ) {
                     Log.d("ChatViewModel", "GroupMessage: ${_groupedMessages.value}")
+
+                    if (agentSessionSavedToRoom) {
+                        // Agent session already persisted to Room — skip redundant save,
+                        // just sync message IDs from the database.
+                        agentSessionSavedToRoom = false
+                        fetchMessages()
+                        finalizeActiveTurnIfNeeded()
+                        return@collect
+                    }
 
                     // Save the chat & chat room
                     val previousChatId = _chatRoom.value.id
@@ -879,26 +952,38 @@ class ChatViewModel @Inject constructor(
      */
     private suspend fun observeAgentSessionState(sessionChatId: Int) {
         val stateFlow = sessionManager.getMessageState(sessionChatId) ?: return
+        var sessionFinished = false
 
         // Also watch session status to detect completion
         val statusJob = viewModelScope.launch {
             sessionManager.getSessionStatus(sessionChatId)?.collect { status ->
                 if (status != AgentSessionStatus.RUNNING) {
-                    // Session finished — set loading to idle so observeStateChanges() can trigger save
+                    // Pick up the DB-assigned chat room ID from the session manager's save
+                    // so observeStateChanges() does an UPDATE instead of a duplicate INSERT.
+                    sessionManager.getSavedChatRoom(sessionChatId)?.let { savedRoom ->
+                        _chatRoom.update { savedRoom }
+                        // Agent session already persisted — skip the redundant save in observeStateChanges()
+                        agentSessionSavedToRoom = true
+                    }
+                    // Session finished — set loading to idle so observeStateChanges() can trigger sync
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
                     // Refresh project name in case the agent called rename_project
                     _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+                    sessionFinished = true
                 }
             }
         }
 
         try {
             stateFlow.collect { sessionState ->
+                // Stop mirroring after session finishes to prevent overwriting DB-synced data
+                if (sessionFinished) return@collect
                 // Mirror the session's message state into the ViewModel's UI state
                 _groupedMessages.update {
                     GroupedMessages(
                         userMessages = sessionState.userMessages,
                         assistantMessages = sessionState.assistantMessages,
+                        agentSteps = sessionState.agentSteps,
                     )
                 }
                 // Keep indexStates in sync
@@ -934,10 +1019,10 @@ class ChatViewModel @Inject constructor(
                 GroupedMessages(
                     userMessages = currentState.userMessages,
                     assistantMessages = currentState.assistantMessages,
+                    agentSteps = currentState.agentSteps,
                 )
             }
             _indexStates.update { List(currentState.userMessages.size) { 0 } }
-            _isLoaded.update { true }
         }
 
         if (hasActiveSession) {

@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.PathParser
 import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
@@ -209,6 +210,55 @@ object ProjectIconRenderer {
         val strokeWidth: Float,
         val strokeLineCap: String,
         val strokeLineJoin: String,
+    )
+
+    /**
+     * Render PNG launcher icons at all standard densities from the vector drawables.
+     * Generates both regular and round icons in mipmap-{density} directories.
+     *
+     * This ensures launchers that don't properly resolve adaptive icons from
+     * mipmap-anydpi-v26 still get correctly sized PNG fallbacks.
+     */
+    /**
+     * Blocking version — callers are responsible for dispatching to a background thread.
+     * All existing callers run inside withContext(Dispatchers.IO).
+     */
+    fun renderPngIcons(workspacePath: String) {
+        val backgroundFile = File(workspacePath, ICON_BACKGROUND_PATH)
+        val foregroundFile = File(workspacePath, ICON_FOREGROUND_PATH)
+        if (!backgroundFile.exists() && !foregroundFile.exists()) return
+
+        DENSITY_ICON_SIZES.forEach { (density, sizePx) ->
+            val mipmapDir = File(workspacePath, "src/main/res/mipmap-$density")
+            mipmapDir.mkdirs()
+
+            val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            renderVectorXml(canvas, backgroundFile, sizePx)
+            renderVectorXml(canvas, foregroundFile, sizePx)
+
+            writePng(bitmap, File(mipmapDir, "ic_launcher.png"))
+            writePng(bitmap, File(mipmapDir, "ic_launcher_round.png"))
+            bitmap.recycle()
+        }
+    }
+
+    private fun writePng(bitmap: Bitmap, file: File) {
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+    }
+
+    /**
+     * Standard Android launcher icon sizes per density bucket.
+     * Launcher icons use 48dp base → mdpi=48px, hdpi=72px, etc.
+     */
+    private val DENSITY_ICON_SIZES = mapOf(
+        "mdpi" to 48,
+        "hdpi" to 72,
+        "xhdpi" to 96,
+        "xxhdpi" to 144,
+        "xxxhdpi" to 192,
     )
 
     private const val TAG = "ProjectIconRenderer"

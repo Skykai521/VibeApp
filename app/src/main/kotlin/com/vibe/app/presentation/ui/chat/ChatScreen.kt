@@ -1,13 +1,16 @@
 package com.vibe.app.presentation.ui.chat
 
+import android.Manifest
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -41,13 +44,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.material.icons.outlined.Android
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -56,24 +68,31 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -99,6 +118,7 @@ import com.vibe.app.util.FileUtils
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -109,6 +129,7 @@ import kotlinx.coroutines.withContext
 fun ChatScreen(
     chatViewModel: ChatViewModel = hiltViewModel(),
     onNavigateToAddPlatform: () -> Unit,
+    onNavigateToDiagnostic: () -> Unit,
     onBackAction: () -> Unit
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
@@ -150,6 +171,7 @@ fun ChatScreen(
     val isImageInputEnabled = chatPlatforms.isNotEmpty() &&
         chatPlatforms.size == enabledPlatformsInChat.size &&
         chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
+    val isDebugEnabled by chatViewModel.isDebugEnabled.collectAsStateWithLifecycle()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -162,33 +184,81 @@ fun ChatScreen(
         stringResource(R.string.add_api_key_to_start_chatting)
     }
     val showPlatformSetupPrompt = !hasConfiguredPlatforms && groupedMessages.userMessages.isEmpty()
+    var isClearChatDialogOpen by remember { mutableStateOf(false) }
+    var showNotificationRationale by remember { mutableStateOf(false) }
+
+    // Notification permission request (Android 13+)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* granted or denied — agent session proceeds regardless */ }
+
+    // Check and request notification permission before first agent session
+    fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                showNotificationRationale = true
+            }
+        }
+    }
 
     val scope = rememberCoroutineScope()
-    val platformSetupPromptCount = if (showPlatformSetupPrompt) 1 else 0
-    // +1 for the bottom spacer item appended to LazyColumn, +1 if crash prompt visible
-    val crashPromptCount = if (crashPrompt != null) 1 else 0
-    val bottomSpacerIndex = groupedMessages.userMessages.size * 2 + crashPromptCount + platformSetupPromptCount
 
-    LaunchedEffect(isIdle) {
-        listState.scrollToItem(bottomSpacerIndex)
+    // Reliable last-item index derived from the actual LazyColumn layout
+    val lastItemIndex by remember {
+        derivedStateOf { (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0) }
     }
 
+    // Whether the user is currently near the bottom of the list (within 3 items)
+    val isNearBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisible != null && lastVisible.index >= layoutInfo.totalItemsCount - 3
+        }
+    }
+
+    // Show scroll-to-bottom button only when scrolled far enough from bottom (>= 5 items away)
+    val showScrollToBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+            lastVisible != null && lastVisible.index < layoutInfo.totalItemsCount - 5
+        }
+    }
+
+    // Scroll to bottom when messages are first loaded from database.
     LaunchedEffect(isLoaded) {
-        listState.scrollToItem(bottomSpacerIndex)
+        if (isLoaded) {
+            snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it > 1 }
+            delay(80)
+            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+        }
     }
 
-    // Auto-scroll when a new conversation round starts (new user message added)
+    // Auto-scroll when a new user message is sent (not on initial load).
+    // Uses a remembered baseline to distinguish DB-loaded messages from new ones.
     val messageCount = groupedMessages.userMessages.size
+    var loadedMessageCount by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(isLoaded) {
+        if (isLoaded) {
+            loadedMessageCount = messageCount
+        }
+    }
     LaunchedEffect(messageCount) {
-        if (messageCount > 0) {
-            listState.animateScrollToItem(bottomSpacerIndex)
+        if (loadedMessageCount >= 0 && messageCount > loadedMessageCount) {
+            loadedMessageCount = messageCount
+            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
         }
     }
 
     // Auto-scroll when crash prompt appears
     LaunchedEffect(crashPrompt) {
         if (crashPrompt != null) {
-            listState.animateScrollToItem(bottomSpacerIndex)
+            listState.animateScrollToItem(lastItemIndex)
         }
     }
 
@@ -197,7 +267,29 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.scrollToItem(bottomSpacerIndex)
+            listState.scrollToItem(lastItemIndex)
+        }
+    }
+
+    // Single streaming scroll handler: keep view anchored to bottom while AI is generating.
+    // Monitors layout changes (item count, content height) so both new items and growing
+    // text within existing items trigger a scroll.
+    LaunchedEffect(isIdle) {
+        if (isIdle) return@LaunchedEffect
+        snapshotFlow {
+            val info = listState.layoutInfo
+            // Reading totalItemsCount + last visible item's bottom edge covers both
+            // "new item added" and "existing item grew taller" scenarios.
+            val lastVisibleBottom = info.visibleItemsInfo.lastOrNull()?.let { it.offset + it.size } ?: 0
+            Triple(info.totalItemsCount, lastVisibleBottom, info.viewportEndOffset)
+        }.collect { (totalItems, _, _) ->
+            if (totalItems <= 0) return@collect
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return@collect
+            // Only auto-scroll when the user hasn't scrolled far up (within 3 items of bottom)
+            if (lastVisible.index >= info.totalItemsCount - 3) {
+                listState.scrollToItem(totalItems - 1)
+            }
         }
     }
 
@@ -211,13 +303,15 @@ fun ChatScreen(
         }
     }
 
-    // Re-sync platforms and check for new crash logs when returning from plugin/settings
+    // Re-sync platforms, messages, and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 chatViewModel.refreshPlatforms()
+                chatViewModel.refreshMessages()
                 chatViewModel.checkForNewCrashLog()
+                chatViewModel.refreshDebugMode()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -238,6 +332,7 @@ fun ChatScreen(
                 runButtonEnabled,
                 isMoreOptionsEnabled = isIdle,
                 isProjectMenuEnabled,
+                isDebugEnabled = isDebugEnabled,
                 buildProgress = buildProgress.progress,
                 isBuildProgressVisible = buildProgress.isVisible,
                 onBackAction,
@@ -263,7 +358,9 @@ fun ChatScreen(
                             Toast.makeText(context, "No built APK found. Please run a build first.", Toast.LENGTH_SHORT).show()
                         }
                     }
-                }
+                },
+                onClearChatHistoryClick = { isClearChatDialogOpen = true },
+                onDiagnosticClick = onNavigateToDiagnostic,
             )
         }
     ) { innerPadding ->
@@ -279,25 +376,43 @@ fun ChatScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
+                // Structural state derived from groupedMessages — only changes when the
+                // *number* of items changes (new message / new agent step), NOT on every
+                // streaming token.  This prevents the LazyColumn DSL from re-executing on
+                // every token update, which was causing visual duplicates during scroll.
+                val messageCount by remember {
+                    derivedStateOf { groupedMessages.userMessages.size }
+                }
+                // Per-turn list of step indices that should be shown (non-OUTPUT steps).
+                val stepIndicesPerTurn by remember {
+                    derivedStateOf {
+                        groupedMessages.agentSteps.map { steps ->
+                            steps.indices.filter { idx ->
+                                steps[idx].type != com.vibe.app.feature.agent.AgentStepType.OUTPUT
+                            }
+                        }
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState
                 ) {
-                    Log.d("ChatScreen", "GroupMessage: $groupedMessages")
                     if (showPlatformSetupPrompt) {
-                        item {
+                        item(key = "platform_setup_prompt") {
                             MissingPlatformPromptCard(
                                 onAddApiKeyClick = onNavigateToAddPlatform,
                             )
                         }
                     }
-                    groupedMessages.userMessages.forEachIndexed { i, message ->
-                        // i: index of nth message
-                        val platformIndexState = indexStates.getOrElse(i) { 0 }
-                        val assistantMessages = groupedMessages.assistantMessages.getOrNull(i) ?: emptyList()
-                        val assistantContent = assistantMessages.getOrNull(platformIndexState)?.content ?: ""
-                        val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
-                        item {
+                    // Iterate using structural count — DSL only re-executes when
+                    // messageCount or stepIndicesPerTurn changes.
+                    (0 until messageCount).forEach { i ->
+
+                        item(key = "user_$i") {
+                            // Content reads inside item lambda — only this item recomposes
+                            // when content changes, without rebuilding the full item list.
+                            val message = groupedMessages.userMessages.getOrNull(i) ?: return@item
                             var isDropDownMenuExpanded by remember { mutableStateOf(false) }
                             Column(
                                 modifier = Modifier
@@ -322,44 +437,83 @@ fun ChatScreen(
                                 }
                             }
                         }
-                        item {
-                            val assistantThoughts = assistantMessages.getOrNull(platformIndexState)?.thoughts ?: ""
+
+                        // Platform header
+                        item(key = "platform_$i") {
+                            val platformIndexState = indexStates.getOrElse(i) { 0 }
+                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 6.dp)
+                                    .padding(top = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                VibeAppIcon(if (isLastTurn) !isIdle else false)
+                                run {
+                                    val assistantMsg = groupedMessages.assistantMessages.getOrNull(i)
+                                        ?.getOrNull(platformIndexState)
+                                    val platformName = assistantMsg?.platformType
+                                        ?.let { uid ->
+                                            allPlatforms.find { it.uid == uid }?.name
+                                                ?: appEnabledPlatforms.find { it.uid == uid }?.name
+                                                ?: chatPlatforms.find { it.uid == uid }?.name
+                                        }
+                                        ?: chatPlatforms.getOrNull(platformIndexState)?.name
+                                        ?: stringResource(R.string.unknown)
+                                    Text(
+                                        text = platformName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(start = 12.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Agent step items (thinking, tool calls)
+                        val turnStepIndices = stepIndicesPerTurn.getOrElse(i) { emptyList() }
+                        turnStepIndices.forEach { stepIdx ->
+                            item(key = "step_${i}_${stepIdx}") {
+                                val step = groupedMessages.agentSteps.getOrNull(i)
+                                    ?.getOrNull(stepIdx) ?: return@item
+                                val platformIndexState = indexStates.getOrElse(i) { 0 }
+                                val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                                val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                                val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+                                val allSteps = groupedMessages.agentSteps.getOrNull(i)
+                                val isLiveStep = isTurnLoading && stepIdx == (allSteps?.lastIndex ?: -1)
+                                AgentStepBubble(
+                                    step = step,
+                                    isLive = isLiveStep,
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                )
+                            }
+                        }
+
+                        // Final output bubble (the assistant's text response)
+                        item(key = "assistant_$i") {
+                            val platformIndexState = indexStates.getOrElse(i) { 0 }
+                            val assistantContent = groupedMessages.assistantMessages.getOrNull(i)
+                                ?.getOrNull(platformIndexState)?.content ?: ""
+                            val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                            val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 12.dp)
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    GPTMobileIcon(if (i == groupedMessages.assistantMessages.size - 1) !isIdle else false)
-                                    run {
-                                        val assistantMsg = assistantMessages.getOrNull(platformIndexState)
-                                        val platformName = assistantMsg?.platformType
-                                            ?.let { uid -> allPlatforms.find { it.uid == uid }?.name }
-                                            ?: stringResource(R.string.unknown)
-                                        Text(
-                                            text = platformName,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(start = 12.dp)
-                                        )
-                                    }
-                                }
                                 OpponentChatBubble(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 4.dp)
                                         .widthIn(max = maximumOpponentChatBubbleWidth),
-                                    canRetry = canUseChat && i == groupedMessages.assistantMessages.size - 1 && !isCurrentPlatformLoading,
-                                    isLoading = if (i == groupedMessages.assistantMessages.size - 1) isCurrentPlatformLoading else false,
+                                    canRetry = canUseChat && isLastTurn && !isTurnLoading,
+                                    isLoading = isTurnLoading,
                                     text = assistantContent,
-                                    thoughts = assistantThoughts,
                                     onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
                                     onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
                                     onRetryClick = { chatViewModel.retryChat(platformIndexState) }
@@ -369,7 +523,7 @@ fun ChatScreen(
                     }
                     // Crash auto-fix prompt (shown when plugin crash is detected)
                     if (crashPrompt != null) {
-                        item {
+                        item(key = "crash_prompt") {
                             CrashAutoFixCard(
                                 crashSummary = crashPrompt!!.crashSummary,
                                 onAutoFix = { chatViewModel.autoFixCrash() },
@@ -378,12 +532,12 @@ fun ChatScreen(
                         }
                     }
                     // Bottom spacer so scrolling to this item reveals the full last message
-                    item {
+                    item(key = "bottom_spacer") {
                         Spacer(modifier = Modifier.height(1.dp))
                     }
                 }
 
-                if (listState.canScrollForward) {
+                if (showScrollToBottom) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -392,7 +546,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(bottomSpacerIndex)
+                                listState.animateScrollToItem(lastItemIndex)
                             }
                         }
                     }
@@ -419,9 +573,54 @@ fun ChatScreen(
                 },
                 onStopClick = { chatViewModel.stopResponding() }
             ) {
+                ensureNotificationPermission()
                 chatViewModel.askQuestion()
                 focusManager.clearFocus()
             }
+        }
+
+        if (isClearChatDialogOpen) {
+            AlertDialog(
+                onDismissRequest = { isClearChatDialogOpen = false },
+                title = { Text(stringResource(R.string.clear_chat_history_title)) },
+                text = { Text(stringResource(R.string.clear_chat_history_message)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        chatViewModel.clearChatHistory()
+                        isClearChatDialogOpen = false
+                    }) {
+                        Text(stringResource(R.string.confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { isClearChatDialogOpen = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            )
+        }
+
+        if (showNotificationRationale) {
+            AlertDialog(
+                onDismissRequest = { showNotificationRationale = false },
+                title = { Text(stringResource(R.string.notification_permission_title)) },
+                text = { Text(stringResource(R.string.notification_permission_rationale)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showNotificationRationale = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }) {
+                        Text(stringResource(R.string.notification_permission_grant))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNotificationRationale = false }) {
+                        Text(stringResource(R.string.notification_permission_skip))
+                    }
+                }
+            )
         }
 
         if (isProjectNameDialogOpen) {
@@ -535,6 +734,7 @@ private fun ChatTopBar(
     isRunEnabled: Boolean,
     isMoreOptionsEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
+    isDebugEnabled: Boolean,
     buildProgress: Float,
     isBuildProgressVisible: Boolean,
     onBackAction: () -> Unit,
@@ -544,7 +744,9 @@ private fun ChatTopBar(
     onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
-    onExportApkItemClick: () -> Unit
+    onExportApkItemClick: () -> Unit,
+    onClearChatHistoryClick: () -> Unit,
+    onDiagnosticClick: () -> Unit,
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
@@ -579,6 +781,7 @@ private fun ChatTopBar(
                     isDropdownMenuExpanded = isDropDownMenuExpanded,
                     isChatMenuEnabled = isChatMenuEnabled,
                     isProjectMenuEnabled = isProjectMenuEnabled,
+                    isDebugEnabled = isDebugEnabled,
                     onDismissRequest = { isDropDownMenuExpanded = false },
                     onUpdateProjectNameClick = {
                         onUpdateProjectNameClick.invoke()
@@ -596,7 +799,14 @@ private fun ChatTopBar(
                     onExportApkItemClick = {
                         onExportApkItemClick()
                         isDropDownMenuExpanded = false
-                    }
+                    },
+                    onClearChatHistoryClick = {
+                        onClearChatHistoryClick()
+                        isDropDownMenuExpanded = false
+                    },
+                    onDiagnosticClick = {
+                        onDiagnosticClick()
+                    },
                 )
             },
             scrollBehavior = scrollBehavior
@@ -619,46 +829,107 @@ fun ChatDropdownMenu(
     isDropdownMenuExpanded: Boolean,
     isChatMenuEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
+    isDebugEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onUpdateProjectNameClick: () -> Unit,
     onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
-    onExportApkItemClick: () -> Unit
+    onExportApkItemClick: () -> Unit,
+    onClearChatHistoryClick: () -> Unit,
+    onDiagnosticClick: () -> Unit,
 ) {
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
         expanded = isDropdownMenuExpanded,
-        onDismissRequest = onDismissRequest
+        onDismissRequest = onDismissRequest,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 8.dp,
     ) {
+        // -- Project --
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.update_project_name)) },
-            onClick = onUpdateProjectNameClick
+            onClick = onUpdateProjectNameClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null)
+            },
         )
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.install_apk)) },
-            onClick = onInstallApkClick
+            onClick = onInstallApkClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.InstallMobile, contentDescription = null)
+            },
         )
+
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+
+        // -- Export --
         DropdownMenuItem(
             enabled = isChatMenuEnabled,
             text = { Text(text = stringResource(R.string.export_chat)) },
             onClick = {
                 onExportChatItemClick()
                 onDismissRequest()
-            }
+            },
+            leadingIcon = {
+                Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = null)
+            },
         )
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.export_source_code)) },
-            onClick = onExportSourceCodeItemClick
+            onClick = onExportSourceCodeItemClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.Code, contentDescription = null)
+            },
         )
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
             text = { Text(text = stringResource(R.string.export_apk)) },
-            onClick = onExportApkItemClick
+            onClick = onExportApkItemClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.Android, contentDescription = null)
+            },
         )
+
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+
+        // -- Chat management --
+        DropdownMenuItem(
+            enabled = isChatMenuEnabled,
+            text = {
+                Text(
+                    text = stringResource(R.string.clear_chat_history),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            },
+            onClick = onClearChatHistoryClick,
+            leadingIcon = {
+                Icon(
+                    Icons.Outlined.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+        )
+
+        // -- Debug (conditional) --
+        if (isDebugEnabled) {
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.debug_log)) },
+                onClick = {
+                    onDiagnosticClick()
+                    onDismissRequest()
+                },
+                leadingIcon = {
+                    Icon(Icons.Outlined.BugReport, contentDescription = null)
+                },
+            )
+        }
     }
 }
 
@@ -894,7 +1165,9 @@ fun ChatInputBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(color = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         if (selectedFiles.isNotEmpty()) {
             FileThumbnailRow(
@@ -913,15 +1186,14 @@ fun ChatInputBox(
             decorationBox = { innerTextField ->
                 Row(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
                         .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                        .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(size = 12.dp))
-                        .padding(all = 8.dp),
+                        .height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         enabled = chatEnabled,
+                        modifier = Modifier.size(44.dp),
                         onClick = {
                             if (imageInputEnabled) {
                                 filePickerLauncher.launch("image/*")
@@ -932,14 +1204,15 @@ fun ChatInputBox(
                     ) {
                         Icon(
                             imageVector = ImageVector.vectorResource(R.drawable.ic_add_file),
-                            contentDescription = stringResource(R.string.select_image)
+                            contentDescription = stringResource(R.string.select_image),
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .align(Alignment.CenterVertically)
-                            .padding(start = 8.dp)
+                            .padding(start = 4.dp)
                     ) {
                         if (value.isEmpty()) {
                             Text(
@@ -955,16 +1228,26 @@ fun ChatInputBox(
                     }
                     if (isResponding) {
                         IconButton(
+                            modifier = Modifier.size(44.dp),
                             onClick = { onStopClick() }
                         ) {
-                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_pause), contentDescription = stringResource(R.string.stop))
+                            Icon(
+                                imageVector = ImageVector.vectorResource(id = R.drawable.ic_pause),
+                                contentDescription = stringResource(R.string.stop),
+                                modifier = Modifier.size(26.dp)
+                            )
                         }
                     } else {
                         IconButton(
                             enabled = chatEnabled && sendButtonEnabled,
+                            modifier = Modifier.size(44.dp),
                             onClick = { onSendButtonClick(value) }
                         ) {
-                            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn), contentDescription = stringResource(R.string.send))
+                            Icon(
+                                imageVector = ImageVector.vectorResource(id = R.drawable.ic_send_btn),
+                                contentDescription = stringResource(R.string.send),
+                                modifier = Modifier.size(26.dp)
+                            )
                         }
                     }
                 }
@@ -1161,8 +1444,14 @@ private fun isImageFile(extension: String?): Boolean {
 fun ScrollToBottomButton(onClick: () -> Unit) {
     SmallFloatingActionButton(
         onClick = onClick,
-        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        containerColor = Color.White,
+        contentColor = Color.Black,
+        elevation = FloatingActionButtonDefaults.elevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp,
+            focusedElevation = 2.dp,
+            hoveredElevation = 3.dp,
+        ),
     ) {
         Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.scroll_to_bottom_icon))
     }

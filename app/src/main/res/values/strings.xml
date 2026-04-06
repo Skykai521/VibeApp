@@ -139,6 +139,8 @@
     <string name="tool_name_update_project_icon">Update icon</string>
     <string name="tool_name_read_runtime_log">Read app log</string>
     <string name="tool_name_fix_crash_guide">Diagnose crash</string>
+    <string name="tool_name_inspect_ui">Inspect UI</string>
+    <string name="tool_name_interact_ui">Interact UI</string>
     <string name="crash_detected_title">App Crashed</string>
     <string name="crash_auto_fix">Auto Fix</string>
     <string name="crash_dismiss">Dismiss</string>
@@ -179,4 +181,49 @@
     <string name="install_apk">Install APK</string>
     <string name="export_source_code">Export Source Code</string>
     <string name="export_apk">Export APK</string>
+
+    <!-- Notification strings -->
+    <string name="notification_channel_ongoing">Agent Working</string>
+    <string name="notification_channel_ongoing_desc">Shows when AI agent tasks are running in the background</string>
+    <string name="notification_channel_result">Task Results</string>
+    <string name="notification_channel_result_desc">Notifications when AI agent tasks complete or fail</string>
+    <string name="notification_ongoing_title">VibeApp - Working</string>
+    <string name="notification_ongoing_single">1 task in progress</string>
+    <string name="notification_ongoing_multiple">%d tasks in progress</string>
+    <string name="notification_cancel_all">Cancel All</string>
+    <string name="notification_task_completed">Task Completed</string>
+    <string name="notification_task_completed_text">\'%s\' is ready! Tap to view.</string>
+    <string name="notification_task_failed">Task Failed</string>
+    <string name="notification_task_failed_text">Task failed for \'%s\'. Tap to see errors.</string>
+    <string name="notification_project_default_name">Project</string>
+
+    <!-- Home screen -->
+    <string name="home_session_thinking">%s is thinking…</string>
+
+    <!-- Notification permission -->
+    <string name="notification_permission_title">Enable Notifications</string>
+    <string name="notification_permission_rationale">With notification permission, VibeApp can work in the background — you don\'t need to stay on this page. You\'ll be notified when the task is done.</string>
+    <string name="notification_permission_grant">Enable</string>
+    <string name="notification_permission_skip">Not Now</string>
+
+    <!-- Clear chat history -->
+    <string name="clear_chat_history">Clear Chat History</string>
+    <string name="clear_chat_history_title">Clear Chat History?</string>
+    <string name="clear_chat_history_message">This will delete all messages in this conversation to reset the context. Generated code files will not be affected.</string>
+
+    <!-- Developer Options -->
+
+    <string name="debug_log">Debug Log</string>
+    <string name="debug_log_description">Enable diagnostic log viewer in chat page</string>
+
+    <!-- Diagnostic summary card -->
+    <string name="diagnostic_summary">Summary</string>
+    <string name="diagnostic_context_size">Context Size</string>
+    <string name="diagnostic_compaction">Context Compaction</string>
+    <string name="diagnostic_total_events">Total Events</string>
+    <string name="diagnostic_errors">Errors</string>
+    <string name="diagnostic_warnings">Warnings</string>
+    <string name="diagnostic_log_size">Log Size</string>
+    <string name="diagnostic_events">Events</string>
+    <string name="diagnostic_event_copied">Event copied to clipboard</string>
 </resources>

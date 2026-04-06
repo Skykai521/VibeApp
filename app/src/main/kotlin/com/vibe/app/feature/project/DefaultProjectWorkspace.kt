@@ -43,6 +43,7 @@ class DefaultProjectWorkspace(
 
     override suspend fun listFiles(): List<String> = withContext(Dispatchers.IO) {
         rootDir.walkTopDown()
+            .onEnter { it.name != "build" }
             .filter { it.isFile }
             .map { it.toRelativeString(rootDir) }
             .sorted()

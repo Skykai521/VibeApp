@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.vibe.app.presentation.ui.chat.ChatScreen
+import com.vibe.app.presentation.ui.diagnostic.DiagnosticScreen
 import com.vibe.app.presentation.ui.home.HomeScreen
 import com.vibe.app.presentation.ui.setting.AboutScreen
 import com.vibe.app.presentation.ui.setting.LicenseScreen
@@ -39,6 +40,7 @@ fun SetupNavGraph(navController: NavHostController) {
         setupNavigation(navController)
         settingNavigation(navController)
         chatScreenNavigation(navController)
+        diagnosticNavigation(navController)
     }
 }
 
@@ -68,8 +70,14 @@ fun NavGraphBuilder.setupNavigation(
                     val fromSettings = runCatching {
                         navController.getBackStackEntry(Route.SETTING_ROUTE)
                     }.isSuccess
+                    val fromChat = runCatching {
+                        navController.getBackStackEntry(Route.CHAT_ROOM)
+                    }.isSuccess
                     if (fromSettings) {
                         navController.popBackStack(Route.SETTINGS, inclusive = false)
+                    } else if (fromChat) {
+                        // Return directly to the chat screen after adding API key
+                        navController.popBackStack(Route.CHAT_ROOM, inclusive = false)
                     } else {
                         navController.navigate(Route.SETUP_COMPLETE) {
                             popUpTo(Route.SETUP_ROUTE) { inclusive = false }
@@ -123,11 +131,28 @@ fun NavGraphBuilder.chatScreenNavigation(navController: NavHostController) {
             navArgument("chatRoomId") { type = NavType.IntType },
             navArgument("enabledPlatforms") { defaultValue = "" }
         )
-    ) {
+    ) { backStackEntry ->
+        val chatRoomId = backStackEntry.arguments?.getInt("chatRoomId") ?: return@composable
         ChatScreen(
             onNavigateToAddPlatform = {
                 navController.navigate(Route.SETUP_ROUTE) { launchSingleTop = true }
             },
+            onNavigateToDiagnostic = {
+                navController.navigate(
+                    Route.DIAGNOSTIC.replace("{chatRoomId}", "$chatRoomId")
+                )
+            },
+            onBackAction = { navController.navigateUp() }
+        )
+    }
+}
+
+fun NavGraphBuilder.diagnosticNavigation(navController: NavHostController) {
+    composable(
+        Route.DIAGNOSTIC,
+        arguments = listOf(navArgument("chatRoomId") { type = NavType.IntType })
+    ) {
+        DiagnosticScreen(
             onBackAction = { navController.navigateUp() }
         )
     }

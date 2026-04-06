@@ -17,7 +17,6 @@
             <option value="$PROJECT_DIR$/build-tools/android-stubs" />
             <option value="$PROJECT_DIR$/build-tools/build-logic" />
             <option value="$PROJECT_DIR$/build-tools/common" />
-            <option value="$PROJECT_DIR$/build-tools/eclipse-standalone" />
             <option value="$PROJECT_DIR$/build-tools/javac" />
             <option value="$PROJECT_DIR$/build-tools/jaxp" />
             <option value="$PROJECT_DIR$/build-tools/jaxp/jaxp-internal" />

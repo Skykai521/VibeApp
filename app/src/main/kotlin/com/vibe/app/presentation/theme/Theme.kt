@@ -394,7 +394,7 @@ val unspecified_scheme = ColorFamily(
 )
 
 @Composable
-fun GPTMobileTheme(
+fun VibeAppTheme(
     dynamicTheme: DynamicTheme = DynamicTheme.OFF,
     themeMode: ThemeMode = ThemeMode.LIGHT,
     content: @Composable () -> Unit

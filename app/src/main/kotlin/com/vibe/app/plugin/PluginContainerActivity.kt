@@ -102,6 +102,11 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
             // Initialize AppLogger in the plugin's ClassLoader so logs go to the project's log directory
             initPluginLogger(mainClass)
 
+            // Register uncaught exception handler so non-lifecycle crashes (onClick,
+            // Handler callbacks, etc.) are written to crash.log — CrashHandlerApp.onCreate()
+            // is never called in plugin mode, so without this, those crashes are lost.
+            installCrashHandler()
+
             val clazz = pluginClassLoader!!.loadClass(mainClass)
             val instance = clazz.getDeclaredConstructor().newInstance()
             if (instance is ShadowActivity) {
@@ -174,6 +179,18 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
         super.onDestroy()
     }
 
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        try {
+            pluginActivity?.performActivityResult(requestCode, resultCode, data)
+        } catch (e: Exception) {
+            Log.e(TAG, "Plugin crashed during onActivityResult", e)
+            writeCrashLog(e)
+            finish()
+        }
+    }
+
     @SuppressLint("MissingSuperCall")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
@@ -234,9 +251,29 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
     }
     override fun <T : View> superFindViewById(id: Int): T = findViewById(id)
     override fun superStartActivity(intent: Intent) = super.startActivity(intent)
+    @Suppress("DEPRECATION")
+    override fun superStartActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        super.startActivityForResult(intent, requestCode, options)
+    }
     override fun superFinish() = super.finish()
     override fun setPluginResult(resultCode: Int, data: Intent?) = setResult(resultCode, data)
     override fun getHostIntent(): Intent = intent
+
+    private fun installCrashHandler() {
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e(TAG, "Uncaught exception in plugin process", throwable)
+            writeCrashLog(throwable)
+            // Chain to previous handler (usually Android's default which shows the crash dialog)
+            // or kill the process ourselves if there is none.
+            if (previousHandler != null) {
+                previousHandler.uncaughtException(thread, throwable)
+            } else {
+                android.os.Process.killProcess(android.os.Process.myPid())
+                System.exit(1)
+            }
+        }
+    }
 
     private fun initPluginLogger(mainClass: String) {
         val pid = projectId ?: return

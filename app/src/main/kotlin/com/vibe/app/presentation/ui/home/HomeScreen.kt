@@ -189,6 +189,7 @@ fun HomeScreen(
             itemsIndexed(projectListState.projects, key = { _, it -> it.project.projectId }) { idx, pwc ->
                 ProjectListItem(
                     pwc = pwc,
+                    activeSessionPlatformName = homeViewModel.getActiveSessionPlatformName(pwc.project.chatId),
                     isSelectionMode = projectListState.isSelectionMode,
                     isSelected = projectListState.selectedProjects.getOrElse(idx) { false },
                     onLongClick = {
@@ -238,6 +239,7 @@ fun HomeScreen(
 @Composable
 private fun ProjectListItem(
     pwc: ProjectWithChat,
+    activeSessionPlatformName: String?,
     isSelectionMode: Boolean,
     isSelected: Boolean,
     onLongClick: () -> Unit,
@@ -249,7 +251,12 @@ private fun ProjectListItem(
             .combinedClickable(onLongClick = onLongClick, onClick = onClick)
             .padding(start = 8.dp, end = 8.dp),
         headlineContent = {
-            Text(text = pwc.project.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                text = pwc.project.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium,
+            )
         },
         leadingContent = {
             if (isSelectionMode) {
@@ -262,22 +269,32 @@ private fun ProjectListItem(
             BuildStatusBadge(status = pwc.project.buildStatus)
         },
         supportingContent = {
-            val displayText = pwc.lastMessageContent?.replace('\n', ' ')?.trim()
-                ?: formatUpdatedAt(pwc.chat.updatedAt)
-            Text(
-                text = displayText,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (activeSessionPlatformName != null) {
+                Text(
+                    text = stringResource(R.string.home_session_thinking, activeSessionPlatformName),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                val displayText = pwc.lastMessageContent?.replace('\n', ' ')?.trim()
+                    ?: formatUpdatedAt(pwc.chat.updatedAt)
+                Text(
+                    text = displayText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
     )
 }
 
 @Composable
 private fun ProjectListItemIcon(workspacePath: String) {
-    val iconSize = 40.dp
+    val iconSize = 48.dp
     val iconSizePx = with(LocalDensity.current) { iconSize.roundToPx() }
     val iconSignature = ProjectIconRenderer.iconSignature(workspacePath)
     val iconBitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(
@@ -445,7 +462,7 @@ private fun ProjectsTitle(scrollBehavior: TopAppBarScrollBehavior) {
     Text(
         modifier = Modifier
             .padding(top = 32.dp)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         text = stringResource(R.string.projects),
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 1.0F - scrollBehavior.state.overlappedFraction),
         style = MaterialTheme.typography.headlineLarge,

@@ -23,19 +23,19 @@ class AgentNotificationHelper @Inject constructor(
     fun createChannels() {
         val ongoingChannel = NotificationChannel(
             CHANNEL_ONGOING,
-            "Agent Working",
+            context.getString(R.string.notification_channel_ongoing),
             NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "Shows when AI agent tasks are running in the background"
+            description = context.getString(R.string.notification_channel_ongoing_desc)
             setShowBadge(false)
         }
 
         val resultChannel = NotificationChannel(
             CHANNEL_RESULT,
-            "Task Results",
+            context.getString(R.string.notification_channel_result),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "Notifications when AI agent tasks complete or fail"
+            description = context.getString(R.string.notification_channel_result_desc)
         }
 
         notificationManager.createNotificationChannels(listOf(ongoingChannel, resultChannel))
@@ -59,20 +59,20 @@ class AgentNotificationHelper @Inject constructor(
         )
 
         val text = if (activeCount == 1) {
-            "1 task in progress"
+            context.getString(R.string.notification_ongoing_single)
         } else {
-            "$activeCount tasks in progress"
+            context.getString(R.string.notification_ongoing_multiple, activeCount)
         }
 
         return NotificationCompat.Builder(context, CHANNEL_ONGOING)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("VibeApp - Working")
+            .setContentTitle(context.getString(R.string.notification_ongoing_title))
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(contentIntent)
             .addAction(
                 R.drawable.ic_launcher_foreground,
-                "Cancel All",
+                context.getString(R.string.notification_cancel_all),
                 cancelIntent,
             )
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
@@ -90,12 +90,14 @@ class AgentNotificationHelper @Inject constructor(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        val displayName = projectName ?: "Project"
+        val displayName = projectName ?: context.getString(R.string.notification_project_default_name)
 
         val (title, text) = if (success) {
-            "Task Completed" to "'$displayName' is ready! Tap to view."
+            context.getString(R.string.notification_task_completed) to
+                context.getString(R.string.notification_task_completed_text, displayName)
         } else {
-            "Task Failed" to "Task failed for '$displayName'. Tap to see errors."
+            context.getString(R.string.notification_task_failed) to
+                context.getString(R.string.notification_task_failed_text, displayName)
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_RESULT)
@@ -112,6 +114,18 @@ class AgentNotificationHelper @Inject constructor(
 
     fun updateOngoingNotification(activeCount: Int) {
         notificationManager.notify(ONGOING_NOTIFICATION_ID, buildOngoingNotification(activeCount))
+    }
+
+    /**
+     * Cancel all result notifications (the "Task Completed" / "Task Failed" ones).
+     * Called when the app returns to the foreground so stale results don't pile up.
+     */
+    fun cancelAllResultNotifications() {
+        notificationManager.activeNotifications.forEach { sbn ->
+            if (sbn.id >= RESULT_NOTIFICATION_BASE_ID) {
+                notificationManager.cancel(sbn.id)
+            }
+        }
     }
 
     companion object {

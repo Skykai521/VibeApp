@@ -23,7 +23,7 @@
 | `util/ScrollStateSaver.kt` | 工具类 | 依赖 `DefaultHashMap`，无任何外部 import |
 | `res/drawable/ic_play_store.xml` | Drawable | 无任何 Kotlin 或 XML 引用 |
 | `res/drawable/ic_f_droid.xml` | Drawable | 无任何 Kotlin 或 XML 引用 |
-| `res/drawable/ic_gpt_mobile_no_padding.xml` | Drawable | 无任何直接引用（旧图标变体） |
+| `res/drawable/ic_vibe_app_no_padding.xml` | Drawable | 无任何直接引用（旧图标变体） |
 | `res/.DS_Store` | 系统文件 | macOS 元数据 |
 | `assets/.DS_Store` | 系统文件 | macOS 元数据 |
 | `assets/templates/EmptyActivity/app/src/main/.DS_Store` | 系统文件 | macOS 元数据 |
@@ -176,7 +176,7 @@ generateGroqModelList()
 
 | 位置 | 说明 |
 |------|------|
-| `presentation/GPTMobileApp.kt:11` | TODO: Dagger issue #3601 的 workaround，`@Inject @ApplicationContext lateinit var context` 未被使用 |
+| `presentation/VibeApp.kt:11` | TODO: Dagger issue #3601 的 workaround，`@Inject @ApplicationContext lateinit var context` 未被使用 |
 | `res/xml/backup_rules.xml` | 内容全部注释，无实际备份规则生效 |
 | `res/xml/data_extraction_rules.xml` | 内容全部注释，无实际数据提取规则生效 |
 
@@ -189,7 +189,7 @@ generateGroqModelList()
 | 文件 | 原因 |
 |------|------|
 | `presentation/icons/Done.kt` | 被 `SetupCompleteScreen` 使用 |
-| `presentation/icons/GptMobileStartScreen.kt` | 被 `StartScreen` 使用 |
+| `presentation/icons/VibeAppStartScreen.kt` | 被 `StartScreen` 使用 |
 | `presentation/common/PrimaryLongButton.kt` | 被 StartScreen、MigrateScreen、SetupPlatformListScreen、SetupCompleteScreen 使用 |
 | `presentation/common/RadioItem.kt` | 被 `SettingScreen` 使用 |
 | `util/PinnedExitUntilCollapsedScrollBehavior.kt` | 被 `PlatformSettingScreen`、`SettingScreen` 使用 |

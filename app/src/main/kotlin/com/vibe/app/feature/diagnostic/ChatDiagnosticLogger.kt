@@ -79,9 +79,37 @@ interface ChatDiagnosticLogger {
         completedAt: Long = System.currentTimeMillis(),
     )
 
+    suspend fun logConversationCompaction(
+        context: DiagnosticContext,
+        iteration: Int,
+        strategy: String,
+        turnsCompacted: Int,
+        estimatedTokens: Int,
+        itemsBefore: Int,
+        itemsAfter: Int,
+    )
+
+    /**
+     * Generic entry point for any [DiagnosticCategories.AGENT_LOOP] event.
+     *
+     * Use this for new agent-loop lifecycle events (loop start/end, iteration start,
+     * wind-down, etc.) instead of adding a bespoke interface method for each one.
+     * The [payload] **must** include an `"action"` key so consumers can distinguish
+     * event subtypes within the AGENT_LOOP category.
+     */
+    suspend fun logAgentLoopEvent(
+        context: DiagnosticContext,
+        action: String,
+        level: String = DiagnosticLevels.INFO,
+        summary: String,
+        payload: JsonObject,
+    )
+
     suspend fun readChatLog(chatId: Int): DiagnosticLogSnapshot?
 
     suspend fun migrateChatLogs(fromChatId: Int, toChatId: Int)
+
+    suspend fun deleteChatLog(chatId: Int)
 }
 
 @Singleton
@@ -384,12 +412,78 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                     put("errorCount", result.logs.count { it.level == BuildLogLevel.ERROR })
                     put("warningCount", result.logs.count { it.level == BuildLogLevel.WARNING })
                     putIfNotNull("errorMessagePreview", result.errorMessage?.clipPreview())
+                    // Include actual error/warning log entries so exported diagnostics contain actionable detail
+                    val errorAndWarningLogs = result.logs.filter {
+                        it.level == BuildLogLevel.ERROR || it.level == BuildLogLevel.WARNING
+                    }
+                    if (errorAndWarningLogs.isNotEmpty()) {
+                        putJsonArray("errorLogs") {
+                            errorAndWarningLogs.take(20).forEach { log ->
+                                add(buildJsonObject {
+                                    put("stage", log.stage.name)
+                                    put("level", log.level.name)
+                                    put("message", log.message.clipPreview())
+                                    putIfNotNull("sourcePath", log.sourcePath)
+                                    putIfNotNull("line", log.line)
+                                })
+                            }
+                        }
+                    }
                     putJsonArray("artifactSummary") {
                         result.artifacts.forEach { artifact ->
                             add(JsonPrimitive("${artifact.stage.name}:${File(artifact.path).name}"))
                         }
                     }
                 },
+            ),
+        )
+    }
+
+    override suspend fun logConversationCompaction(
+        context: DiagnosticContext,
+        iteration: Int,
+        strategy: String,
+        turnsCompacted: Int,
+        estimatedTokens: Int,
+        itemsBefore: Int,
+        itemsAfter: Int,
+    ) {
+        logAgentLoopEvent(
+            context = context,
+            action = "conversation_compaction",
+            summary = "Conversation compacted: $strategy ($itemsBefore→$itemsAfter items, ~${estimatedTokens}tok)",
+            payload = buildJsonObject {
+                put("action", "conversation_compaction")
+                put("iteration", iteration)
+                put("strategy", strategy)
+                put("turnsCompacted", turnsCompacted)
+                put("estimatedTokens", estimatedTokens)
+                put("itemsBefore", itemsBefore)
+                put("itemsAfter", itemsAfter)
+            },
+        )
+    }
+
+    override suspend fun logAgentLoopEvent(
+        context: DiagnosticContext,
+        action: String,
+        level: String,
+        summary: String,
+        payload: JsonObject,
+    ) {
+        val timestamp = System.currentTimeMillis()
+        writeEvent(
+            DiagnosticEvent(
+                id = createDiagnosticEventId(timestamp),
+                timestamp = timestamp,
+                chatId = context.chatId,
+                projectId = context.projectId,
+                platformUid = context.platformUid,
+                turnId = context.turnId,
+                category = DiagnosticCategories.AGENT_LOOP,
+                level = level,
+                summary = summary,
+                payload = payload,
             ),
         )
     }
@@ -453,6 +547,19 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                 }
             }.onFailure {
                 Log.w(TAG, "Failed to migrate chat diagnostics $fromChatId -> $toChatId", it)
+            }
+        }
+    }
+
+    override suspend fun deleteChatLog(chatId: Int) {
+        if (chatId <= 0) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                mutex.withLock {
+                    deleteChatDirectory(chatId)
+                }
+            }.onFailure {
+                Log.w(TAG, "Failed to delete diagnostic log for chatId=$chatId", it)
             }
         }
     }

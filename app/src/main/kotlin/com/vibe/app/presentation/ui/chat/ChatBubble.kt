@@ -2,7 +2,6 @@ package com.vibe.app.presentation.ui.chat
 
 import android.net.Uri
 import android.util.Log
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -49,21 +48,22 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-import com.halilibo.richtext.commonmark.CommonmarkAstNodeParser
-import com.halilibo.richtext.markdown.BasicMarkdown
-import com.halilibo.richtext.ui.CodeBlockStyle
-import com.halilibo.richtext.ui.RichTextStyle
-import com.halilibo.richtext.ui.material3.RichText
-import com.halilibo.richtext.ui.string.RichTextStringStyle
+import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
+import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCode
+import com.mikepenz.markdown.compose.elements.MarkdownTable
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
+import com.mikepenz.markdown.m3.markdownTypography
 import com.vibe.app.R
-import com.vibe.app.presentation.theme.GPTMobileTheme
+import com.vibe.app.presentation.theme.VibeAppTheme
 import java.io.File
 
 @Composable
@@ -79,8 +79,6 @@ fun UserChatBubble(
         disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
         disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
     )
-    val parser = remember { CommonmarkAstNodeParser() }
-    val astNode = remember(text) { parser.parse(text.trimIndent()) }
     Log.d("UserChatBubble", "files: $files (size: ${files.size})")
     files.forEachIndexed { index, file ->
         Log.d("UserChatBubble", "files[$index] = '$file' (length: ${file.length})")
@@ -96,12 +94,13 @@ fun UserChatBubble(
             shape = RoundedCornerShape(12.dp),
             colors = cardColor
         ) {
-            RichText(
+            Markdown(
+                content = text.trimIndent(),
                 modifier = Modifier.padding(16.dp),
-                style = scrollableCodeBlockStyle(),
-            ) {
-                BasicMarkdown(astNode = astNode)
-            }
+                colors = chatMarkdownColors(),
+                typography = chatMarkdownTypography(),
+                components = chatMarkdownComponents(),
+            )
         }
         UserFileThumbnailRow(
             modifier = Modifier
@@ -118,7 +117,6 @@ fun OpponentChatBubble(
     isLoading: Boolean,
     isError: Boolean = false,
     text: String,
-    thoughts: String = "",
     onCopyClick: () -> Unit = {},
     onSelectClick: () -> Unit = {},
     onRetryClick: () -> Unit = {}
@@ -130,49 +128,34 @@ fun OpponentChatBubble(
         disabledContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
     )
 
-    // Show thinking block while loading if we have thoughts but no text yet
-    val isThinking = isLoading && thoughts.isNotBlank() && text.isBlank()
-
     Column(modifier = modifier) {
-        // Thinking block (collapsed by default)
-        if (thoughts.isNotBlank()) {
-            ThinkingBlock(
-                modifier = Modifier.padding(top = 16.dp, start = 8.dp, end = 8.dp),
-                thoughts = thoughts,
-                isLoading = isThinking
-            )
-        }
-
         Column {
             Card(
                 shape = RoundedCornerShape(0.dp),
                 colors = cardColor
             ) {
-                val parser = remember { CommonmarkAstNodeParser() }
                 val displayText = if (isLoading) text.trimIndent() + "●" else text.trimIndent()
-                val astNode = remember(displayText) { parser.parse(displayText) }
 
-                RichText(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .then(if (isLoading) Modifier.animateContentSize() else Modifier),
-                    style = scrollableCodeBlockStyle(),
-                ) {
-                    BasicMarkdown(astNode = astNode)
-                }
+                Markdown(
+                    content = displayText,
+                    modifier = Modifier.padding(16.dp),
+                    colors = chatMarkdownColors(),
+                    typography = chatMarkdownTypography(),
+                    components = chatMarkdownComponents(),
+                )
             }
 
             if (!isLoading) {
                 Row(
-                    modifier = Modifier.padding(start = 16.dp)
+                    modifier = Modifier.padding(start = 8.dp)
                 ) {
                     if (!isError) {
                         CopyTextIcon(onCopyClick)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         SelectTextIcon(onSelectClick)
                     }
                     if (canRetry) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         RetryIcon(onRetryClick)
                     }
                 }
@@ -182,7 +165,7 @@ fun OpponentChatBubble(
 }
 
 @Composable
-fun GPTMobileIcon(loading: Boolean) {
+fun VibeAppIcon(loading: Boolean) {
     Box(
         modifier = Modifier
             .padding(start = 8.dp)
@@ -245,30 +228,36 @@ fun PlatformButton(
 
 @Composable
 private fun CopyTextIcon(onCopyClick: () -> Unit) {
-    IconButton(onClick = onCopyClick) {
+    IconButton(onClick = onCopyClick, modifier = Modifier.size(38.dp)) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_copy),
-            contentDescription = stringResource(R.string.copy_text)
+            contentDescription = stringResource(R.string.copy_text),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
     }
 }
 
 @Composable
 private fun SelectTextIcon(onSelectClick: () -> Unit) {
-    IconButton(onClick = onSelectClick) {
+    IconButton(onClick = onSelectClick, modifier = Modifier.size(38.dp)) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_select),
-            contentDescription = stringResource(R.string.select_text)
+            contentDescription = stringResource(R.string.select_text),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
     }
 }
 
 @Composable
 private fun RetryIcon(onRetryClick: () -> Unit) {
-    IconButton(onClick = onRetryClick) {
+    IconButton(onClick = onRetryClick, modifier = Modifier.size(38.dp)) {
         Icon(
             Icons.Rounded.Refresh,
-            contentDescription = stringResource(R.string.retry)
+            contentDescription = stringResource(R.string.retry),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
     }
 }
@@ -280,7 +269,7 @@ fun UserChatBubblePreview() {
         How can I print hello world
         in Python?
     """.trimIndent()
-    GPTMobileTheme {
+    VibeAppTheme {
         UserChatBubble(text = sampleText, files = emptyList(), onLongPress = {})
     }
 }
@@ -303,7 +292,7 @@ fun OpponentChatBubblePreview() {
         - Or minuses
         + Or pluses
     """.trimIndent()
-    GPTMobileTheme {
+    VibeAppTheme {
         OpponentChatBubble(
             text = sampleText,
             canRetry = true,
@@ -419,18 +408,46 @@ private fun UserFileThumbnail(
 }
 
 @Composable
-private fun scrollableCodeBlockStyle(): RichTextStyle {
-    val bgColor = MaterialTheme.colorScheme.surfaceVariant
-    return RichTextStyle(
-        codeBlockStyle = CodeBlockStyle(
-            wordWrap = false,
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .background(bgColor),
-        ),
-        stringStyle = RichTextStringStyle(codeStyle = SpanStyle(background = bgColor))
-    )
-}
+private fun chatMarkdownColors() = markdownColor(
+    codeBackground = MaterialTheme.colorScheme.surfaceVariant,
+)
+
+@Composable
+fun chatMarkdownTypography() = markdownTypography(
+    h1 = MaterialTheme.typography.headlineSmall,
+    h2 = MaterialTheme.typography.titleLarge,
+    h3 = MaterialTheme.typography.titleMedium,
+    h4 = MaterialTheme.typography.titleSmall,
+    h5 = MaterialTheme.typography.bodyLarge,
+    h6 = MaterialTheme.typography.bodyMedium,
+)
+
+@Composable
+fun chatMarkdownComponents() = markdownComponents(
+    codeFence = {
+        MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style ->
+            MarkdownHighlightedCode(
+                code = code,
+                language = language ?: "txt",
+                style = style,
+                showHeader = true,
+            )
+        }
+    },
+    codeBlock = {
+        MarkdownCodeBlock(it.content, it.node, it.typography.code) { code, language, style ->
+            MarkdownHighlightedCode(
+                code = code,
+                language = language ?: "txt",
+                style = style,
+                showHeader = true,
+            )
+        }
+    },
+    table = {
+        MarkdownTable(it.content, it.node, it.typography.table)
+    },
+)
 
 @Composable
 fun FullscreenImagePreview(

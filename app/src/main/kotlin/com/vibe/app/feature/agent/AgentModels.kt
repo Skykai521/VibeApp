@@ -19,7 +19,7 @@ enum class AgentToolChoiceMode {
 }
 
 data class AgentLoopPolicy(
-    val maxIterations: Int = 20,
+    val maxIterations: Int = 30,
     val toolChoiceMode: AgentToolChoiceMode = AgentToolChoiceMode.AUTO,
     val allowParallelToolCalls: Boolean = false,
 )
@@ -69,6 +69,30 @@ data class AgentLoopRequest(
     val tools: List<AgentToolDefinition> = emptyList(),
     val policy: AgentLoopPolicy = AgentLoopPolicy(),
 )
+
+/**
+ * Represents a single step in the agent's work process, displayed as an independent
+ * item in the chat list. Each model iteration can produce multiple steps.
+ */
+data class AgentStepItem(
+    val type: AgentStepType,
+    val toolName: String? = null,
+    val toolStatus: AgentToolStatus? = null,
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
+enum class AgentStepType {
+    THINKING,
+    TOOL_CALL,
+    OUTPUT,
+}
+
+enum class AgentToolStatus {
+    CALLING,
+    OK,
+    ERROR,
+}
 
 sealed interface AgentLoopEvent {
     data class LoopStarted(

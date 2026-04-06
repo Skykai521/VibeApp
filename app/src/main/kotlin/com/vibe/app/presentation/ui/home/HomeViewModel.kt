@@ -7,6 +7,7 @@ import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.database.entity.ProjectWithChat
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
+import com.vibe.app.feature.agent.service.AgentSessionManager
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +30,7 @@ class HomeViewModel @Inject constructor(
     private val projectManager: ProjectManager,
     private val settingRepository: SettingRepository,
     private val projectInitializer: ProjectInitializer,
+    private val sessionManager: AgentSessionManager,
 ) : ViewModel() {
 
     companion object {
@@ -88,6 +90,13 @@ class HomeViewModel @Inject constructor(
             }
             Log.d("HomeViewModel", "Loaded ${projects.size} projects")
         }
+    }
+
+    /**
+     * Returns the platform name if an agent session is actively running for the given chatId.
+     */
+    fun getActiveSessionPlatformName(chatId: Int): String? {
+        return sessionManager.getActiveSessionPlatformName(chatId)
     }
 
     fun fetchPlatformStatus() {

@@ -91,10 +91,19 @@ open class JavacCompiler(
         var hasErrors = false
         val tool = JavacTool.create()
         val diagnosticListener = javax.tools.DiagnosticListener<JavaFileObject> { diagnostic ->
-            if (diagnostic.kind == Diagnostic.Kind.ERROR) {
-                hasErrors = true
+            val wrapper = com.tyron.builder.model.DiagnosticWrapper(diagnostic)
+            when (diagnostic.kind) {
+                Diagnostic.Kind.ERROR -> {
+                    hasErrors = true
+                    logger.error(wrapper)
+                }
+                Diagnostic.Kind.WARNING, Diagnostic.Kind.MANDATORY_WARNING -> {
+                    logger.warning(wrapper)
+                }
+                else -> {
+                    logger.debug(wrapper)
+                }
             }
-            logger.debug(com.tyron.builder.model.DiagnosticWrapper(diagnostic))
         }
         val fileManager = tool.getStandardFileManager(
             diagnosticListener,

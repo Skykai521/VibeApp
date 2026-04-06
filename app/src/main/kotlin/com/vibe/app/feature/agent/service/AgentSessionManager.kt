@@ -10,7 +10,10 @@ import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.agent.AgentLoopCoordinator
 import com.vibe.app.feature.agent.AgentLoopEvent
 import com.vibe.app.feature.agent.AgentLoopRequest
+import com.vibe.app.feature.agent.AgentStepItem
+import com.vibe.app.feature.agent.AgentStepType
 import com.vibe.app.feature.agent.AgentToolRegistry
+import com.vibe.app.feature.agent.AgentToolStatus
 import com.vibe.app.feature.diagnostic.DiagnosticContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +36,8 @@ import javax.inject.Singleton
 data class SessionMessageState(
     val userMessages: List<MessageV2>,
     val assistantMessages: List<List<MessageV2>>,
+    /** Per-turn agent step items for displaying in the chat list. Indexed by turn. */
+    val agentSteps: List<List<AgentStepItem>> = emptyList(),
 )
 
 /**
@@ -98,6 +103,15 @@ class AgentSessionManager @Inject constructor(
             SessionMessageState(
                 userMessages = userMessages,
                 assistantMessages = assistantMessages,
+                agentSteps = List(userMessages.size) { turnIndex ->
+                    // For historical turns, parse existing thoughts into steps
+                    val msg = assistantMessages.getOrNull(turnIndex)?.firstOrNull()
+                    if (msg != null && msg.thoughts.isNotBlank()) {
+                        parseThoughtsToSteps(msg.thoughts)
+                    } else {
+                        emptyList()
+                    }
+                },
             )
         )
         messageStates[chatId] = stateFlow
@@ -127,8 +141,8 @@ class AgentSessionManager @Inject constructor(
                     applyEvent(chatId, event)
                 }
 
-                statusFlow.value = AgentSessionStatus.COMPLETED
                 saveToRoom(chatId)
+                statusFlow.value = AgentSessionStatus.COMPLETED
                 onSessionFinished(chatId, projectId, success = true)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 statusFlow.value = AgentSessionStatus.CANCELLED
@@ -137,9 +151,9 @@ class AgentSessionManager @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Agent session failed for chatId=$chatId", e)
-                statusFlow.value = AgentSessionStatus.FAILED
                 applyEvent(chatId, AgentLoopEvent.LoopFailed(message = e.message ?: "Unknown error"))
                 saveToRoom(chatId)
+                statusFlow.value = AgentSessionStatus.FAILED
                 onSessionFinished(chatId, projectId, success = false)
             } finally {
                 removeSession(chatId)
@@ -149,6 +163,7 @@ class AgentSessionManager @Inject constructor(
         val session = AgentSession(
             chatId = chatId,
             projectId = projectId,
+            platformName = platform.name,
             job = job,
             status = statusFlow,
         )
@@ -172,6 +187,15 @@ class AgentSessionManager @Inject constructor(
     }
 
     /**
+     * Clear cached message state for a chat. Called when the user clears chat history
+     * to prevent stale session data from being restored on re-entry.
+     */
+    fun clearMessageState(chatId: Int) {
+        messageStates.remove(chatId)
+        saveContexts.remove(chatId)
+    }
+
+    /**
      * Observe the evolving message state for a session.
      * Returns null if no session (active or recently completed) exists for this chatId.
      */
@@ -181,6 +205,13 @@ class AgentSessionManager @Inject constructor(
 
     fun getSessionStatus(chatId: Int): StateFlow<AgentSessionStatus>? {
         return _sessions.value[chatId]?.status
+    }
+
+    /**
+     * Returns the platform name for an active session, or null if no session is running.
+     */
+    fun getActiveSessionPlatformName(chatId: Int): String? {
+        return _sessions.value[chatId]?.platformName
     }
 
     fun isSessionRunning(chatId: Int): Boolean {
@@ -194,33 +225,48 @@ class AgentSessionManager @Inject constructor(
         when (event) {
             is AgentLoopEvent.ThinkingDelta -> {
                 stateFlow.update { state ->
-                    state.updateLastAssistant { msg ->
+                    val updated = state.updateLastAssistant { msg ->
                         msg.copy(thoughts = msg.thoughts + event.delta)
+                    }
+                    updated.appendOrUpdateLastStep(AgentStepType.THINKING) { existing ->
+                        existing.copy(content = existing.content + event.delta)
                     }
                 }
             }
             is AgentLoopEvent.OutputDelta -> {
                 stateFlow.update { state ->
-                    state.updateLastAssistant { msg ->
+                    val updated = state.updateLastAssistant { msg ->
                         msg.copy(content = msg.content + event.delta)
+                    }
+                    updated.appendOrUpdateLastStep(AgentStepType.OUTPUT) { existing ->
+                        existing.copy(content = existing.content + event.delta)
                     }
                 }
             }
             is AgentLoopEvent.ToolExecutionStarted -> {
                 stateFlow.update { state ->
-                    state.updateLastAssistant { msg ->
+                    val updated = state.updateLastAssistant { msg ->
                         msg.copy(thoughts = msg.thoughts + "\n[Tool] ${event.call.name}\n")
                     }
+                    updated.addStep(
+                        AgentStepItem(
+                            type = AgentStepType.TOOL_CALL,
+                            toolName = event.call.name,
+                            toolStatus = AgentToolStatus.CALLING,
+                        )
+                    )
                 }
             }
             is AgentLoopEvent.ToolExecutionFinished -> {
                 stateFlow.update { state ->
-                    state.updateLastAssistant { msg ->
+                    val status = if (event.result.isError) AgentToolStatus.ERROR else AgentToolStatus.OK
+                    val updated = state.updateLastAssistant { msg ->
                         msg.copy(
                             thoughts = msg.thoughts +
                                 "\n[Tool Result] ${event.result.toolName}: ${if (event.result.isError) "error" else "ok"}\n"
                         )
                     }
+                    updated.updateLastToolStep(event.result.toolName, status)
                 }
             }
             is AgentLoopEvent.LoopCompleted -> {
@@ -246,6 +292,50 @@ class AgentSessionManager @Inject constructor(
             }
             else -> Unit
         }
+    }
+
+    /** Append a new step or update the last step if it matches the given type. */
+    private fun SessionMessageState.appendOrUpdateLastStep(
+        type: AgentStepType,
+        update: (AgentStepItem) -> AgentStepItem,
+    ): SessionMessageState {
+        val steps = agentSteps.toMutableList()
+        if (steps.isEmpty()) steps.add(emptyList())
+        val lastTurnSteps = steps.last().toMutableList()
+        val lastStep = lastTurnSteps.lastOrNull()
+        if (lastStep != null && lastStep.type == type) {
+            lastTurnSteps[lastTurnSteps.lastIndex] = update(lastStep)
+        } else {
+            lastTurnSteps.add(update(AgentStepItem(type = type)))
+        }
+        steps[steps.lastIndex] = lastTurnSteps
+        return copy(agentSteps = steps)
+    }
+
+    /** Add a new step to the current turn. */
+    private fun SessionMessageState.addStep(step: AgentStepItem): SessionMessageState {
+        val steps = agentSteps.toMutableList()
+        if (steps.isEmpty()) steps.add(emptyList())
+        val lastTurnSteps = steps.last().toMutableList()
+        lastTurnSteps.add(step)
+        steps[steps.lastIndex] = lastTurnSteps
+        return copy(agentSteps = steps)
+    }
+
+    /** Update the last TOOL_CALL step matching the tool name with a new status. */
+    private fun SessionMessageState.updateLastToolStep(
+        toolName: String,
+        status: AgentToolStatus,
+    ): SessionMessageState {
+        val steps = agentSteps.toMutableList()
+        if (steps.isEmpty()) return this
+        val lastTurnSteps = steps.last().toMutableList()
+        val idx = lastTurnSteps.indexOfLast { it.type == AgentStepType.TOOL_CALL && it.toolName == toolName }
+        if (idx >= 0) {
+            lastTurnSteps[idx] = lastTurnSteps[idx].copy(toolStatus = status)
+            steps[steps.lastIndex] = lastTurnSteps
+        }
+        return copy(agentSteps = steps)
     }
 
     /**
@@ -275,15 +365,27 @@ class AgentSessionManager @Inject constructor(
             .sortedBy { it.createdAt }
 
         try {
-            chatRepository.saveChat(
+            val savedChatRoom = chatRepository.saveChat(
                 chatRoom = saveContext.chatRoom,
                 messages = messages,
                 chatPlatformModels = saveContext.chatPlatformModels,
             )
-            Log.d(TAG, "Saved session state to Room for chatId=$chatId")
+            // Update save context with the DB-assigned ID so subsequent saves
+            // (e.g., from ViewModel's observeStateChanges) are updates, not inserts.
+            saveContexts[chatId] = saveContext.copy(chatRoom = savedChatRoom)
+            Log.d(TAG, "Saved session state to Room for chatId=$chatId (savedId=${savedChatRoom.id})")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save session to Room for chatId=$chatId", e)
         }
+    }
+
+    /**
+     * Returns the saved chat room (with DB-assigned ID) if the session has been persisted,
+     * or null if no save has occurred yet.
+     */
+    fun getSavedChatRoom(chatId: Int): ChatRoomV2? {
+        val ctx = saveContexts[chatId] ?: return null
+        return ctx.chatRoom.takeIf { it.id > 0 }
     }
 
     // -- Lifecycle --
@@ -313,5 +415,54 @@ class AgentSessionManager @Inject constructor(
 
     companion object {
         private const val TAG = "AgentSessionManager"
+
+        private val TOOL_LINE_REGEX = Regex("""\[Tool]\s+(\S+)""")
+        private val TOOL_RESULT_REGEX = Regex("""\[Tool Result]\s+(\S+):\s*(ok|error|fail)""")
+
+        /** Parse a raw thoughts string into AgentStepItems (for loading saved messages). */
+        fun parseThoughtsToSteps(thoughts: String): List<AgentStepItem> {
+            val steps = mutableListOf<AgentStepItem>()
+            val thinkingBuffer = StringBuilder()
+
+            for (line in thoughts.lines()) {
+                val trimmed = line.trim()
+                val toolMatch = TOOL_LINE_REGEX.matchEntire(trimmed)
+                val resultMatch = TOOL_RESULT_REGEX.matchEntire(trimmed)
+
+                when {
+                    toolMatch != null -> {
+                        // Flush any accumulated thinking content
+                        if (thinkingBuffer.isNotBlank()) {
+                            steps.add(AgentStepItem(type = AgentStepType.THINKING, content = thinkingBuffer.toString().trim()))
+                            thinkingBuffer.clear()
+                        }
+                        steps.add(
+                            AgentStepItem(
+                                type = AgentStepType.TOOL_CALL,
+                                toolName = toolMatch.groupValues[1],
+                                toolStatus = AgentToolStatus.CALLING,
+                            )
+                        )
+                    }
+                    resultMatch != null -> {
+                        // Update the last matching TOOL_CALL step
+                        val name = resultMatch.groupValues[1]
+                        val status = if (resultMatch.groupValues[2] == "ok") AgentToolStatus.OK else AgentToolStatus.ERROR
+                        val idx = steps.indexOfLast { it.type == AgentStepType.TOOL_CALL && it.toolName == name }
+                        if (idx >= 0) {
+                            steps[idx] = steps[idx].copy(toolStatus = status)
+                        }
+                    }
+                    trimmed.isNotEmpty() -> {
+                        thinkingBuffer.appendLine(line)
+                    }
+                }
+            }
+            // Flush remaining thinking
+            if (thinkingBuffer.isNotBlank()) {
+                steps.add(AgentStepItem(type = AgentStepType.THINKING, content = thinkingBuffer.toString().trim()))
+            }
+            return steps
+        }
     }
 }

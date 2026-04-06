@@ -29,8 +29,12 @@ class SettingViewModelV2 @Inject constructor(
     private val _switchedPlatformEvent = MutableSharedFlow<String>()
     val switchedPlatformEvent: SharedFlow<String> = _switchedPlatformEvent.asSharedFlow()
 
+    private val _debugMode = MutableStateFlow(false)
+    val debugMode: StateFlow<Boolean> = _debugMode.asStateFlow()
+
     init {
         fetchPlatforms()
+        fetchDebugMode()
     }
 
     fun fetchPlatforms() {
@@ -116,6 +120,20 @@ class SettingViewModelV2 @Inject constructor(
             platform?.let { deletePlatform(it) }
         }
         closeDeleteDialog()
+    }
+
+    fun toggleDebugMode() {
+        val newValue = !_debugMode.value
+        _debugMode.update { newValue }
+        viewModelScope.launch {
+            settingRepository.updateDebugMode(newValue)
+        }
+    }
+
+    private fun fetchDebugMode() {
+        viewModelScope.launch {
+            _debugMode.update { settingRepository.getDebugMode() }
+        }
     }
 
     data class DialogState(

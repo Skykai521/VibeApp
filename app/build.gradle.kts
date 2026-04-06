@@ -18,12 +18,15 @@ android {
         applicationId = "com.vibe.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.6.0"
+        versionCode = 13
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi")
         }
     }
 
@@ -34,8 +37,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -52,6 +55,9 @@ android {
     }
     packaging {
         jniLibs {
+            // Must stay true: libaapt2.so is executed as a binary via ProcessBuilder,
+            // not loaded as a shared library. With false, Android 10+ does not extract
+            // .so to nativeLibraryDir and the fallback files/ dir has noexec mount.
             useLegacyPackaging = true
         }
         resources {
@@ -69,6 +75,21 @@ android {
             excludes += "about_files/LICENSE-2.0.txt"
             excludes += "plugin.xml"
             excludes += "plugin.properties"
+            // Javac compiler localized messages (not visible to users)
+            excludes += "com/sun/tools/javac/resources/compiler_ja.properties"
+            excludes += "com/sun/tools/javac/resources/compiler_zh_CN.properties"
+            excludes += "com/sun/tools/javac/resources/javac_ja.properties"
+            excludes += "com/sun/tools/javac/resources/javac_zh_CN.properties"
+            excludes += "com/sun/tools/javac/resources/launcher_ja.properties"
+            excludes += "com/sun/tools/javac/resources/launcher_zh_CN.properties"
+            // Javap / doclint localized messages (unused)
+            excludes += "com/sun/tools/javap/resources/javap_ja.properties"
+            excludes += "com/sun/tools/javap/resources/javap_zh_CN.properties"
+            excludes += "com/sun/tools/doclint/resources/doclint_ja.properties"
+            excludes += "com/sun/tools/doclint/resources/doclint_zh_CN.properties"
+            // JAXP/Xerces localized messages
+            excludes += "org/openjdk/com/sun/org/apache/xerces/internal/impl/msg/*_*.properties"
+            excludes += "org/openjdk/com/sun/org/apache/xml/internal/serializer/output_*.properties"
         }
     }
     lint {
@@ -78,6 +99,8 @@ android {
 
 configurations.all {
     exclude(group = "com.intellij", module = "annotations")
+    // bundletool JAR contains both DEX and Java bytecode, which breaks R8
+    exclude(group = "com.android.tools.build", module = "bundletool")
 }
 
 dependencies {
@@ -86,6 +109,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.viewmodel)
@@ -120,7 +144,7 @@ dependencies {
 
     // Markdown
     implementation(libs.compose.markdown)
-    implementation(libs.richtext)
+    implementation(libs.compose.markdown.code)
 
     // Navigation
     implementation(libs.hilt.navigation)

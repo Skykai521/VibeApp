@@ -18,7 +18,7 @@ ThemeViewModel → CompositionLocals
   ├─ LocalDynamicTheme (ON / OFF)
   └─ LocalThemeMode (SYSTEM / DARK / LIGHT)
         ↓
-GPTMobileTheme() ← 入口在 MainActivity.setContent {}
+VibeAppTheme() ← 入口在 MainActivity.setContent {}
   └─ MaterialTheme(colorScheme, typography)
         ↓
 全部 UI 组件通过 MaterialTheme.colorScheme.* 取色
@@ -29,7 +29,7 @@ GPTMobileTheme() ← 入口在 MainActivity.setContent {}
 | 文件 | 职责 |
 |------|------|
 | `presentation/theme/Color.kt` | 所有颜色常量定义（light / dark / 中对比度 / 高对比度） |
-| `presentation/theme/Theme.kt` | ColorScheme 组装、`GPTMobileTheme()` 入口、动态主题 & 暗色模式切换 |
+| `presentation/theme/Theme.kt` | ColorScheme 组装、`VibeAppTheme()` 入口、动态主题 & 暗色模式切换 |
 | `presentation/theme/Type.kt` | 排版定义（目前使用 Material 3 默认值） |
 
 ---
@@ -115,7 +115,7 @@ GPTMobileTheme() ← 入口在 MainActivity.setContent {}
 
 | 位置 | 色值 | 用途 | 是否需要改 |
 |------|------|------|-----------|
-| `ChatBubble.kt` — `GPTMobileIcon` | `Color(0xFF00A67D)` | AI 助手头像背景 | 可选（品牌色，可保留） |
+| `ChatBubble.kt` — `VibeAppIcon` | `Color(0xFF00A67D)` | AI 助手头像背景 | 可选（品牌色，可保留） |
 
 其余所有颜色均通过 `MaterialTheme.colorScheme.*` 引用，主题一致性非常好。
 

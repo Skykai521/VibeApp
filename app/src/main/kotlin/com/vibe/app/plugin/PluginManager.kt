@@ -129,6 +129,22 @@ class PluginManager @Inject constructor(
     }
 
     /**
+     * Finishes the plugin Activity for the given project and brings VibeApp back to the foreground.
+     */
+    fun finishPluginAndReturn(projectId: String) {
+        val slotIndex = slots.indices.firstOrNull { slots[it]?.projectId == projectId }
+        if (slotIndex != null) {
+            ActivityHolder.get(slotIndex)?.finish()
+        }
+        // Bring VibeApp's main task to the foreground
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            context.startActivity(intent)
+        }
+    }
+
+    /**
      * Returns the IPluginInspector for the given project, or null if no plugin is running.
      */
     fun getInspector(projectId: String): IPluginInspector? {
