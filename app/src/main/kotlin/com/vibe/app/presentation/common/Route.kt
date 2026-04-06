@@ -8,6 +8,7 @@ object Route {
 
     const val CHAT_LIST = "chat_list"
     const val CHAT_ROOM = "chat_room/{chatRoomId}?enabled={enabledPlatforms}"
+    const val DIAGNOSTIC = "diagnostic/{chatRoomId}"
 
     const val SETTING_ROUTE = "setting_route"
     const val SETTINGS = "settings"

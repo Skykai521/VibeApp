@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import com.vibe.app.presentation.ui.chat.ChatScreen
+import com.vibe.app.presentation.ui.diagnostic.DiagnosticScreen
 import com.vibe.app.presentation.ui.home.HomeScreen
 import com.vibe.app.presentation.ui.setting.AboutScreen
 import com.vibe.app.presentation.ui.setting.LicenseScreen
@@ -39,6 +40,7 @@ fun SetupNavGraph(navController: NavHostController) {
         setupNavigation(navController)
         settingNavigation(navController)
         chatScreenNavigation(navController)
+        diagnosticNavigation(navController)
     }
 }
 
@@ -129,11 +131,28 @@ fun NavGraphBuilder.chatScreenNavigation(navController: NavHostController) {
             navArgument("chatRoomId") { type = NavType.IntType },
             navArgument("enabledPlatforms") { defaultValue = "" }
         )
-    ) {
+    ) { backStackEntry ->
+        val chatRoomId = backStackEntry.arguments?.getInt("chatRoomId") ?: return@composable
         ChatScreen(
             onNavigateToAddPlatform = {
                 navController.navigate(Route.SETUP_ROUTE) { launchSingleTop = true }
             },
+            onNavigateToDiagnostic = {
+                navController.navigate(
+                    Route.DIAGNOSTIC.replace("{chatRoomId}", "$chatRoomId")
+                )
+            },
+            onBackAction = { navController.navigateUp() }
+        )
+    }
+}
+
+fun NavGraphBuilder.diagnosticNavigation(navController: NavHostController) {
+    composable(
+        Route.DIAGNOSTIC,
+        arguments = listOf(navArgument("chatRoomId") { type = NavType.IntType })
+    ) {
+        DiagnosticScreen(
             onBackAction = { navController.navigateUp() }
         )
     }
