@@ -57,9 +57,9 @@ object NetworkModule {
     }) {
         expectSuccess = false
         install(HttpTimeout) {
-            requestTimeoutMillis = 10_000
-            connectTimeoutMillis = 10_000
-            socketTimeoutMillis = 10_000
+            requestTimeoutMillis = 15_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 15_000
         }
     }
 }

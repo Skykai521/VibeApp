@@ -9,7 +9,7 @@ class BingSearchEngine : WebSearchEngine {
 
     override fun buildSearchUrl(query: String): String {
         val encoded = URLEncoder.encode(query, "UTF-8")
-        return "https://www.bing.com/search?q=$encoded&setlang=en"
+        return "https://cn.bing.com/search?q=$encoded&ensearch=0"
     }
 
     override fun parseResults(html: String): List<SearchResult> {
