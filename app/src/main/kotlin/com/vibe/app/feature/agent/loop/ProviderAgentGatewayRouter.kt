@@ -27,6 +27,7 @@ class ProviderAgentGatewayRouter @Inject constructor(
     private val qwenGateway: QwenChatCompletionsAgentGateway,
     private val kimiGateway: KimiChatCompletionsAgentGateway,
     private val anthropicGateway: AnthropicMessagesAgentGateway,
+    private val deepSeekGateway: DeepSeekChatCompletionsAgentGateway,
 ) : AgentModelGateway {
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> {
@@ -36,6 +37,7 @@ class ProviderAgentGatewayRouter @Inject constructor(
             ClientType.QWEN -> qwenGateway.streamTurn(request)
             ClientType.KIMI -> kimiGateway.streamTurn(request)
             ClientType.OPENAI -> openAiGateway.streamTurn(request)
+            ClientType.DEEPSEEK -> deepSeekGateway.streamTurn(request)
         }
     }
 }

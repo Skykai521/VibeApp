@@ -8,6 +8,7 @@ object ModelConstants {
     const val QWEN_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/"
     const val KIMI_API_URL = "https://api.moonshot.cn/"
     const val MINIMAX_API_URL = "https://api.minimaxi.com/anthropic/"
+    const val DEEPSEEK_API_URL = "https://api.deepseek.com/"
 
     const val CHAT_TITLE_GENERATE_PROMPT =
         "Create a title that summarizes the chat. " +

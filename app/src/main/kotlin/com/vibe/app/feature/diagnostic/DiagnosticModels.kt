@@ -238,6 +238,7 @@ fun ClientType.toDiagnosticProviderType(): String = when (this) {
     ClientType.QWEN -> "qwen"
     ClientType.KIMI -> "kimi"
     ClientType.MINIMAX -> "minimax"
+    ClientType.DEEPSEEK -> "deepseek"
 }
 
 fun String.clipPreview(maxLength: Int = 240): String {

@@ -26,4 +26,5 @@ fun getClientTypeDisplayName(clientType: ClientType): String = when (clientType)
     ClientType.QWEN -> "Qwen"
     ClientType.KIMI -> "Kimi"
     ClientType.MINIMAX -> "MiniMax"
+    ClientType.DEEPSEEK -> "DeepSeek"
 }

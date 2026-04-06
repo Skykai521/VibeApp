@@ -170,6 +170,8 @@
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="minimax" translatable="false">MiniMax</string>
     <string name="minimax_description">Creator of MiniMax.</string>
+    <string name="deepseek" translatable="false">DeepSeek</string>
+    <string name="deepseek_description">Creator of DeepSeek, advanced reasoning models.</string>
     <string name="remove">Remove</string>
 
     <!-- Project management strings -->

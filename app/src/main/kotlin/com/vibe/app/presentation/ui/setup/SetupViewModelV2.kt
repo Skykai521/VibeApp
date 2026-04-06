@@ -128,7 +128,7 @@ class SetupViewModelV2 @Inject constructor(
                     topP = 1.0f,
                     systemPrompt = null,
                     stream = true,
-                    reasoning = false,
+                    reasoning = clientType == ClientType.DEEPSEEK,
                     timeout = 30
                 )
                 // Disable all currently enabled platforms before adding new one
@@ -185,6 +185,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.QWEN -> "Qwen"
         ClientType.KIMI -> "Kimi"
         ClientType.MINIMAX -> "MiniMax"
+        ClientType.DEEPSEEK -> "DeepSeek"
     }
 
     private fun getDefaultApiUrl(clientType: ClientType): String = when (clientType) {
@@ -193,6 +194,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.QWEN -> ModelConstants.QWEN_API_URL
         ClientType.KIMI -> ModelConstants.KIMI_API_URL
         ClientType.MINIMAX -> ModelConstants.MINIMAX_API_URL
+        ClientType.DEEPSEEK -> ModelConstants.DEEPSEEK_API_URL
     }
 
     private fun getDefaultModel(clientType: ClientType): String = when (clientType) {
@@ -201,6 +203,7 @@ class SetupViewModelV2 @Inject constructor(
         ClientType.QWEN -> "qwen3-max"
         ClientType.KIMI -> "kimi-k2.5"
         ClientType.MINIMAX -> "MiniMax-M2.7"
+        ClientType.DEEPSEEK -> "deepseek-reasoner"
     }
 
     companion object {

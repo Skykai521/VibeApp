@@ -6,4 +6,5 @@ enum class ClientType {
     QWEN,
     KIMI,
     MINIMAX,
+    DEEPSEEK,
 }
