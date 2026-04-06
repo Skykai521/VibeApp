@@ -23,12 +23,9 @@ The entire build pipeline runs on-device. Your code never leaves your phone.
 
 ### Screenshots
 
-<p align="center">
-  <img src="docs/assets/screenshot_home.jpg" alt="Home" width="200"/>
-  <img src="docs/assets/screenshot_chat_screen.jpg" alt="Chat" width="200"/>
-  <img src="docs/assets/screenshot_add_platform.jpg" alt="Add Platform" width="200"/>
-  <img src="docs/assets/screenshot_setting.jpg" alt="Settings" width="200"/>
-</p>
+| Home | Chat | Add Platform | Settings |
+|:----:|:----:|:------------:|:--------:|
+| <img src="docs/assets/screenshot_home.jpg" alt="Home" width="200"/> | <img src="docs/assets/screenshot_chat_screen.jpg" alt="Chat" width="200"/> | <img src="docs/assets/screenshot_add_platform.jpg" alt="Add Platform" width="200"/> | <img src="docs/assets/screenshot_setting.jpg" alt="Settings" width="200"/> |
 
 ## Why VibeApp
 
