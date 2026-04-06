@@ -2,7 +2,9 @@ package com.vibe.app.presentation.ui.diagnostic
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +53,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import android.widget.Toast
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -247,17 +255,34 @@ private fun SummaryRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DiagnosticEventCard(event: DiagnosticEvent) {
     var isExpanded by remember { mutableStateOf(false) }
     val levelColor = getLevelColor(event.level)
     val categoryIcon = getCategoryIcon(event.category)
     val categoryColor = getCategoryColor(event.category)
+    val clipboardManager = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val copiedText = context.getString(R.string.diagnostic_event_copied)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded }
+            .combinedClickable(
+                onClick = { isExpanded = !isExpanded },
+                onLongClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val text = buildString {
+                        appendLine("[${event.category}/${event.level}] ${event.summary}")
+                        appendLine("Time: ${formatTimestamp(event.timestamp)}")
+                        appendLine("Payload: ${formatJson(event.payload)}")
+                    }
+                    clipboardManager.setText(AnnotatedString(text))
+                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                },
+            )
             .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Row(

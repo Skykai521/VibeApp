@@ -205,4 +205,5 @@
     <string name="diagnostic_warnings">警告</string>
     <string name="diagnostic_log_size">日志大小</string>
     <string name="diagnostic_events">事件</string>
+    <string name="diagnostic_event_copied">事件已复制到剪贴板</string>
 </resources>

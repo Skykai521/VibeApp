@@ -225,4 +225,5 @@
     <string name="diagnostic_warnings">Warnings</string>
     <string name="diagnostic_log_size">Log Size</string>
     <string name="diagnostic_events">Events</string>
+    <string name="diagnostic_event_copied">Event copied to clipboard</string>
 </resources>

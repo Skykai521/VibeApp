@@ -152,9 +152,22 @@ class ConversationCompactor @Inject constructor(
             }
         }
 
-        // Phase 3: Drop oldest non-recent user-assistant pairs if still over budget
+        // Phase 3: Drop oldest complete turns if still over budget.
+        // Must remove by turn (USER + all subsequent ASSISTANT/TOOL items until next USER)
+        // to preserve tool_call_id pairing — removing individual items breaks the
+        // assistant→tool_call_id relationship and causes provider API errors.
         while (result.size > 2 && ConversationContextManager.estimateTokens(result) > tokenBudget) {
-            result.removeAt(0)
+            // Find the second USER item — everything before it is the first turn.
+            var secondUserIdx = -1
+            for (i in 1 until result.size) {
+                if (result[i].role == AgentMessageRole.USER) {
+                    secondUserIdx = i
+                    break
+                }
+            }
+            if (secondUserIdx <= 0) break // only one turn left — can't drop more
+            // Remove the entire first turn as a unit
+            repeat(secondUserIdx) { result.removeAt(0) }
         }
 
         return result

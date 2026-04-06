@@ -119,6 +119,8 @@ No changes to strategies 1-3. They continue to handle within-loop growth.
 
 The `ConversationCompactor.compact()` fallback that truncates assistant text when all strategies fail or produce results still over budget. This catches any edge case where Phase A + Phase B are insufficient.
 
+**Critical fix (2026-04-06):** Phase 3 of `truncateToFitBudget()` previously used `removeAt(0)` to drop individual items, which could break `tool_call_id` pairing (e.g., removing an assistant message with `toolCalls` while keeping the corresponding `tool` result item). This caused Kimi to return `"Invalid request: tool_call_id is not found"` (HTTP 400), followed by rate-limiting (`engine_overloaded`, HTTP 429) from the accumulated failed requests. Fixed by dropping items by complete turn (USER + all subsequent ASSISTANT/TOOL items until the next USER) to preserve tool call integrity.
+
 ### Provider Budgets
 
 Current budgets in `ProviderContextBudget`:
