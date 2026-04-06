@@ -64,6 +64,11 @@ private val platformTypes = listOf(
         clientType = ClientType.MINIMAX,
         titleResId = R.string.minimax,
         descriptionResId = R.string.minimax_description
+    ),
+    PlatformTypeInfo(
+        clientType = ClientType.DEEPSEEK,
+        titleResId = R.string.deepseek,
+        descriptionResId = R.string.deepseek_description
     )
 )
 

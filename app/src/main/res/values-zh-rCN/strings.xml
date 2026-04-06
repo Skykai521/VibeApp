@@ -97,7 +97,7 @@
     <string name="platform_name_hint">我的自定义提供商</string>
     <string name="platform_name_supporting">为你的提供商起个好记的名字吧</string>
     <string name="platform_name_icon">提供商名称的图标</string>
-    <string name="client_type_google_desc">Google Gemini Generative AI API</string>
+
     <string name="api_url_hint">https://api.example.com</string>
     <string name="api_key_hint">sk-…</string>
     <string name="api_key_supporting">你的 API 密钥存储在本地</string>
@@ -125,6 +125,9 @@
     <string name="tool_name_update_project_icon">更新图标</string>
     <string name="tool_name_read_runtime_log">读取运行日志</string>
     <string name="tool_name_fix_crash_guide">诊断崩溃</string>
+    <string name="tool_name_create_plan">创建计划</string>
+    <string name="tool_name_update_plan_step">更新计划</string>
+    <string name="plan_header">执行计划 (%1$d/%2$d 完成)</string>
     <string name="crash_detected_title">应用崩溃</string>
     <string name="crash_auto_fix">自动修复</string>
     <string name="crash_dismiss">忽略</string>
@@ -138,15 +141,17 @@
     <string name="step_x_of_y">第 %1$d 步，共 %2$d 步</string>
     <string name="platform_basics_description">为你的提供商命名并验证 API 端点</string>
     <string name="api_key_description">请输入你的 API 密钥，它只存储在您的设备上。</string>
-    <string name="api_key_optional_note">对于类似 Ollama 的本地部署模型，API 密钥不是必需的。</string>
+
     <string name="model_description">请输入您使用模型的标识符</string>
-    <string name="model_examples">例如：gpt-4o、claude-sonnet-4-20250514、gemini-1.5-pro</string>
+    <string name="model_examples">例如：gpt–5.4, claude–sonnet-4-6</string>
     <string name="back">返回</string>
     <string name="finish">完成</string>
     <string name="remove">移除</string>
     <string name="qwen_description">Qwen 创造者</string>
     <string name="kimi_description">月之暗面旗下 Kimi 智能助手</string>
     <string name="minimax_description">MiniMax 创造者</string>
+    <string name="deepseek" translatable="false">DeepSeek</string>
+    <string name="deepseek_description">DeepSeek 深度求索，先进推理模型创造者</string>
     <string name="stop">停止</string>
     <string name="select_image">选择图片</string>
     <string name="image_input_not_supported">仅 OpenAI、Anthropic 和 Kimi 对话支持选择图片。</string>

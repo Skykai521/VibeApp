@@ -26,6 +26,16 @@ data class QwenChatCompletionRequest(
 
     @SerialName("stream")
     val stream: Boolean = false,
+
+    @SerialName("thinking")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val thinking: QwenThinkingParam? = null,
+)
+
+@Serializable
+data class QwenThinkingParam(
+    @SerialName("type")
+    val type: String,
 )
 
 @OptIn(ExperimentalSerializationApi::class)

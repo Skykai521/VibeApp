@@ -76,6 +76,29 @@ fun booleanProp(description: String? = null): JsonObject = buildJsonObject {
 fun requiredFields(vararg fields: String): JsonArray =
     JsonArray(fields.map { JsonPrimitive(it) })
 
+fun arrayProp(
+    description: String? = null,
+    itemType: String = "string",
+): JsonObject = buildJsonObject {
+    put("type", JsonPrimitive("array"))
+    description?.let { put("description", JsonPrimitive(it)) }
+    put("items", buildJsonObject { put("type", JsonPrimitive(itemType)) })
+}
+
+fun objectArrayProp(
+    description: String? = null,
+    properties: JsonObject,
+    required: JsonArray? = null,
+): JsonObject = buildJsonObject {
+    put("type", JsonPrimitive("array"))
+    description?.let { put("description", JsonPrimitive(it)) }
+    put("items", buildJsonObject {
+        put("type", JsonPrimitive("object"))
+        put("properties", properties)
+        required?.let { put("required", it) }
+    })
+}
+
 // ── Build result conversion ─────────────────────────────────────────
 
 fun BuildResult.toFilteredJson(): JsonObject {

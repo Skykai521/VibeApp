@@ -111,7 +111,7 @@
     <string name="platform_name_hint">My Custom Platform</string>
     <string name="platform_name_supporting">Give your platform a memorable name</string>
     <string name="platform_name_icon">Platform Name Icon</string>
-    <string name="client_type_google_desc">Google Gemini Generative AI API</string>
+
     <string name="api_url_hint">https://api.example.com</string>
     <string name="api_key_hint">sk-…</string>
     <string name="api_key_supporting">Your API key is stored locally</string>
@@ -141,6 +141,9 @@
     <string name="tool_name_fix_crash_guide">Diagnose crash</string>
     <string name="tool_name_inspect_ui">Inspect UI</string>
     <string name="tool_name_interact_ui">Interact UI</string>
+    <string name="tool_name_create_plan">Create plan</string>
+    <string name="tool_name_update_plan_step">Update plan</string>
+    <string name="plan_header">Plan (%1$d/%2$d completed)</string>
     <string name="crash_detected_title">App Crashed</string>
     <string name="crash_auto_fix">Auto Fix</string>
     <string name="crash_dismiss">Dismiss</string>
@@ -156,9 +159,9 @@
     <string name="step_x_of_y">Step %1$d of %2$d</string>
     <string name="platform_basics_description">Give your platform a name and verify the API URL</string>
     <string name="api_key_description">Enter your API key. This is stored locally on your device.</string>
-    <string name="api_key_optional_note">API key is optional for local providers like Ollama</string>
+
     <string name="model_description">Enter the model identifier you want to use</string>
-    <string name="model_examples">Examples: gpt-4o, claude-sonnet-4-20250514, gemini-1.5-pro</string>
+    <string name="model_examples">Examples: gpt–5.4, claude-sonnet-4-6</string>
     <string name="back">Back</string>
     <string name="finish">Finish</string>
     <string name="alibaba" translatable="false">Alibaba</string>
@@ -167,6 +170,8 @@
     <string name="kimi_description">Creator of Kimi, by Moonshot AI.</string>
     <string name="minimax" translatable="false">MiniMax</string>
     <string name="minimax_description">Creator of MiniMax.</string>
+    <string name="deepseek" translatable="false">DeepSeek</string>
+    <string name="deepseek_description">Creator of DeepSeek, advanced reasoning models.</string>
     <string name="remove">Remove</string>
 
     <!-- Project management strings -->

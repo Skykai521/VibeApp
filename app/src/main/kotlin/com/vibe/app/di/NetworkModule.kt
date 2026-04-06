@@ -9,13 +9,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import com.vibe.app.data.network.AnthropicAPI
 import com.vibe.app.data.network.AnthropicAPIImpl
-import com.vibe.app.data.network.GoogleAPI
-import com.vibe.app.data.network.GoogleAPIImpl
 import com.vibe.app.data.network.NetworkClient
 import com.vibe.app.data.network.OpenAIAPI
 import com.vibe.app.data.network.OpenAIAPIImpl
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -48,8 +49,17 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideGoogleAPI(
-        networkClient: NetworkClient,
-        diagnosticLogger: ChatDiagnosticLogger,
-    ): GoogleAPI = GoogleAPIImpl(networkClient, diagnosticLogger)
+    @Named("web")
+    fun provideWebHttpClient(
+        @ApplicationContext context: Context,
+    ): HttpClient = HttpClient(OkHttp.create {
+        addInterceptor(ChuckerInterceptor.Builder(context).build())
+    }) {
+        expectSuccess = false
+        install(HttpTimeout) {
+            requestTimeoutMillis = 15_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 15_000
+        }
+    }
 }

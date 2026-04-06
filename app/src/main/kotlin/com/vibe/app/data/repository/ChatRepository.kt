@@ -2,19 +2,8 @@ package com.vibe.app.data.repository
 
 import com.vibe.app.data.database.entity.ChatRoomV2
 import com.vibe.app.data.database.entity.MessageV2
-import com.vibe.app.data.database.entity.PlatformV2
-import com.vibe.app.data.dto.ApiState
-import com.vibe.app.feature.diagnostic.DiagnosticContext
-import kotlinx.coroutines.flow.Flow
 
 interface ChatRepository {
-
-    suspend fun completeChat(
-        userMessages: List<MessageV2>,
-        assistantMessages: List<List<MessageV2>>,
-        platform: PlatformV2,
-        diagnosticContext: DiagnosticContext? = null,
-    ): Flow<ApiState>
     suspend fun fetchChatListV2(): List<ChatRoomV2>
     suspend fun searchChatsV2(query: String): List<ChatRoomV2>
     suspend fun fetchMessagesV2(chatId: Int): List<MessageV2>

@@ -8,12 +8,14 @@ import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.data.repository.ChatRepository
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.agent.AgentLoopCoordinator
+import com.vibe.app.feature.agent.AgentPlan
 import com.vibe.app.feature.agent.AgentLoopEvent
 import com.vibe.app.feature.agent.AgentLoopRequest
 import com.vibe.app.feature.agent.AgentStepItem
 import com.vibe.app.feature.agent.AgentStepType
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolStatus
+import com.vibe.app.feature.agent.ToolCallInfo
 import com.vibe.app.feature.diagnostic.DiagnosticContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -228,7 +230,7 @@ class AgentSessionManager @Inject constructor(
                     val updated = state.updateLastAssistant { msg ->
                         msg.copy(thoughts = msg.thoughts + event.delta)
                     }
-                    updated.appendOrUpdateLastStep(AgentStepType.THINKING) { existing ->
+                    updated.updateSingletonStep(AgentStepType.THINKING) { existing ->
                         existing.copy(content = existing.content + event.delta)
                     }
                 }
@@ -248,13 +250,16 @@ class AgentSessionManager @Inject constructor(
                     val updated = state.updateLastAssistant { msg ->
                         msg.copy(thoughts = msg.thoughts + "\n[Tool] ${event.call.name}\n")
                     }
-                    updated.addStep(
-                        AgentStepItem(
-                            type = AgentStepType.TOOL_CALL,
+                    updated.updateSingletonStep(AgentStepType.TOOL_CALL) { existing ->
+                        existing.copy(
                             toolName = event.call.name,
                             toolStatus = AgentToolStatus.CALLING,
+                            toolCalls = existing.toolCalls + ToolCallInfo(
+                                toolName = event.call.name,
+                                toolStatus = AgentToolStatus.CALLING,
+                            ),
                         )
-                    )
+                    }
                 }
             }
             is AgentLoopEvent.ToolExecutionFinished -> {
@@ -266,7 +271,7 @@ class AgentSessionManager @Inject constructor(
                                 "\n[Tool Result] ${event.result.toolName}: ${if (event.result.isError) "error" else "ok"}\n"
                         )
                     }
-                    updated.updateLastToolStep(event.result.toolName, status)
+                    updated.updateSingletonToolCallStatus(event.result.toolName, status)
                 }
             }
             is AgentLoopEvent.LoopCompleted -> {
@@ -290,8 +295,49 @@ class AgentSessionManager @Inject constructor(
                     }
                 }
             }
+            is AgentLoopEvent.PlanCreated -> {
+                stateFlow.update { state ->
+                    val updated = state.updateLastAssistant { msg ->
+                        msg.copy(thoughts = msg.thoughts + "\n[Plan] Created: ${event.plan.summary}\n")
+                    }
+                    updated.addStep(
+                        AgentStepItem(
+                            type = AgentStepType.PLAN,
+                            content = event.plan.summary,
+                            plan = event.plan,
+                        )
+                    )
+                }
+            }
+            is AgentLoopEvent.PlanUpdated -> {
+                stateFlow.update { state ->
+                    state.updateLastPlanStep(event.plan)
+                }
+            }
             else -> Unit
         }
+    }
+
+    /**
+     * Find the single step of [type] in the current turn and update it,
+     * or create one if it doesn't exist yet. This ensures at most one step
+     * per type per turn (consolidated THINKING / TOOL_CALL).
+     */
+    private fun SessionMessageState.updateSingletonStep(
+        type: AgentStepType,
+        update: (AgentStepItem) -> AgentStepItem,
+    ): SessionMessageState {
+        val steps = agentSteps.toMutableList()
+        if (steps.isEmpty()) steps.add(emptyList())
+        val lastTurnSteps = steps.last().toMutableList()
+        val idx = lastTurnSteps.indexOfFirst { it.type == type }
+        if (idx >= 0) {
+            lastTurnSteps[idx] = update(lastTurnSteps[idx])
+        } else {
+            lastTurnSteps.add(update(AgentStepItem(type = type)))
+        }
+        steps[steps.lastIndex] = lastTurnSteps
+        return copy(agentSteps = steps)
     }
 
     /** Append a new step or update the last step if it matches the given type. */
@@ -322,17 +368,42 @@ class AgentSessionManager @Inject constructor(
         return copy(agentSteps = steps)
     }
 
-    /** Update the last TOOL_CALL step matching the tool name with a new status. */
-    private fun SessionMessageState.updateLastToolStep(
+    /** Update a specific tool call's status within the consolidated TOOL_CALL step. */
+    private fun SessionMessageState.updateSingletonToolCallStatus(
         toolName: String,
         status: AgentToolStatus,
     ): SessionMessageState {
         val steps = agentSteps.toMutableList()
         if (steps.isEmpty()) return this
         val lastTurnSteps = steps.last().toMutableList()
-        val idx = lastTurnSteps.indexOfLast { it.type == AgentStepType.TOOL_CALL && it.toolName == toolName }
+        val idx = lastTurnSteps.indexOfFirst { it.type == AgentStepType.TOOL_CALL }
         if (idx >= 0) {
-            lastTurnSteps[idx] = lastTurnSteps[idx].copy(toolStatus = status)
+            val step = lastTurnSteps[idx]
+            val updatedCalls = step.toolCalls.toMutableList()
+            val callIdx = updatedCalls.indexOfLast { it.toolName == toolName && it.toolStatus == AgentToolStatus.CALLING }
+            if (callIdx >= 0) {
+                updatedCalls[callIdx] = updatedCalls[callIdx].copy(toolStatus = status)
+            }
+            lastTurnSteps[idx] = step.copy(
+                toolName = toolName,
+                toolStatus = status,
+                toolCalls = updatedCalls,
+            )
+            steps[steps.lastIndex] = lastTurnSteps
+        }
+        return copy(agentSteps = steps)
+    }
+
+    /** Update the last PLAN step with the updated plan state. */
+    private fun SessionMessageState.updateLastPlanStep(
+        plan: AgentPlan,
+    ): SessionMessageState {
+        val steps = agentSteps.toMutableList()
+        if (steps.isEmpty()) return this
+        val lastTurnSteps = steps.last().toMutableList()
+        val idx = lastTurnSteps.indexOfLast { it.type == AgentStepType.PLAN }
+        if (idx >= 0) {
+            lastTurnSteps[idx] = lastTurnSteps[idx].copy(plan = plan)
             steps[steps.lastIndex] = lastTurnSteps
         }
         return copy(agentSteps = steps)
@@ -418,11 +489,18 @@ class AgentSessionManager @Inject constructor(
 
         private val TOOL_LINE_REGEX = Regex("""\[Tool]\s+(\S+)""")
         private val TOOL_RESULT_REGEX = Regex("""\[Tool Result]\s+(\S+):\s*(ok|error|fail)""")
+        private val PLAN_LINE_REGEX = Regex("""\[Plan]\s+Created:\s+(.+)""")
 
-        /** Parse a raw thoughts string into AgentStepItems (for loading saved messages). */
+        /**
+         * Parse a raw thoughts string into AgentStepItems (for loading saved messages).
+         * Produces at most one THINKING step and one TOOL_CALL step (consolidated).
+         */
         fun parseThoughtsToSteps(thoughts: String): List<AgentStepItem> {
             val steps = mutableListOf<AgentStepItem>()
             val thinkingBuffer = StringBuilder()
+            val toolCalls = mutableListOf<ToolCallInfo>()
+            var lastToolName: String? = null
+            var lastToolStatus: AgentToolStatus? = null
 
             for (line in thoughts.lines()) {
                 val trimmed = line.trim()
@@ -431,36 +509,49 @@ class AgentSessionManager @Inject constructor(
 
                 when {
                     toolMatch != null -> {
-                        // Flush any accumulated thinking content
-                        if (thinkingBuffer.isNotBlank()) {
-                            steps.add(AgentStepItem(type = AgentStepType.THINKING, content = thinkingBuffer.toString().trim()))
-                            thinkingBuffer.clear()
-                        }
-                        steps.add(
-                            AgentStepItem(
-                                type = AgentStepType.TOOL_CALL,
-                                toolName = toolMatch.groupValues[1],
-                                toolStatus = AgentToolStatus.CALLING,
-                            )
-                        )
+                        val name = toolMatch.groupValues[1]
+                        toolCalls.add(ToolCallInfo(toolName = name, toolStatus = AgentToolStatus.CALLING))
+                        lastToolName = name
+                        lastToolStatus = AgentToolStatus.CALLING
                     }
                     resultMatch != null -> {
-                        // Update the last matching TOOL_CALL step
                         val name = resultMatch.groupValues[1]
                         val status = if (resultMatch.groupValues[2] == "ok") AgentToolStatus.OK else AgentToolStatus.ERROR
-                        val idx = steps.indexOfLast { it.type == AgentStepType.TOOL_CALL && it.toolName == name }
+                        val idx = toolCalls.indexOfLast { it.toolName == name && it.toolStatus == AgentToolStatus.CALLING }
                         if (idx >= 0) {
-                            steps[idx] = steps[idx].copy(toolStatus = status)
+                            toolCalls[idx] = toolCalls[idx].copy(toolStatus = status)
                         }
+                        lastToolName = name
+                        lastToolStatus = status
+                    }
+                    PLAN_LINE_REGEX.matchEntire(trimmed) != null -> {
+                        val planMatch = PLAN_LINE_REGEX.matchEntire(trimmed)!!
+                        steps.add(
+                            AgentStepItem(
+                                type = AgentStepType.PLAN,
+                                content = planMatch.groupValues[1],
+                            )
+                        )
                     }
                     trimmed.isNotEmpty() -> {
                         thinkingBuffer.appendLine(line)
                     }
                 }
             }
-            // Flush remaining thinking
+
+            // Build consolidated THINKING step
             if (thinkingBuffer.isNotBlank()) {
-                steps.add(AgentStepItem(type = AgentStepType.THINKING, content = thinkingBuffer.toString().trim()))
+                steps.add(0, AgentStepItem(type = AgentStepType.THINKING, content = thinkingBuffer.toString().trim()))
+            }
+            // Build consolidated TOOL_CALL step
+            if (toolCalls.isNotEmpty()) {
+                val insertIdx = if (thinkingBuffer.isNotBlank()) 1 else 0
+                steps.add(insertIdx, AgentStepItem(
+                    type = AgentStepType.TOOL_CALL,
+                    toolName = lastToolName,
+                    toolStatus = lastToolStatus,
+                    toolCalls = toolCalls,
+                ))
             }
             return steps
         }

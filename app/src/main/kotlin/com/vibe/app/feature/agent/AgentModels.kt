@@ -80,12 +80,16 @@ data class AgentStepItem(
     val toolStatus: AgentToolStatus? = null,
     val content: String = "",
     val timestamp: Long = System.currentTimeMillis(),
+    val plan: AgentPlan? = null,
+    /** Consolidated tool calls for a single TOOL_CALL step per turn. */
+    val toolCalls: List<ToolCallInfo> = emptyList(),
 )
 
 enum class AgentStepType {
     THINKING,
     TOOL_CALL,
     OUTPUT,
+    PLAN,
 }
 
 enum class AgentToolStatus {
@@ -93,6 +97,32 @@ enum class AgentToolStatus {
     OK,
     ERROR,
 }
+
+data class ToolCallInfo(
+    val toolName: String,
+    val toolStatus: AgentToolStatus,
+)
+
+enum class PlanStepStatus {
+    PENDING,
+    IN_PROGRESS,
+    COMPLETED,
+    FAILED,
+    SKIPPED,
+}
+
+data class AgentPlanStep(
+    val id: Int,
+    val description: String,
+    val status: PlanStepStatus = PlanStepStatus.PENDING,
+    val notes: String? = null,
+)
+
+data class AgentPlan(
+    val summary: String,
+    val steps: List<AgentPlanStep>,
+    val createdAtIteration: Int,
+)
 
 sealed interface AgentLoopEvent {
     data class LoopStarted(
@@ -137,5 +167,15 @@ sealed interface AgentLoopEvent {
     data class LoopFailed(
         val message: String,
         val iteration: Int? = null,
+    ) : AgentLoopEvent
+
+    data class PlanCreated(
+        val iteration: Int,
+        val plan: AgentPlan,
+    ) : AgentLoopEvent
+
+    data class PlanUpdated(
+        val iteration: Int,
+        val plan: AgentPlan,
     ) : AgentLoopEvent
 }

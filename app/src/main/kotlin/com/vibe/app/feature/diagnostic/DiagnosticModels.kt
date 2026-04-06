@@ -235,14 +235,10 @@ fun createDiagnosticEventId(timestamp: Long = System.currentTimeMillis()): Strin
 fun ClientType.toDiagnosticProviderType(): String = when (this) {
     ClientType.OPENAI -> "openai"
     ClientType.ANTHROPIC -> "anthropic"
-    ClientType.GOOGLE -> "google"
     ClientType.QWEN -> "qwen"
     ClientType.KIMI -> "kimi"
-    ClientType.GROQ -> "groq"
-    ClientType.OLLAMA -> "ollama"
-    ClientType.OPENROUTER -> "openrouter"
-    ClientType.CUSTOM -> "custom"
     ClientType.MINIMAX -> "minimax"
+    ClientType.DEEPSEEK -> "deepseek"
 }
 
 fun String.clipPreview(maxLength: Int = 240): String {

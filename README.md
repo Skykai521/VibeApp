@@ -258,23 +258,23 @@ VibeApp/
 > Goal: Make the generation process visible, controllable, and iterable
 
 - [x] Multi-project management + version snapshots
-- [x] Multi-model switching (GPT-4o / Qwen / Ollama)
+- [x] Multi-model switching (Claude / GPT / Gemini / Qwen / Kimi / MiniMax / Groq / OpenRouter / Ollama)
 - [x] Plugin system — run generated apps inside VibeApp without installation (Shadow-based, 5 process-isolated slots)
-- [ ] XML static preview (instant rendering without compilation)
-- [ ] Build cache + incremental compilation
-- [ ] Multi-turn conversation iteration optimization
-- [ ] AI multimodal support
+- [x] Build cache — pre-dex caching for library JARs, significantly faster subsequent builds
+- [x] AI multimodal support — image input across Anthropic, OpenAI, and Kimi providers
+- [x] Context compaction — multi-strategy conversation compaction to support longer multi-turn sessions
+- [x] Diagnostic logging — structured event tracking for the agent loop, viewable in-app
 
-### Phase 3 — Ecosystem Expansion
+### Phase 3 — Quality & Capability
 
-> Goal: Support more complex apps and community ecosystem
+> Goal: Generate higher-quality utility apps and lightweight data tools that anyone can use
 
-- [ ] Kotlin + Jetpack Compose support
-- [ ] Full build pipeline with third-party library support
-- [ ] Plugin system enhancements — AndroidX/Material Components support in plugin mode
-- [ ] Local termux and git support
-- [ ] Community template marketplace
-- [ ] Internationalization (i18n)
+- [ ] Richer UI component templates — more built-in patterns for common utility app layouts
+- [ ] Smarter auto-fix — broader error coverage and higher first-attempt success rate
+- [ ] Utility app enhancements — network requests, local storage, scheduled tasks, and other common capabilities
+- [ ] Web scraping & data tools — structured data fetching and display powered by jsoup
+- [ ] Continuous iteration — keep refining a generated app through multi-turn conversation
+- [ ] Community template marketplace — share and reuse high-quality tool templates
 
 ---
 

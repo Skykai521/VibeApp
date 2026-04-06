@@ -4,6 +4,7 @@ import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.request.QwenChatMessage
 import com.vibe.app.data.dto.qwen.request.QwenFunctionCall
 import com.vibe.app.data.dto.qwen.request.QwenFunctionDefinition
+import com.vibe.app.data.dto.qwen.request.QwenThinkingParam
 import com.vibe.app.data.dto.qwen.request.QwenTool
 import com.vibe.app.data.dto.qwen.request.QwenToolCall
 import com.vibe.app.data.dto.qwen.request.qwenTextContent
@@ -28,13 +29,16 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 
 /**
- * Agent gateway for MiniMax.
+ * Agent gateway for DeepSeek (deepseek-chat / deepseek-reasoner).
  *
- * MiniMax is OpenAI-compatible with reasoning support (reasoning_content field).
- * Uses tool_choice "auto" to avoid conflicts with reasoning-enabled models.
+ * Key differences from other OpenAI-compatible gateways:
+ * - Supports `thinking` request parameter `{"type":"enabled"}` for reasoning mode.
+ * - In multi-turn tool-call loops, `reasoning_content` must be echoed back for the
+ *   current assistant turn but cleared from older turns to save tokens.
+ * - Thinking-enabled models ignore temperature/topP and always use `tool_choice: "auto"`.
  */
 @Singleton
-class MiniMaxChatCompletionsAgentGateway @Inject constructor(
+class DeepSeekChatCompletionsAgentGateway @Inject constructor(
     private val openAIAPI: OpenAIAPI,
     private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AgentModelGateway {
@@ -47,23 +51,24 @@ class MiniMaxChatCompletionsAgentGateway @Inject constructor(
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
         openAIAPI.setToken(request.platform.token)
-        openAIAPI.setAPIUrl(request.platform.apiUrl.toMiniMaxBaseUrl())
+        openAIAPI.setAPIUrl(request.platform.apiUrl.toDeepSeekBaseUrl())
         val trace = ModelExecutionTrace()
+        val isReasoning = request.platform.reasoning
 
         val messages = buildMessages(request)
         trace.markRequestPrepared()
-        val requestContext = request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+        val requestContext = request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
             ModelRequestDiagnosticContext(
-                diagnosticContext = diagnosticContext,
+                diagnosticContext = ctx,
                 providerType = request.platform.compatibleType.toDiagnosticProviderType(),
                 apiFamily = "chat_completions",
                 model = request.platform.model,
                 stream = true,
-                reasoningEnabled = request.platform.reasoning,
+                reasoningEnabled = isReasoning,
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
                 toolChoiceMode = "auto".takeIf { request.tools.isNotEmpty() },
-                systemPromptPresent = true,
+                systemPromptPresent = !request.instructions.isNullOrBlank(),
                 systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
             )
         }
@@ -87,12 +92,13 @@ class MiniMaxChatCompletionsAgentGateway @Inject constructor(
                         function = QwenFunctionDefinition(
                             name = tool.name,
                             description = tool.description,
-                            parameters = tool.inputSchema.toMiniMaxToolSchema(),
+                            parameters = tool.inputSchema.toDeepSeekToolSchema(),
                         ),
                     )
                 },
                 toolChoice = if (request.tools.isNotEmpty()) "auto" else null,
                 stream = true,
+                thinking = if (isReasoning) QwenThinkingParam(type = "enabled") else null,
             ),
             diagnosticContext = requestContext,
             trace = trace,
@@ -106,16 +112,19 @@ class MiniMaxChatCompletionsAgentGateway @Inject constructor(
             val choice = chunk.choices?.firstOrNull() ?: return@collect
             finishReason = choice.finishReason ?: finishReason
 
+            // Stream text content
             choice.delta.content?.takeIf { it.isNotEmpty() }?.let { delta ->
                 trace.markOutput(delta)
                 emit(AgentModelEvent.OutputDelta(delta))
             }
 
+            // Stream reasoning/thinking content
             choice.delta.reasoningContent?.takeIf { it.isNotEmpty() }?.let { delta ->
                 reasoningBuilder.append(delta)
                 emit(AgentModelEvent.ThinkingDelta(delta))
             }
 
+            // Accumulate tool call deltas
             choice.delta.toolCalls?.forEach { deltaToolCall ->
                 val acc = toolCallAccumulators.getOrPut(deltaToolCall.index) { ToolCallAccumulator() }
                 deltaToolCall.id?.let { acc.id = it }
@@ -133,6 +142,7 @@ class MiniMaxChatCompletionsAgentGateway @Inject constructor(
             return@flow
         }
 
+        // Emit accumulated tool calls
         toolCallAccumulators.entries.sortedBy { it.key }.forEach { (_, acc) ->
             trace.markToolCall()
             val arguments = runCatching {
@@ -181,29 +191,39 @@ class MiniMaxChatCompletionsAgentGateway @Inject constructor(
             )
         }
 
-        request.fullConversation.forEach { item ->
+        // DeepSeek requires reasoning_content to be echoed back for the current
+        // tool-call loop, but cleared from older turns to save tokens.
+        // Strategy: only keep reasoningContent on the LAST assistant item that has it.
+        val lastReasoningIdx = request.fullConversation.indexOfLast {
+            it.role == AgentMessageRole.ASSISTANT && !it.reasoningContent.isNullOrBlank()
+        }
+
+        request.fullConversation.forEachIndexed { index, item ->
             when (item.role) {
                 AgentMessageRole.USER -> messages += QwenChatMessage(
                     role = "user",
-                    content = qwenTextContent(item.text),
+                    content = qwenTextContent(item.text.orEmpty()),
                 )
 
-                AgentMessageRole.ASSISTANT -> messages += QwenChatMessage(
-                    role = "assistant",
-                    content = qwenTextContent(item.text),
-                    reasoningContent = item.reasoningContent,
-                    toolCalls = item.toolCalls
-                        ?.map { toolCall ->
-                            QwenToolCall(
-                                id = toolCall.id,
-                                function = QwenFunctionCall(
-                                    name = toolCall.name,
-                                    arguments = toolCall.arguments.toString(),
-                                ),
-                            )
-                        }
-                        ?.takeIf { it.isNotEmpty() },
-                )
+                AgentMessageRole.ASSISTANT -> {
+                    val keepReasoning = index == lastReasoningIdx
+                    messages += QwenChatMessage(
+                        role = "assistant",
+                        content = qwenTextContent(item.text),
+                        reasoningContent = if (keepReasoning) item.reasoningContent else null,
+                        toolCalls = item.toolCalls
+                            ?.map { toolCall ->
+                                QwenToolCall(
+                                    id = toolCall.id,
+                                    function = QwenFunctionCall(
+                                        name = toolCall.name,
+                                        arguments = toolCall.arguments.toString(),
+                                    ),
+                                )
+                            }
+                            ?.takeIf { it.isNotEmpty() },
+                    )
+                }
 
                 AgentMessageRole.TOOL -> messages += QwenChatMessage(
                     role = "tool",
@@ -232,11 +252,9 @@ Do NOT assume you already know the file contents — always use tools to read an
     }
 }
 
-private fun String.toMiniMaxBaseUrl(): String {
-    return trimEnd('/')
-}
+private fun String.toDeepSeekBaseUrl(): String = trimEnd('/')
 
-private fun kotlinx.serialization.json.JsonElement.toMiniMaxToolSchema(): kotlinx.serialization.json.JsonElement {
+private fun kotlinx.serialization.json.JsonElement.toDeepSeekToolSchema(): kotlinx.serialization.json.JsonElement {
     val schemaObject = if (this is kotlinx.serialization.json.JsonObject) this else buildJsonObject {}
     val properties = schemaObject["properties"]?.jsonObject ?: buildJsonObject {}
     val required = schemaObject["required"]

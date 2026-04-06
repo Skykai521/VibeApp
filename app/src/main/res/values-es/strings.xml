@@ -108,4 +108,8 @@
     <string name="add_api_key_prompt_description">No platform is configured yet. Add a provider first, then come back here to start the conversation.</string>
     <string name="minimax_description">Creator of MiniMax.</string>
     <string name="install_apk">Install APK</string>
+    <string name="tool_name_create_plan">Crear plan</string>
+    <string name="tool_name_update_plan_step">Actualizar plan</string>
+    <string name="plan_header">Plan (%1$d/%2$d completados)</string>
+    <string name="deepseek_description">Creador de DeepSeek, modelos de razonamiento avanzados.</string>
 </resources>

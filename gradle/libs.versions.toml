@@ -22,6 +22,8 @@ splashscreen = "1.2.0"
 room = "2.8.4"
 coil = "2.7.0"
 chucker = "4.1.0"
+jsoup = "1.18.3"
+readability4j = "1.0.8"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +66,8 @@ androidx-lifecycle-runtime-compose-android = { group = "androidx.lifecycle", nam
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 chucker-debug = { group = "com.github.chuckerteam.chucker", name = "library", version.ref = "chucker" }
 chucker-release = { group = "com.github.chuckerteam.chucker", name = "library-no-op", version.ref = "chucker" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+readability4j = { group = "net.dankito.readability4j", name = "readability4j", version.ref = "readability4j" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
