@@ -44,8 +44,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.material.icons.outlined.Android
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
@@ -53,6 +59,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -835,9 +842,83 @@ fun ChatDropdownMenu(
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
         expanded = isDropdownMenuExpanded,
-        onDismissRequest = onDismissRequest
+        onDismissRequest = onDismissRequest,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 8.dp,
     ) {
+        // -- Project --
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.update_project_name)) },
+            onClick = onUpdateProjectNameClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null)
+            },
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.install_apk)) },
+            onClick = onInstallApkClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.InstallMobile, contentDescription = null)
+            },
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+
+        // -- Export --
+        DropdownMenuItem(
+            enabled = isChatMenuEnabled,
+            text = { Text(text = stringResource(R.string.export_chat)) },
+            onClick = {
+                onExportChatItemClick()
+                onDismissRequest()
+            },
+            leadingIcon = {
+                Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = null)
+            },
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.export_source_code)) },
+            onClick = onExportSourceCodeItemClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.Code, contentDescription = null)
+            },
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.export_apk)) },
+            onClick = onExportApkItemClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.Android, contentDescription = null)
+            },
+        )
+
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+
+        // -- Chat management --
+        DropdownMenuItem(
+            enabled = isChatMenuEnabled,
+            text = {
+                Text(
+                    text = stringResource(R.string.clear_chat_history),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            },
+            onClick = onClearChatHistoryClick,
+            leadingIcon = {
+                Icon(
+                    Icons.Outlined.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+        )
+
+        // -- Debug (conditional) --
         if (isDebugEnabled) {
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
             DropdownMenuItem(
                 text = { Text(text = stringResource(R.string.debug_log)) },
                 onClick = {
@@ -845,46 +926,10 @@ fun ChatDropdownMenu(
                     onDismissRequest()
                 },
                 leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.BugReport,
-                        contentDescription = null,
-                    )
+                    Icon(Icons.Outlined.BugReport, contentDescription = null)
                 },
             )
         }
-        DropdownMenuItem(
-            enabled = isProjectMenuEnabled,
-            text = { Text(text = stringResource(R.string.update_project_name)) },
-            onClick = onUpdateProjectNameClick
-        )
-        DropdownMenuItem(
-            enabled = isProjectMenuEnabled,
-            text = { Text(text = stringResource(R.string.install_apk)) },
-            onClick = onInstallApkClick
-        )
-        DropdownMenuItem(
-            enabled = isChatMenuEnabled,
-            text = { Text(text = stringResource(R.string.export_chat)) },
-            onClick = {
-                onExportChatItemClick()
-                onDismissRequest()
-            }
-        )
-        DropdownMenuItem(
-            enabled = isProjectMenuEnabled,
-            text = { Text(text = stringResource(R.string.export_source_code)) },
-            onClick = onExportSourceCodeItemClick
-        )
-        DropdownMenuItem(
-            enabled = isProjectMenuEnabled,
-            text = { Text(text = stringResource(R.string.export_apk)) },
-            onClick = onExportApkItemClick
-        )
-        DropdownMenuItem(
-            enabled = isChatMenuEnabled,
-            text = { Text(text = stringResource(R.string.clear_chat_history)) },
-            onClick = onClearChatHistoryClick
-        )
     }
 }
 
