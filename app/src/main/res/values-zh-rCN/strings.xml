@@ -143,7 +143,7 @@
     <string name="api_key_description">请输入你的 API 密钥，它只存储在您的设备上。</string>
 
     <string name="model_description">请输入您使用模型的标识符</string>
-    <string name="model_examples">例如：gpt-4o、claude-sonnet-4-20250514、gemini-1.5-pro</string>
+    <string name="model_examples">例如：gpt–5.4, claude–sonnet-4-6</string>
     <string name="back">返回</string>
     <string name="finish">完成</string>
     <string name="remove">移除</string>

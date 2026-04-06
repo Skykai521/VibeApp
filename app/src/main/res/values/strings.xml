@@ -161,7 +161,7 @@
     <string name="api_key_description">Enter your API key. This is stored locally on your device.</string>
 
     <string name="model_description">Enter the model identifier you want to use</string>
-    <string name="model_examples">Examples: gpt-4o, claude-sonnet-4-20250514, gemini-1.5-pro</string>
+    <string name="model_examples">Examples: gpt–5.4, claude-sonnet-4-6</string>
     <string name="back">Back</string>
     <string name="finish">Finish</string>
     <string name="alibaba" translatable="false">Alibaba</string>
