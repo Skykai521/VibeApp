@@ -1,5 +1,6 @@
 package com.vibe.app.presentation.ui.setting
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.AlertDialog
@@ -18,9 +20,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -147,6 +151,17 @@ fun SettingScreen(
 
             // About
             AboutPageItem(onItemClick = onNavigateToAboutPage)
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            // Developer Options
+            DebugModeSetting(
+                isEnabled = settingViewModel.debugMode.collectAsStateWithLifecycle().value,
+                onToggle = settingViewModel::toggleDebugMode
+            )
 
             if (dialogState.isThemeDialogOpen) {
                 ThemeSettingDialog(settingViewModel)
@@ -337,6 +352,34 @@ fun DeletePlatformDialog(
             ) {
                 Text(stringResource(R.string.cancel))
             }
+        }
+    )
+}
+
+@Composable
+private fun DebugModeSetting(
+    isEnabled: Boolean,
+    onToggle: () -> Unit
+) {
+    ListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 8.dp),
+        headlineContent = { Text(stringResource(R.string.debug_log)) },
+        supportingContent = { Text(stringResource(R.string.debug_log_description)) },
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Outlined.BugReport,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        trailingContent = {
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = { onToggle() }
+            )
         }
     )
 }

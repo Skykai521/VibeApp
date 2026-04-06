@@ -210,4 +210,9 @@
     <string name="clear_chat_history">Clear Chat History</string>
     <string name="clear_chat_history_title">Clear Chat History?</string>
     <string name="clear_chat_history_message">This will delete all messages in this conversation to reset the context. Generated code files will not be affected.</string>
+
+    <!-- Developer Options -->
+    <string name="developer_options">Developer Options</string>
+    <string name="debug_log">Debug Log</string>
+    <string name="debug_log_description">Enable diagnostic log viewer in chat page</string>
 </resources>
