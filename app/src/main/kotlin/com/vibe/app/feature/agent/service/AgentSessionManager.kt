@@ -141,8 +141,8 @@ class AgentSessionManager @Inject constructor(
                     applyEvent(chatId, event)
                 }
 
-                statusFlow.value = AgentSessionStatus.COMPLETED
                 saveToRoom(chatId)
+                statusFlow.value = AgentSessionStatus.COMPLETED
                 onSessionFinished(chatId, projectId, success = true)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 statusFlow.value = AgentSessionStatus.CANCELLED
@@ -151,9 +151,9 @@ class AgentSessionManager @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Agent session failed for chatId=$chatId", e)
-                statusFlow.value = AgentSessionStatus.FAILED
                 applyEvent(chatId, AgentLoopEvent.LoopFailed(message = e.message ?: "Unknown error"))
                 saveToRoom(chatId)
+                statusFlow.value = AgentSessionStatus.FAILED
                 onSessionFinished(chatId, projectId, success = false)
             } finally {
                 removeSession(chatId)
