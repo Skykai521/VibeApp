@@ -453,6 +453,7 @@ class AgentSessionManager @Inject constructor(
 
         private val TOOL_LINE_REGEX = Regex("""\[Tool]\s+(\S+)""")
         private val TOOL_RESULT_REGEX = Regex("""\[Tool Result]\s+(\S+):\s*(ok|error|fail)""")
+        private val PLAN_LINE_REGEX = Regex("""\[Plan]\s+Created:\s+(.+)""")
 
         /** Parse a raw thoughts string into AgentStepItems (for loading saved messages). */
         fun parseThoughtsToSteps(thoughts: String): List<AgentStepItem> {
@@ -476,6 +477,19 @@ class AgentSessionManager @Inject constructor(
                                 type = AgentStepType.TOOL_CALL,
                                 toolName = toolMatch.groupValues[1],
                                 toolStatus = AgentToolStatus.CALLING,
+                            )
+                        )
+                    }
+                    PLAN_LINE_REGEX.matchEntire(trimmed) != null -> {
+                        if (thinkingBuffer.isNotBlank()) {
+                            steps.add(AgentStepItem(type = AgentStepType.THINKING, content = thinkingBuffer.toString().trim()))
+                            thinkingBuffer.clear()
+                        }
+                        val planMatch = PLAN_LINE_REGEX.matchEntire(trimmed)!!
+                        steps.add(
+                            AgentStepItem(
+                                type = AgentStepType.PLAN,
+                                content = planMatch.groupValues[1],
                             )
                         )
                     }
