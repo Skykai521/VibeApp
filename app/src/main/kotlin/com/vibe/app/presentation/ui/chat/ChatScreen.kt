@@ -34,7 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -139,7 +139,7 @@ fun ChatScreen(
     val systemChatMargin = 32.dp
     val maximumUserChatBubbleWidth = (screenWidthDp - systemChatMargin) * 0.8F
     val maximumOpponentChatBubbleWidth = screenWidthDp - systemChatMargin
-    val listState = rememberLazyListState()
+    val listState = remember { LazyListState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     val chatRoom by chatViewModel.chatRoom.collectAsStateWithLifecycle()
@@ -206,36 +206,33 @@ fun ChatScreen(
 
     val scope = rememberCoroutineScope()
 
-    // Reliable last-item index derived from the actual LazyColumn layout
-    val lastItemIndex by remember {
-        derivedStateOf { (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0) }
+    suspend fun scrollToBottom() {
+        if (listState.layoutInfo.totalItemsCount > 0) {
+            listState.scrollToItem(0)
+        }
     }
 
     // Whether the user is currently near the bottom of the list (within 3 items)
     val isNearBottom by remember {
         derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisible != null && lastVisible.index >= layoutInfo.totalItemsCount - 3
+            listState.firstVisibleItemIndex < 3
         }
     }
 
     // Show scroll-to-bottom button only when scrolled far enough from bottom (>= 5 items away)
     val showScrollToBottom by remember {
         derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisible != null && lastVisible.index < layoutInfo.totalItemsCount - 5
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
         }
     }
 
-    // Scroll to bottom when messages are first loaded from database.
+    // With reverseLayout enabled, item index 0 is the visual bottom.
+    // Re-entering the screen should always anchor there.
     LaunchedEffect(isLoaded) {
         if (isLoaded) {
             snapshotFlow { listState.layoutInfo.totalItemsCount }
-                .first { it > 1 }
-            delay(80)
-            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+                .first { it > 0 }
+            scrollToBottom()
         }
     }
 
@@ -251,14 +248,14 @@ fun ChatScreen(
     LaunchedEffect(messageCount) {
         if (loadedMessageCount >= 0 && messageCount > loadedMessageCount) {
             loadedMessageCount = messageCount
-            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+            scrollToBottom()
         }
     }
 
     // Auto-scroll when crash prompt appears
     LaunchedEffect(crashPrompt) {
         if (crashPrompt != null) {
-            listState.animateScrollToItem(lastItemIndex)
+            scrollToBottom()
         }
     }
 
@@ -267,7 +264,7 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.scrollToItem(lastItemIndex)
+            scrollToBottom()
         }
     }
 
@@ -278,17 +275,12 @@ fun ChatScreen(
         if (isIdle) return@LaunchedEffect
         snapshotFlow {
             val info = listState.layoutInfo
-            // Reading totalItemsCount + last visible item's bottom edge covers both
-            // "new item added" and "existing item grew taller" scenarios.
-            val lastVisibleBottom = info.visibleItemsInfo.lastOrNull()?.let { it.offset + it.size } ?: 0
-            Triple(info.totalItemsCount, lastVisibleBottom, info.viewportEndOffset)
+            val firstVisibleBottom = info.visibleItemsInfo.firstOrNull()?.let { it.offset + it.size } ?: 0
+            Triple(info.totalItemsCount, firstVisibleBottom, info.viewportEndOffset)
         }.collect { (totalItems, _, _) ->
             if (totalItems <= 0) return@collect
-            val info = listState.layoutInfo
-            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return@collect
-            // Only auto-scroll when the user hasn't scrolled far up (within 3 items of bottom)
-            if (lastVisible.index >= info.totalItemsCount - 3) {
-                listState.scrollToItem(totalItems - 1)
+            if (isNearBottom) {
+                scrollToBottom()
             }
         }
     }
@@ -396,49 +388,67 @@ fun ChatScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    state = listState
+                    state = listState,
+                    reverseLayout = true
                 ) {
-                    if (showPlatformSetupPrompt) {
-                        item(key = "platform_setup_prompt") {
-                            MissingPlatformPromptCard(
-                                onAddApiKeyClick = onNavigateToAddPlatform,
+                    if (crashPrompt != null) {
+                        item(key = "crash_prompt") {
+                            CrashAutoFixCard(
+                                crashSummary = crashPrompt!!.crashSummary,
+                                onAutoFix = { chatViewModel.autoFixCrash() },
+                                onDismiss = { chatViewModel.dismissCrashPrompt() },
                             )
                         }
                     }
-                    // Iterate using structural count — DSL only re-executes when
-                    // messageCount or stepIndicesPerTurn changes.
-                    (0 until messageCount).forEach { i ->
-
-                        item(key = "user_$i") {
-                            // Content reads inside item lambda — only this item recomposes
-                            // when content changes, without rebuilding the full item list.
-                            val message = groupedMessages.userMessages.getOrNull(i) ?: return@item
-                            var isDropDownMenuExpanded by remember { mutableStateOf(false) }
+                    // reverseLayout makes index 0 the visual bottom, so declare the newest
+                    // rows first to keep the latest turn anchored there without a follow-up scroll.
+                    for (i in messageCount - 1 downTo 0) {
+                        item(key = "assistant_$i") {
+                            val platformIndexState = indexStates.getOrElse(i) { 0 }
+                            val assistantContent = groupedMessages.assistantMessages.getOrNull(i)
+                                ?.getOrNull(platformIndexState)?.content ?: ""
+                            val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                            val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 12.dp),
-                                horizontalAlignment = Alignment.End
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
                             ) {
-                                Box {
-                                    UserChatBubble(
-                                        modifier = Modifier.widthIn(max = maximumUserChatBubbleWidth),
-                                        text = message.content,
-                                        files = message.files,
-                                        onLongPress = { isDropDownMenuExpanded = true }
-                                    )
-                                    ChatBubbleDropdownMenu(
-                                        isChatBubbleDropdownMenuExpanded = isDropDownMenuExpanded,
-                                        canEdit = canUseChat && isIdle,
-                                        onDismissRequest = { isDropDownMenuExpanded = false },
-                                        onEditItemClick = { chatViewModel.openEditQuestionDialog(message) },
-                                        onCopyItemClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(message.content, message.content))) } }
-                                    )
-                                }
+                                OpponentChatBubble(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp)
+                                        .widthIn(max = maximumOpponentChatBubbleWidth),
+                                    canRetry = canUseChat && isLastTurn && !isTurnLoading,
+                                    isLoading = isTurnLoading,
+                                    text = assistantContent,
+                                    onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
+                                    onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
+                                    onRetryClick = { chatViewModel.retryChat(platformIndexState) }
+                                )
                             }
                         }
 
-                        // Platform header
+                        val turnStepIndices = stepIndicesPerTurn.getOrElse(i) { emptyList() }
+                        for (stepIdx in turnStepIndices.asReversed()) {
+                            item(key = "step_${i}_${stepIdx}") {
+                                val step = groupedMessages.agentSteps.getOrNull(i)
+                                    ?.getOrNull(stepIdx) ?: return@item
+                                val platformIndexState = indexStates.getOrElse(i) { 0 }
+                                val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                                val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                                val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+                                val allSteps = groupedMessages.agentSteps.getOrNull(i)
+                                val isLiveStep = isTurnLoading && stepIdx == (allSteps?.lastIndex ?: -1)
+                                AgentStepBubble(
+                                    step = step,
+                                    isLive = isLiveStep,
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                )
+                            }
+                        }
+
                         item(key = "platform_$i") {
                             val platformIndexState = indexStates.getOrElse(i) { 0 }
                             val isLastTurn = i == groupedMessages.assistantMessages.size - 1
@@ -473,66 +483,43 @@ fun ChatScreen(
                             }
                         }
 
-                        // Agent step items (thinking, tool calls)
-                        val turnStepIndices = stepIndicesPerTurn.getOrElse(i) { emptyList() }
-                        turnStepIndices.forEach { stepIdx ->
-                            item(key = "step_${i}_${stepIdx}") {
-                                val step = groupedMessages.agentSteps.getOrNull(i)
-                                    ?.getOrNull(stepIdx) ?: return@item
-                                val platformIndexState = indexStates.getOrElse(i) { 0 }
-                                val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
-                                val isLastTurn = i == groupedMessages.assistantMessages.size - 1
-                                val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
-                                val allSteps = groupedMessages.agentSteps.getOrNull(i)
-                                val isLiveStep = isTurnLoading && stepIdx == (allSteps?.lastIndex ?: -1)
-                                AgentStepBubble(
-                                    step = step,
-                                    isLive = isLiveStep,
-                                    modifier = Modifier.padding(horizontal = 4.dp),
-                                )
-                            }
-                        }
-
-                        // Final output bubble (the assistant's text response)
-                        item(key = "assistant_$i") {
-                            val platformIndexState = indexStates.getOrElse(i) { 0 }
-                            val assistantContent = groupedMessages.assistantMessages.getOrNull(i)
-                                ?.getOrNull(platformIndexState)?.content ?: ""
-                            val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
-                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
-                            val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+                        item(key = "user_$i") {
+                            // Content reads inside item lambda — only this item recomposes
+                            // when content changes, without rebuilding the full item list.
+                            val message = groupedMessages.userMessages.getOrNull(i) ?: return@item
+                            var isDropDownMenuExpanded by remember { mutableStateOf(false) }
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                                    .padding(horizontal = 6.dp, vertical = 12.dp),
+                                horizontalAlignment = Alignment.End
                             ) {
-                                OpponentChatBubble(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 4.dp)
-                                        .widthIn(max = maximumOpponentChatBubbleWidth),
-                                    canRetry = canUseChat && isLastTurn && !isTurnLoading,
-                                    isLoading = isTurnLoading,
-                                    text = assistantContent,
-                                    onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
-                                    onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
-                                    onRetryClick = { chatViewModel.retryChat(platformIndexState) }
-                                )
+                                Box {
+                                    UserChatBubble(
+                                        modifier = Modifier.widthIn(max = maximumUserChatBubbleWidth),
+                                        text = message.content,
+                                        files = message.files,
+                                        onLongPress = { isDropDownMenuExpanded = true }
+                                    )
+                                    ChatBubbleDropdownMenu(
+                                        isChatBubbleDropdownMenuExpanded = isDropDownMenuExpanded,
+                                        canEdit = canUseChat && isIdle,
+                                        onDismissRequest = { isDropDownMenuExpanded = false },
+                                        onEditItemClick = { chatViewModel.openEditQuestionDialog(message) },
+                                        onCopyItemClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(message.content, message.content))) } }
+                                    )
+                                }
                             }
                         }
                     }
-                    // Crash auto-fix prompt (shown when plugin crash is detected)
-                    if (crashPrompt != null) {
-                        item(key = "crash_prompt") {
-                            CrashAutoFixCard(
-                                crashSummary = crashPrompt!!.crashSummary,
-                                onAutoFix = { chatViewModel.autoFixCrash() },
-                                onDismiss = { chatViewModel.dismissCrashPrompt() },
+                    if (showPlatformSetupPrompt) {
+                        item(key = "platform_setup_prompt") {
+                            MissingPlatformPromptCard(
+                                onAddApiKeyClick = onNavigateToAddPlatform,
                             )
                         }
                     }
-                    // Bottom spacer so scrolling to this item reveals the full last message
-                    item(key = "bottom_spacer") {
+                    item(key = "top_spacer") {
                         Spacer(modifier = Modifier.height(1.dp))
                     }
                 }
@@ -546,7 +533,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(lastItemIndex)
+                                listState.animateScrollToItem(0)
                             }
                         }
                     }
