@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -117,6 +119,7 @@ fun OpponentChatBubble(
     isLoading: Boolean,
     isError: Boolean = false,
     text: String,
+    loadingMinHeight: Dp = 0.dp,
     onCopyClick: () -> Unit = {},
     onSelectClick: () -> Unit = {},
     onRetryClick: () -> Unit = {}
@@ -131,6 +134,7 @@ fun OpponentChatBubble(
     Column(modifier = modifier) {
         Column {
             Card(
+                modifier = Modifier.heightIn(min = if (isLoading) loadingMinHeight else 0.dp),
                 shape = RoundedCornerShape(0.dp),
                 colors = cardColor
             ) {

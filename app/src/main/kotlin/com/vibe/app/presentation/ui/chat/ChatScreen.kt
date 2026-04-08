@@ -134,11 +134,16 @@ fun ChatScreen(
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
     val screenWidthDp = with(LocalDensity.current) { containerSize.width.toDp() }
+    val screenHeightDp = with(LocalDensity.current) { containerSize.height.toDp() }
     val focusManager = LocalFocusManager.current
     val clipboardManager = LocalClipboard.current
     val systemChatMargin = 32.dp
     val maximumUserChatBubbleWidth = (screenWidthDp - systemChatMargin) * 0.8F
     val maximumOpponentChatBubbleWidth = screenWidthDp - systemChatMargin
+    val assistantLoadingMinHeight = remember(screenHeightDp) {
+        (screenHeightDp * 0.28f).coerceIn(140.dp, 260.dp)
+    }
+    val bottomScrollOffsetTolerancePx = with(LocalDensity.current) { 48.dp.roundToPx() }
     val listState = remember { LazyListState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -215,14 +220,15 @@ fun ChatScreen(
     // Whether the user is currently near the bottom of the list (within 3 items)
     val isNearBottom by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex < 3
+            listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset <= bottomScrollOffsetTolerancePx
         }
     }
 
     // Show scroll-to-bottom button only when scrolled far enough from bottom (>= 5 items away)
     val showScrollToBottom by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+            !isNearBottom
         }
     }
 
@@ -265,23 +271,6 @@ fun ChatScreen(
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
             scrollToBottom()
-        }
-    }
-
-    // Single streaming scroll handler: keep view anchored to bottom while AI is generating.
-    // Monitors layout changes (item count, content height) so both new items and growing
-    // text within existing items trigger a scroll.
-    LaunchedEffect(isIdle) {
-        if (isIdle) return@LaunchedEffect
-        snapshotFlow {
-            val info = listState.layoutInfo
-            val firstVisibleBottom = info.visibleItemsInfo.firstOrNull()?.let { it.offset + it.size } ?: 0
-            Triple(info.totalItemsCount, firstVisibleBottom, info.viewportEndOffset)
-        }.collect { (totalItems, _, _) ->
-            if (totalItems <= 0) return@collect
-            if (isNearBottom) {
-                scrollToBottom()
-            }
         }
     }
 
@@ -423,6 +412,7 @@ fun ChatScreen(
                                     canRetry = canUseChat && isLastTurn && !isTurnLoading,
                                     isLoading = isTurnLoading,
                                     text = assistantContent,
+                                    loadingMinHeight = assistantLoadingMinHeight,
                                     onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
                                     onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
                                     onRetryClick = { chatViewModel.retryChat(platformIndexState) }
