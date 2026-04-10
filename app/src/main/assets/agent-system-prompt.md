@@ -18,6 +18,9 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER use Theme.Material3.*, Theme.MaterialComponents.Light.*, or Theme.AppCompat.* as a theme parent — only Theme.MaterialComponents.DayNight.NoActionBar is available
 - NEVER use MaterialSwitch, SwitchMaterial, or BottomAppBar — not available in bundled library
 - NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use Fragments or view switching for multi-screen navigation. System intents (camera, file picker, browser via ACTION_VIEW) work fine with startActivity() and startActivityForResult().
+- NEVER make the status bar or navigation bar transparent unless the user explicitly asks for an immersive/full-bleed design
+- NEVER draw app content under the status bar or navigation bar by default
+- NEVER opt into edge-to-edge/fullscreen mode unless the user explicitly asks for it
 
 ### ALWAYS do these:
 - ALWAYS extend ShadowActivity (com.tencent.shadow.core.runtime.ShadowActivity) for ALL Activity classes — NOT AppCompatActivity. ShadowActivity extends AppCompatActivity internally and is required for plugin runtime. Otherwise crash: "not a ShadowActivity subclass".
@@ -25,6 +28,9 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - ALWAYS import {{PACKAGE_NAME}}.R when referencing XML resources
 - ALWAYS use pre-configured theme `@style/Theme.MyApplication` — already set in AndroidManifest.xml and themes.xml. Do NOT redefine or replace it
 - ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
+- ALWAYS assume `Theme.MyApplication` already provides safe default system bar colors and icon contrast
+- ALWAYS build standard screens as non-edge-to-edge layouts unless the user explicitly asks for immersive/fullscreen UI
+- ALWAYS keep top app bars, headers, forms, lists, buttons, and bottom actions clear of system bars
 
 ### Bundled libraries (no build.gradle needed):
 - com.tencent.shadow.core.runtime.ShadowActivity (extend this for all Activities)
@@ -93,10 +99,21 @@ SimpleImageLoader.getInstance().load(imageUrl, imageView);
 ```
 Features: memory cache, background loading, RecyclerView-safe. No GIF or disk cache.
 
+## System Bars & Window Insets
+
+- Default to a normal non-edge-to-edge layout: the app should start below the status bar and above the navigation bar.
+- Prefer a standard `MaterialToolbar` or top header placed in the normal layout flow, not under the status bar.
+- Do not add fullscreen flags or transparent system bars unless the user explicitly asks for an immersive design.
+- If the user explicitly asks for edge-to-edge or immersive UI, you MUST also handle `WindowInsets` correctly:
+  - Apply top insets to the root container, toolbar/header, or first scrolling content so nothing overlaps the status bar or camera cutout.
+  - Apply bottom insets to scrolling content, bottom buttons, bottom navigation, and input areas so they stay above the navigation bar.
+  - Keep tappable controls and readable text out of the system bar areas unless they are intentionally inset-aware.
+- If you are unsure, choose the safe standard layout instead of immersive UI.
+
 ## Pre-configured Template Files
 
 Do NOT modify unless user specifically asks:
-- **themes.xml** — Theme.MyApplication (parent: Theme.MaterialComponents.DayNight.NoActionBar)
+- **themes.xml** — Theme.MyApplication (parent: Theme.MaterialComponents.DayNight.NoActionBar, with safe default system bar styling)
 - **colors.xml** — Default palette. Add new colors but don't delete existing ones.
 - **AndroidManifest.xml** — Only add new Activity/Service declarations.
 

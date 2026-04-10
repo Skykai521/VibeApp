@@ -4,14 +4,17 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import com.tencent.shadow.core.runtime.HostActivityDelegator
 import com.tencent.shadow.core.runtime.ShadowActivity
 import java.io.File
@@ -75,6 +78,7 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
             )
             if (themeResId != 0) {
                 pluginTheme!!.applyStyle(themeResId, true)
+                syncWindowWithPluginTheme(pluginTheme!!)
             }
 
             // Build a self-consistent plugin Context: resources, theme,
@@ -249,6 +253,59 @@ open class PluginContainerActivity : AppCompatActivity(), HostActivityDelegator 
             view
         }
     }
+
+    /**
+     * Keep the host window aligned with the plugin theme so generated apps get
+     * consistent system bar colors and icon contrast in plugin mode.
+     *
+     * The safe default is non-edge-to-edge. Generated apps must opt into
+     * immersive layouts explicitly and then handle their own insets.
+     */
+    private fun syncWindowWithPluginTheme(theme: Resources.Theme) {
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        resolveThemeColor(theme, android.R.attr.statusBarColor)?.let { color ->
+            window.statusBarColor = color
+        }
+        resolveThemeColor(theme, android.R.attr.navigationBarColor)?.let { color ->
+            window.navigationBarColor = color
+        }
+
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        resolveThemeBoolean(theme, android.R.attr.windowLightStatusBar)?.let { isLight ->
+            insetsController.isAppearanceLightStatusBars = isLight
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            resolveThemeBoolean(theme, android.R.attr.windowLightNavigationBar)?.let { isLight ->
+                insetsController.isAppearanceLightNavigationBars = isLight
+            }
+        }
+    }
+
+    private fun resolveThemeColor(theme: Resources.Theme, attrResId: Int): Int? {
+        val value = TypedValue()
+        if (!theme.resolveAttribute(attrResId, value, true)) {
+            return null
+        }
+        return when {
+            value.resourceId != 0 -> pluginResources?.getColor(value.resourceId, theme)
+            value.type in TypedValue.TYPE_FIRST_COLOR_INT..TypedValue.TYPE_LAST_COLOR_INT -> value.data
+            else -> null
+        }
+    }
+
+    private fun resolveThemeBoolean(theme: Resources.Theme, attrResId: Int): Boolean? {
+        val value = TypedValue()
+        if (!theme.resolveAttribute(attrResId, value, true)) {
+            return null
+        }
+        return when {
+            value.type == TypedValue.TYPE_INT_BOOLEAN -> value.data != 0
+            value.type in TypedValue.TYPE_FIRST_INT..TypedValue.TYPE_LAST_INT -> value.data != 0
+            else -> null
+        }
+    }
+
     override fun <T : View> superFindViewById(id: Int): T = findViewById(id)
     override fun superStartActivity(intent: Intent) = super.startActivity(intent)
     @Suppress("DEPRECATION")
