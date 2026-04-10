@@ -98,7 +98,7 @@ fun UserChatBubble(
         ) {
             Markdown(
                 content = text.trimIndent(),
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
                 colors = chatMarkdownColors(),
                 typography = chatMarkdownTypography(),
                 components = chatMarkdownComponents(),
