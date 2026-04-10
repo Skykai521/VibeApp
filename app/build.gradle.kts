@@ -160,7 +160,6 @@ dependencies {
 
     // HTML parsing (web search)
     implementation(libs.jsoup)
-    implementation(libs.readability4j)
 
     implementation(project(":build-engine"))
     implementation(project(":shadow-runtime"))
