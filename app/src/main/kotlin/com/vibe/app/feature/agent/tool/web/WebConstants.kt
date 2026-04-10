@@ -11,5 +11,32 @@ object WebConstants {
     const val SEC_FETCH_USER = "?1"
 
     const val TIMEOUT_MS = 15_000L
+    const val WEBVIEW_TIMEOUT_MS = 20_000L
     const val MAX_CONTENT_LENGTH = 8_000
+
+    private val ANTI_CRAWL_PATTERNS = listOf(
+        "cf-challenge-running",
+        "cf-browser-verification",
+        "captcha",
+        "recaptcha",
+        "hcaptcha",
+        "verify you are human",
+        "请完成安全验证",
+        "access denied",
+        "just a moment",
+        "checking your browser",
+        "enable javascript and cookies",
+    )
+
+    /**
+     * Heuristic check for responses that indicate anti-crawling mechanisms
+     * blocked the real page content.
+     */
+    fun isAntiCrawlResponse(statusCode: Int, body: String): Boolean {
+        if (body.isBlank()) return true
+        if (statusCode == 403 || statusCode == 503) return true
+        if (body.length < 200) return true
+        val lower = body.lowercase()
+        return ANTI_CRAWL_PATTERNS.any { pattern -> lower.contains(pattern) }
+    }
 }
