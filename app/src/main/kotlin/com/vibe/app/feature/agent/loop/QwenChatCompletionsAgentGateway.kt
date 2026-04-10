@@ -13,6 +13,7 @@ import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
+import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
@@ -42,6 +43,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
         openAIAPI.setToken(request.platform.token)
         openAIAPI.setAPIUrl(request.platform.apiUrl.toQwenChatCompletionsBaseUrl())
         val trace = ModelExecutionTrace()
+        val effectiveToolChoice = request.toQwenToolChoice()
 
         val messages = buildMessages(request)
         trace.markRequestPrepared()
@@ -55,7 +57,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 reasoningEnabled = request.platform.reasoning,
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
-                toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),
+                toolChoiceMode = effectiveToolChoice,
                 systemPromptPresent = !request.instructions.isNullOrBlank(),
                 systemPromptChars = request.instructions?.length?.takeIf { it > 0 },
             )
@@ -83,7 +85,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                         ),
                     )
                 },
-                toolChoice = request.policy.toolChoiceMode.name.lowercase(),
+                toolChoice = effectiveToolChoice,
                 stream = true,
             ),
             diagnosticContext = requestContext,
@@ -153,15 +155,26 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
 
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {
         val messages = mutableListOf<QwenChatMessage>()
+        val toolRequired = request.policy.toolChoiceMode == AgentToolChoiceMode.REQUIRED
+        val hasTools = request.tools.isNotEmpty()
 
-        request.instructions
-            ?.takeIf { it.isNotBlank() }
-            ?.let { instructions ->
-                messages += QwenChatMessage(
-                    role = "system",
-                    content = qwenTextContent(instructions),
-                )
+        val systemContent = buildString {
+            request.instructions?.takeIf { it.isNotBlank() }?.let { append(it) }
+            if (toolRequired && hasTools) {
+                append("\n\n")
+                append(TOOL_REQUIRED_INSTRUCTION)
+            } else if (hasTools) {
+                append("\n\n")
+                append(TOOL_ENCOURAGE_INSTRUCTION)
             }
+        }.trim()
+
+        if (systemContent.isNotBlank()) {
+            messages += QwenChatMessage(
+                role = "system",
+                content = qwenTextContent(systemContent),
+            )
+        }
 
         request.fullConversation.forEach { item ->
             when (item.role) {
@@ -197,6 +210,29 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
         }
 
         return messages
+    }
+
+    companion object {
+        private const val TOOL_REQUIRED_INSTRUCTION =
+            """## MANDATORY TOOL USE
+You MUST call at least one tool in your response. Do NOT reply with only text.
+Analyze the user's request and use the appropriate tools to fulfill it.
+Every response MUST include one or more tool calls — a text-only answer is NOT acceptable."""
+
+        private const val TOOL_ENCOURAGE_INSTRUCTION =
+            """## IMPORTANT: Continue Using Tools
+You have tools available. When the user's request requires reading, writing, or modifying project files, or building the project, you MUST use the appropriate tools instead of describing what to do in text.
+Do NOT assume you already know the file contents — always use tools to read and write files."""
+    }
+}
+
+internal fun AgentModelRequest.toQwenToolChoice(): String? {
+    if (tools.isEmpty()) return null
+    return when (policy.toolChoiceMode) {
+        AgentToolChoiceMode.NONE -> "none"
+        AgentToolChoiceMode.AUTO,
+        AgentToolChoiceMode.REQUIRED,
+        -> "auto"
     }
 }
 
