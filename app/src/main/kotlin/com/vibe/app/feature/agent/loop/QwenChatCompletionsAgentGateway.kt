@@ -55,6 +55,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 model = request.platform.model,
                 stream = true,
                 reasoningEnabled = request.platform.reasoning,
+                estimatedContextTokens = request.estimateContextTokensForDiagnostics(),
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
                 toolChoiceMode = effectiveToolChoice,

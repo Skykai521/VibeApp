@@ -205,20 +205,17 @@ private fun SummaryCard(summary: SummaryInfo) {
                 value = summary.totalEvents.toString(),
             )
 
-            Row(modifier = Modifier.fillMaxWidth()) {
-                SummaryRow(
-                    modifier = Modifier.weight(1f),
-                    label = stringResource(R.string.diagnostic_errors),
-                    value = summary.errorCount.toString(),
-                    valueColor = if (summary.errorCount > 0) MaterialTheme.colorScheme.error else null,
-                )
-                SummaryRow(
-                    modifier = Modifier.weight(1f),
-                    label = stringResource(R.string.diagnostic_warnings),
-                    value = summary.warnCount.toString(),
-                    valueColor = if (summary.warnCount > 0) WarningColor else null,
-                )
-            }
+            SummaryRow(
+                label = stringResource(R.string.diagnostic_errors),
+                value = summary.errorCount.toString(),
+                valueColor = if (summary.errorCount > 0) MaterialTheme.colorScheme.error else null,
+            )
+
+            SummaryRow(
+                label = stringResource(R.string.diagnostic_warnings),
+                value = summary.warnCount.toString(),
+                valueColor = if (summary.warnCount > 0) WarningColor else null,
+            )
 
             SummaryRow(
                 label = stringResource(R.string.diagnostic_log_size),
