@@ -52,8 +52,11 @@ class CreatePlanTool @Inject constructor() : AgentTool {
         }
 
         val steps = stepsArray.mapIndexed { index, element ->
-            val description = element.jsonObject["description"]?.jsonPrimitive?.content
-                ?: return call.errorResult("Step ${index + 1} missing description")
+            // Support both string array ["step1", "step2"] and object array [{description: "step1"}, ...]
+            val description = when {
+                element is kotlinx.serialization.json.JsonPrimitive -> element.content
+                else -> element.jsonObject["description"]?.jsonPrimitive?.content
+            } ?: return call.errorResult("Step ${index + 1} missing description")
             mapOf("id" to (index + 1).toString(), "description" to description, "status" to "PENDING")
         }
 
