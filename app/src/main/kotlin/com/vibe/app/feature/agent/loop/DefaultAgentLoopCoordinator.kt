@@ -562,7 +562,6 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                             )
                         }
                     }
-                    // Task 5.2 will populate writtenFiles/deletedFiles; empty in Task 5.1.
                     turnContext.snapshotHandle.finalize(
                         buildSucceeded = buildSucceeded,
                         affectedFiles = turnContext.writtenFiles.toList(),
