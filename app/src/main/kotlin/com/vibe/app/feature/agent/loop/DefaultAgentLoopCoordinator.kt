@@ -427,11 +427,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
         request.userMessages.forEachIndexed { index, userMessage ->
             items += userMessage.toAgentConversationItem()
-            val assistantForPlatform = request.assistantMessages.getOrNull(index)
-                ?.firstOrNull { it.platformType == request.platform.uid }
-                ?.takeIf { it.content.isNotBlank() }
-            if (assistantForPlatform != null) {
-                items += assistantForPlatform.toAgentConversationItem()
+            // Prefer an assistant message from the current platform; if the user has
+            // switched models mid-chat, fall back to any platform's reply so the new
+            // model still sees what was already done (avoids repeating work).
+            val assistantsForTurn = request.assistantMessages.getOrNull(index).orEmpty()
+            val assistantForTurn = assistantsForTurn
+                .firstOrNull { it.platformType == request.platform.uid }
+                ?: assistantsForTurn.firstOrNull { it.content.isNotBlank() }
+            if (assistantForTurn != null && assistantForTurn.content.isNotBlank()) {
+                items += assistantForTurn.toAgentConversationItem()
             }
         }
 
@@ -540,6 +544,11 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         private const val MAX_OLDER_ASSISTANT_CHARS = 1500
         /** Older turns: summary-level only. */
         private const val MAX_SUMMARY_CHARS = 500
+
+        // Parsers for the persisted `thoughts` stream (written by AgentSessionManager).
+        private val THOUGHTS_TOOL_CALL_REGEX = Regex("""\[Tool]\s+(\S+)""")
+        private val THOUGHTS_TOOL_RESULT_REGEX = Regex("""\[Tool Result]\s+(\S+):\s*(ok|error|fail)""")
+        private val THOUGHTS_PLAN_REGEX = Regex("""\[Plan]\s+Created:\s+(.+)""")
     }
 
     private fun MessageV2.toAgentConversationItem(): AgentConversationItem {
@@ -548,6 +557,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             role = if (isAssistant) AgentMessageRole.ASSISTANT else AgentMessageRole.USER,
             attachments = if (isAssistant) emptyList() else files,
             text = buildString {
+                if (isAssistant) {
+                    // Project the prior turn's tool-call log (from `thoughts`) into the
+                    // assistant text so the next iteration — *especially* after a model
+                    // switch — can see what was already done and avoid redoing it.
+                    buildTurnWorkSummary(thoughts)?.let { summary ->
+                        append(summary)
+                        append("\n\n")
+                    }
+                }
                 append(content)
                 if (files.isNotEmpty()) {
                     append("\n\n[Files]\n")
@@ -555,6 +573,72 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 }
             }.trim(),
         )
+    }
+
+    /**
+     * Parse the persisted `thoughts` stream of a prior assistant turn into a compact
+     * "previously executed" summary. Returns null if nothing actionable was recorded.
+     *
+     * Source format (written by [AgentSessionManager.applyEvent]):
+     *   [Tool] <name>
+     *   [Tool Result] <name>: ok | error | fail
+     *   [Plan] Created: <summary>
+     */
+    private fun buildTurnWorkSummary(thoughts: String): String? {
+        if (thoughts.isBlank()) return null
+
+        // Preserve first-seen order; aggregate ok/error counts per tool.
+        val toolOrder = LinkedHashMap<String, IntArray>() // name -> [ok, err]
+        var planSummary: String? = null
+
+        for (rawLine in thoughts.lineSequence()) {
+            val line = rawLine.trim()
+            if (line.isEmpty()) continue
+
+            val resultMatch = THOUGHTS_TOOL_RESULT_REGEX.matchEntire(line)
+            if (resultMatch != null) {
+                val name = resultMatch.groupValues[1]
+                val counts = toolOrder.getOrPut(name) { intArrayOf(0, 0) }
+                if (resultMatch.groupValues[2] == "ok") counts[0]++ else counts[1]++
+                continue
+            }
+            val callMatch = THOUGHTS_TOOL_CALL_REGEX.matchEntire(line)
+            if (callMatch != null) {
+                // Record the call even if its result line never arrived (turn ended mid-flight).
+                toolOrder.getOrPut(callMatch.groupValues[1]) { intArrayOf(0, 0) }
+                continue
+            }
+            val planMatch = THOUGHTS_PLAN_REGEX.matchEntire(line)
+            if (planMatch != null && planSummary == null) {
+                planSummary = planMatch.groupValues[1]
+            }
+        }
+
+        if (toolOrder.isEmpty() && planSummary == null) return null
+
+        return buildString {
+            append("[Previously executed in this turn — do NOT redo]")
+            planSummary?.let {
+                append("\nPlan: ")
+                append(it)
+            }
+            if (toolOrder.isNotEmpty()) {
+                append("\nTools: ")
+                append(
+                    toolOrder.entries.joinToString(separator = ", ") { (name, counts) ->
+                        val ok = counts[0]
+                        val err = counts[1]
+                        when {
+                            ok > 0 && err == 0 && ok == 1 -> "$name(ok)"
+                            ok > 0 && err == 0 -> "$name(ok×$ok)"
+                            ok == 0 && err > 0 -> "$name(err×$err)"
+                            ok == 0 && err == 0 -> "$name(pending)"
+                            else -> "$name(ok×$ok,err×$err)"
+                        }
+                    }
+                )
+            }
+        }
     }
 
     private val promptTemplate: String by lazy {
