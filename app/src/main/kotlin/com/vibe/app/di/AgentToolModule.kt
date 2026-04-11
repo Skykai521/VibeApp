@@ -25,6 +25,7 @@ import com.vibe.app.feature.agent.tool.GrepProjectFilesTool
 import com.vibe.app.feature.agent.tool.SearchUiPatternTool
 import com.vibe.app.feature.agent.tool.GetUiPatternTool
 import com.vibe.app.feature.agent.tool.GetDesignGuideTool
+import com.vibe.app.feature.agent.tool.UpdateProjectIntentTool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -59,4 +60,5 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindSearchUiPattern(tool: SearchUiPatternTool): AgentTool
     @Binds @IntoSet abstract fun bindGetUiPattern(tool: GetUiPatternTool): AgentTool
     @Binds @IntoSet abstract fun bindGetDesignGuide(tool: GetDesignGuideTool): AgentTool
+    @Binds @IntoSet abstract fun bindUpdateProjectIntent(tool: UpdateProjectIntentTool): AgentTool
 }
