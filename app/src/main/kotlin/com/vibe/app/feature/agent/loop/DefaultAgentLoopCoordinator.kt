@@ -17,9 +17,19 @@ import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.loop.compaction.CompactionStrategyType
 import com.vibe.app.feature.agent.loop.compaction.ConversationCompactor
 import com.vibe.app.feature.agent.loop.compaction.ProviderContextBudget
+import com.vibe.app.feature.agent.loop.iteration.AgentMode
+import com.vibe.app.feature.agent.loop.iteration.IterationModeDetector
+import com.vibe.app.feature.agent.loop.iteration.PromptAssembler
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.DiagnosticLevels
 import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.feature.project.VibeProjectDirs
+import com.vibe.app.feature.project.memo.IntentStore
+import com.vibe.app.feature.project.memo.MemoLoader
+import com.vibe.app.feature.project.memo.OutlineGenerator
+import com.vibe.app.feature.project.memo.ProjectMemo
+import com.vibe.app.feature.project.snapshot.SnapshotManager
+import com.vibe.app.feature.project.snapshot.SnapshotType
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +53,11 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private val diagnosticLogger: ChatDiagnosticLogger,
     private val projectManager: ProjectManager,
     private val conversationCompactor: ConversationCompactor,
+    private val snapshotManager: SnapshotManager,
+    private val iterationModeDetector: IterationModeDetector,
+    private val memoLoader: MemoLoader,
+    private val outlineGenerator: OutlineGenerator,
+    private val intentStore: IntentStore,
 ) : AgentLoopCoordinator {
 
     override suspend fun run(request: AgentLoopRequest): Flow<AgentLoopEvent> = flow {
@@ -68,348 +83,483 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             )
         }
 
-        var previousResponseId: String? = null
-        val initialConversation = buildInitialConversation(request)
-        // delta: new items to send for this turn (used by stateful providers like OpenAI)
-        var conversationDelta: List<AgentConversationItem> = initialConversation
-        // fullConversation: the entire accumulated history (used by stateless providers like Anthropic)
-        val fullConversation = initialConversation.toMutableList()
-        val collectedToolResults = mutableListOf<AgentToolResult>()
-        var currentPlan: AgentPlan? = null
+        // ─── PREPARE ──────────────────────────────────────────────────────────────
+        val projectId = request.projectId
+        var turnContext: TurnContext? = null
+        var mode: AgentMode = AgentMode.GREENFIELD
+        var memo: ProjectMemo? = null
 
-        for (iteration in 1..request.policy.maxIterations) {
-            emit(AgentLoopEvent.ModelTurnStarted(iteration))
+        if (!projectId.isNullOrBlank()) {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                    .also { it.ensureCreated() }
+                snapshotManager.recoverPendingRestore(projectId, workspace.rootDir, vibeDirs)
+                mode = iterationModeDetector.detect(projectId, vibeDirs)
+                if (mode == AgentMode.ITERATE) {
+                    memo = memoLoader.load(vibeDirs)
+                }
+                val priorTurnCount = snapshotManager.list(projectId, vibeDirs)
+                    .count { it.type == SnapshotType.TURN }
+                val nextTurnIndex = priorTurnCount + 1
+                val label = firstUserText(request).orEmpty().take(40)
+                val handle = snapshotManager.prepare(
+                    projectId = projectId,
+                    workspaceRoot = workspace.rootDir,
+                    vibeDirs = vibeDirs,
+                    type = SnapshotType.TURN,
+                    label = label,
+                    turnIndex = nextTurnIndex,
+                )
+                turnContext = TurnContext(
+                    projectId = projectId,
+                    workspaceRoot = workspace.rootDir,
+                    vibeDirs = vibeDirs,
+                    mode = mode,
+                    snapshotHandle = handle,
+                    turnIndex = nextTurnIndex,
+                )
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logAgentLoopEvent(
+                        context = ctx,
+                        action = "iteration_mode_detected",
+                        summary = "Mode=${mode.name}, turn=$nextTurnIndex, hasMemo=${memo != null}",
+                        payload = buildJsonObject {
+                            put("action", "iteration_mode_detected")
+                            put("mode", mode.name)
+                            put("turnIndex", nextTurnIndex)
+                            put("hasMemo", memo != null)
+                        },
+                    )
+                }
+            }.onFailure { e ->
+                // Swallow — a prepare failure must not crash the turn. Continue
+                // in GREENFIELD without memo / snapshot.
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logAgentLoopEvent(
+                        context = ctx,
+                        action = "iteration_prepare_failed",
+                        level = DiagnosticLevels.WARN,
+                        summary = "PREPARE failed: ${e.message?.take(120)}",
+                        payload = buildJsonObject {
+                            put("action", "iteration_prepare_failed")
+                            put("error", e.message.orEmpty().take(500))
+                        },
+                    )
+                }
+            }
+        }
+
+        // ─── TOOL LOOP (existing body, wrapped in try / finally) ──────────────────
+        // collectedToolResults is hoisted here so FINALIZE can inspect it.
+        val collectedToolResults = mutableListOf<AgentToolResult>()
+
+        try {
+            var previousResponseId: String? = null
+            val initialConversation = buildInitialConversation(request)
+            // delta: new items to send for this turn (used by stateful providers like OpenAI)
+            var conversationDelta: List<AgentConversationItem> = initialConversation
+            // fullConversation: the entire accumulated history (used by stateless providers like Anthropic)
+            val fullConversation = initialConversation.toMutableList()
+            var currentPlan: AgentPlan? = null
+
+            for (iteration in 1..request.policy.maxIterations) {
+                emit(AgentLoopEvent.ModelTurnStarted(iteration))
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logAgentLoopEvent(
+                        context = ctx,
+                        action = "iteration_started",
+                        summary = "Iteration $iteration started (${fullConversation.size} items)",
+                        payload = buildJsonObject {
+                            put("action", "iteration_started")
+                            put("iteration", iteration)
+                            put("conversationItemCount", fullConversation.size)
+                        },
+                    )
+                }
+                val pendingToolResults = mutableListOf<AgentToolResult>()
+                val pendingCalls = mutableListOf<com.vibe.app.feature.agent.AgentToolCall>()
+                val outputBuilder = StringBuilder()
+                var failureMessage: String? = null
+                var turnReasoningContent: String? = null
+
+                // Force tool use on the first iteration so the model cannot skip directly to
+                // a text-only answer (which happens on turn 3+ when it has seen prior exchanges).
+                val effectivePolicy = if (iteration == 1 && request.tools.isNotEmpty()) {
+                    request.policy.copy(toolChoiceMode = AgentToolChoiceMode.REQUIRED)
+                } else {
+                    request.policy
+                }
+
+                val compactionResult = conversationCompactor.compact(
+                    items = fullConversation.toList(),
+                    clientType = request.platform.compatibleType,
+                    platform = request.platform,
+                )
+
+                if (compactionResult.strategyUsed != CompactionStrategyType.NONE) {
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                        diagnosticLogger.logConversationCompaction(
+                            context = ctx,
+                            iteration = iteration,
+                            strategy = compactionResult.strategyUsed.name,
+                            turnsCompacted = compactionResult.turnsCompacted,
+                            estimatedTokens = compactionResult.estimatedTokens,
+                            itemsBefore = fullConversation.size,
+                            itemsAfter = compactionResult.items.size,
+                        )
+                    }
+                }
+
+                agentModelGateway.streamTurn(
+                    AgentModelRequest(
+                        platform = request.platform,
+                        diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
+                        conversation = conversationDelta,
+                        fullConversation = compactionResult.items,
+                        instructions = buildInstructions(request, currentPlan, mode, memo),
+                        tools = request.tools,
+                        policy = effectivePolicy,
+                        previousResponseId = previousResponseId,
+                    ),
+                ).collect { event ->
+                    when (event) {
+                        is AgentModelEvent.ThinkingDelta -> {
+                            emit(AgentLoopEvent.ThinkingDelta(iteration, event.delta))
+                        }
+
+                        is AgentModelEvent.OutputDelta -> {
+                            outputBuilder.append(event.delta)
+                            emit(AgentLoopEvent.OutputDelta(iteration, event.delta))
+                        }
+
+                        is AgentModelEvent.ToolCallReady -> {
+                            pendingCalls += event.call
+                            emit(AgentLoopEvent.ToolCallDiscovered(iteration, event.call))
+                        }
+
+                        is AgentModelEvent.Completed -> {
+                            previousResponseId = event.responseId ?: previousResponseId
+                            if (event.reasoningContent != null) {
+                                turnReasoningContent = event.reasoningContent
+                            }
+                        }
+
+                        is AgentModelEvent.Failed -> {
+                            failureMessage = event.message
+                        }
+                    }
+                }
+
+                if (failureMessage != null) {
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                        diagnosticLogger.logAgentLoopEvent(
+                            context = ctx,
+                            action = "loop_failed",
+                            level = DiagnosticLevels.ERROR,
+                            summary = "Agent loop failed at iteration $iteration: ${failureMessage.take(120)}",
+                            payload = buildJsonObject {
+                                put("action", "loop_failed")
+                                put("reason", "model_error")
+                                put("iteration", iteration)
+                                put("totalToolCalls", collectedToolResults.size)
+                                put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                                put("errorMessage", failureMessage.take(500))
+                            },
+                        )
+                    }
+                    emit(AgentLoopEvent.LoopFailed(message = failureMessage, iteration = iteration))
+                    return@flow
+                }
+
+                if (pendingCalls.isEmpty()) {
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                        diagnosticLogger.logAgentLoopEvent(
+                            context = ctx,
+                            action = "loop_completed",
+                            summary = "Agent loop completed at iteration $iteration (${collectedToolResults.size} tool calls)",
+                            payload = buildJsonObject {
+                                put("action", "loop_completed")
+                                put("reason", "natural")
+                                put("iterationsUsed", iteration)
+                                put("totalToolCalls", collectedToolResults.size)
+                                put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                                put("finalTextChars", outputBuilder.toString().trim().length)
+                            },
+                        )
+                    }
+                    emit(
+                        AgentLoopEvent.LoopCompleted(
+                            finalText = outputBuilder.toString().trim(),
+                            toolResults = collectedToolResults.toList(),
+                        ),
+                    )
+                    return@flow
+                }
+
+                // Append the assistant's turn (text + tool calls) to the full history so stateless
+                // providers can reconstruct the complete conversation on the next turn.
+                fullConversation += AgentConversationItem(
+                    role = AgentMessageRole.ASSISTANT,
+                    text = outputBuilder.toString().trim().takeIf { it.isNotEmpty() },
+                    toolCalls = pendingCalls.toList(),
+                    reasoningContent = turnReasoningContent,
+                )
+
+                pendingCalls.forEach { call ->
+                    val tool = agentToolRegistry.findTool(call.name)
+                    if (tool == null) {
+                        val result = AgentToolResult(
+                            toolCallId = call.id,
+                            toolName = call.name,
+                            output = buildJsonObject {
+                                put("error", JsonPrimitive("Tool not found: ${call.name}"))
+                            },
+                            isError = true,
+                        )
+                        pendingToolResults += result
+                        collectedToolResults += result
+                        emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
+                        return@forEach
+                    }
+
+                    emit(AgentLoopEvent.ToolExecutionStarted(iteration, call))
+                    val toolStartedAt = System.currentTimeMillis()
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+                        diagnosticLogger.logAgentToolStarted(
+                            context = diagnosticContext,
+                            iteration = iteration,
+                            call = call,
+                            startedAt = toolStartedAt,
+                        )
+                    }
+                    val result = runCatching {
+                        tool.execute(
+                            call = call,
+                            context = com.vibe.app.feature.agent.AgentToolContext(
+                                chatId = request.chatId,
+                                platformUid = request.platform.uid,
+                                iteration = iteration,
+                                projectId = request.projectId ?: "",
+                            ),
+                        )
+                    }.getOrElse { error ->
+                        AgentToolResult(
+                            toolCallId = call.id,
+                            toolName = call.name,
+                            output = buildJsonObject {
+                                put("error", JsonPrimitive(error.message ?: "Tool execution failed"))
+                            },
+                            isError = true,
+                        )
+                    }
+                    pendingToolResults += result
+                    collectedToolResults += result
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
+                        diagnosticLogger.logAgentToolFinished(
+                            context = diagnosticContext,
+                            iteration = iteration,
+                            result = result,
+                            startedAt = toolStartedAt,
+                        )
+                    }
+                    emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
+                    // Handle plan tool results
+                    when (call.name) {
+                        "create_plan" -> {
+                            parsePlanFromToolResult(result, iteration)?.let { plan ->
+                                currentPlan = plan
+                                emit(AgentLoopEvent.PlanCreated(iteration, plan))
+                            }
+                        }
+                        "update_plan_step" -> {
+                            currentPlan?.let { plan ->
+                                updatePlanFromToolResult(plan, result)?.let { updated ->
+                                    currentPlan = updated
+                                    emit(AgentLoopEvent.PlanUpdated(iteration, updated))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Build tool result items and append to full history.
+                val toolResultItems = pendingToolResults.map { result ->
+                    AgentConversationItem(
+                        role = AgentMessageRole.TOOL,
+                        toolCallId = result.toolCallId,
+                        toolName = result.toolName,
+                        payload = result.output,
+                    )
+                }
+                fullConversation += toolResultItems
+
+                // For stateful providers (OpenAI), only the tool results are needed as the delta.
+                conversationDelta = toolResultItems
+            }
+
+            // All iterations exhausted — give the model one final chance to produce a summary
+            // instead of hard-failing. Inject a wind-down message and force text-only response.
             request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
                 diagnosticLogger.logAgentLoopEvent(
                     context = ctx,
-                    action = "iteration_started",
-                    summary = "Iteration $iteration started (${fullConversation.size} items)",
+                    action = "wind_down_started",
+                    level = DiagnosticLevels.WARN,
+                    summary = "Max iterations (${request.policy.maxIterations}) exhausted, entering wind-down",
                     payload = buildJsonObject {
-                        put("action", "iteration_started")
-                        put("iteration", iteration)
+                        put("action", "wind_down_started")
+                        put("maxIterations", request.policy.maxIterations)
+                        put("totalToolCalls", collectedToolResults.size)
                         put("conversationItemCount", fullConversation.size)
+                        put("durationMs", System.currentTimeMillis() - loopStartedAt)
                     },
                 )
             }
-            val pendingToolResults = mutableListOf<AgentToolResult>()
-            val pendingCalls = mutableListOf<com.vibe.app.feature.agent.AgentToolCall>()
-            val outputBuilder = StringBuilder()
-            var failureMessage: String? = null
-            var turnReasoningContent: String? = null
+            val windDownMessage = AgentConversationItem(
+                role = AgentMessageRole.USER,
+                text = "[System] You have used all available iterations. Do NOT call any more tools. " +
+                    "Summarize what you have accomplished so far and what still needs to be done. " +
+                    "The user can continue in the next message.",
+            )
+            fullConversation += windDownMessage
+            conversationDelta = listOf(windDownMessage)
 
-            // Force tool use on the first iteration so the model cannot skip directly to
-            // a text-only answer (which happens on turn 3+ when it has seen prior exchanges).
-            val effectivePolicy = if (iteration == 1 && request.tools.isNotEmpty()) {
-                request.policy.copy(toolChoiceMode = AgentToolChoiceMode.REQUIRED)
-            } else {
-                request.policy
-            }
-
-            val compactionResult = conversationCompactor.compact(
+            emit(AgentLoopEvent.ModelTurnStarted(request.policy.maxIterations + 1))
+            val finalOutput = StringBuilder()
+            val windDownCompaction = conversationCompactor.compact(
                 items = fullConversation.toList(),
                 clientType = request.platform.compatibleType,
                 platform = request.platform,
             )
-
-            if (compactionResult.strategyUsed != CompactionStrategyType.NONE) {
-                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                    diagnosticLogger.logConversationCompaction(
-                        context = ctx,
-                        iteration = iteration,
-                        strategy = compactionResult.strategyUsed.name,
-                        turnsCompacted = compactionResult.turnsCompacted,
-                        estimatedTokens = compactionResult.estimatedTokens,
-                        itemsBefore = fullConversation.size,
-                        itemsAfter = compactionResult.items.size,
-                    )
-                }
-            }
-
             agentModelGateway.streamTurn(
                 AgentModelRequest(
                     platform = request.platform,
                     diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
                     conversation = conversationDelta,
-                    fullConversation = compactionResult.items,
-                    instructions = buildInstructions(request, currentPlan),
-                    tools = request.tools,
-                    policy = effectivePolicy,
+                    fullConversation = windDownCompaction.items,
+                    instructions = buildInstructions(request, currentPlan, mode, memo),
+                    tools = emptyList(),
+                    policy = request.policy.copy(toolChoiceMode = AgentToolChoiceMode.NONE),
                     previousResponseId = previousResponseId,
                 ),
             ).collect { event ->
                 when (event) {
-                    is AgentModelEvent.ThinkingDelta -> {
-                        emit(AgentLoopEvent.ThinkingDelta(iteration, event.delta))
-                    }
-
                     is AgentModelEvent.OutputDelta -> {
-                        outputBuilder.append(event.delta)
-                        emit(AgentLoopEvent.OutputDelta(iteration, event.delta))
+                        finalOutput.append(event.delta)
+                        emit(AgentLoopEvent.OutputDelta(request.policy.maxIterations + 1, event.delta))
                     }
-
-                    is AgentModelEvent.ToolCallReady -> {
-                        pendingCalls += event.call
-                        emit(AgentLoopEvent.ToolCallDiscovered(iteration, event.call))
+                    is AgentModelEvent.ThinkingDelta -> {
+                        emit(AgentLoopEvent.ThinkingDelta(request.policy.maxIterations + 1, event.delta))
                     }
-
-                    is AgentModelEvent.Completed -> {
-                        previousResponseId = event.responseId ?: previousResponseId
-                        if (event.reasoningContent != null) {
-                            turnReasoningContent = event.reasoningContent
-                        }
-                    }
-
-                    is AgentModelEvent.Failed -> {
-                        failureMessage = event.message
-                    }
+                    else -> Unit
                 }
             }
 
-            if (failureMessage != null) {
+            val summary = finalOutput.toString().trim()
+            if (summary.isNotEmpty()) {
+                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                    diagnosticLogger.logAgentLoopEvent(
+                        context = ctx,
+                        action = "loop_completed",
+                        level = DiagnosticLevels.WARN,
+                        summary = "Agent loop completed via wind-down (${collectedToolResults.size} tool calls)",
+                        payload = buildJsonObject {
+                            put("action", "loop_completed")
+                            put("reason", "wind_down")
+                            put("iterationsUsed", request.policy.maxIterations)
+                            put("totalToolCalls", collectedToolResults.size)
+                            put("durationMs", System.currentTimeMillis() - loopStartedAt)
+                            put("finalTextChars", summary.length)
+                        },
+                    )
+                }
+                emit(AgentLoopEvent.LoopCompleted(finalText = summary, toolResults = collectedToolResults.toList()))
+            } else {
                 request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
                     diagnosticLogger.logAgentLoopEvent(
                         context = ctx,
                         action = "loop_failed",
                         level = DiagnosticLevels.ERROR,
-                        summary = "Agent loop failed at iteration $iteration: ${failureMessage.take(120)}",
+                        summary = "Agent loop failed: exceeded ${request.policy.maxIterations} iterations with no summary",
                         payload = buildJsonObject {
                             put("action", "loop_failed")
-                            put("reason", "model_error")
-                            put("iteration", iteration)
+                            put("reason", "max_iterations_exhausted")
+                            put("maxIterations", request.policy.maxIterations)
                             put("totalToolCalls", collectedToolResults.size)
                             put("durationMs", System.currentTimeMillis() - loopStartedAt)
-                            put("errorMessage", failureMessage.take(500))
-                        },
-                    )
-                }
-                emit(AgentLoopEvent.LoopFailed(message = failureMessage, iteration = iteration))
-                return@flow
-            }
-
-            if (pendingCalls.isEmpty()) {
-                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                    diagnosticLogger.logAgentLoopEvent(
-                        context = ctx,
-                        action = "loop_completed",
-                        summary = "Agent loop completed at iteration $iteration (${collectedToolResults.size} tool calls)",
-                        payload = buildJsonObject {
-                            put("action", "loop_completed")
-                            put("reason", "natural")
-                            put("iterationsUsed", iteration)
-                            put("totalToolCalls", collectedToolResults.size)
-                            put("durationMs", System.currentTimeMillis() - loopStartedAt)
-                            put("finalTextChars", outputBuilder.toString().trim().length)
                         },
                     )
                 }
                 emit(
-                    AgentLoopEvent.LoopCompleted(
-                        finalText = outputBuilder.toString().trim(),
-                        toolResults = collectedToolResults.toList(),
+                    AgentLoopEvent.LoopFailed(
+                        message = "Agent loop exceeded max iterations: ${request.policy.maxIterations}",
+                        iteration = request.policy.maxIterations,
                     ),
                 )
-                return@flow
             }
-
-            // Append the assistant's turn (text + tool calls) to the full history so stateless
-            // providers can reconstruct the complete conversation on the next turn.
-            fullConversation += AgentConversationItem(
-                role = AgentMessageRole.ASSISTANT,
-                text = outputBuilder.toString().trim().takeIf { it.isNotEmpty() },
-                toolCalls = pendingCalls.toList(),
-                reasoningContent = turnReasoningContent,
-            )
-
-            pendingCalls.forEach { call ->
-                val tool = agentToolRegistry.findTool(call.name)
-                if (tool == null) {
-                    val result = AgentToolResult(
-                        toolCallId = call.id,
-                        toolName = call.name,
-                        output = buildJsonObject {
-                            put("error", JsonPrimitive("Tool not found: ${call.name}"))
-                        },
-                        isError = true,
-                    )
-                    pendingToolResults += result
-                    collectedToolResults += result
-                    emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
-                    return@forEach
-                }
-
-                emit(AgentLoopEvent.ToolExecutionStarted(iteration, call))
-                val toolStartedAt = System.currentTimeMillis()
-                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
-                    diagnosticLogger.logAgentToolStarted(
-                        context = diagnosticContext,
-                        iteration = iteration,
-                        call = call,
-                        startedAt = toolStartedAt,
-                    )
-                }
-                val result = runCatching {
-                    tool.execute(
-                        call = call,
-                        context = com.vibe.app.feature.agent.AgentToolContext(
-                            chatId = request.chatId,
-                            platformUid = request.platform.uid,
-                            iteration = iteration,
-                            projectId = request.projectId ?: "",
-                        ),
-                    )
-                }.getOrElse { error ->
-                    AgentToolResult(
-                        toolCallId = call.id,
-                        toolName = call.name,
-                        output = buildJsonObject {
-                            put("error", JsonPrimitive(error.message ?: "Tool execution failed"))
-                        },
-                        isError = true,
-                    )
-                }
-                pendingToolResults += result
-                collectedToolResults += result
-                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
-                    diagnosticLogger.logAgentToolFinished(
-                        context = diagnosticContext,
-                        iteration = iteration,
-                        result = result,
-                        startedAt = toolStartedAt,
-                    )
-                }
-                emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
-                // Handle plan tool results
-                when (call.name) {
-                    "create_plan" -> {
-                        parsePlanFromToolResult(result, iteration)?.let { plan ->
-                            currentPlan = plan
-                            emit(AgentLoopEvent.PlanCreated(iteration, plan))
+        } finally {
+            // ─── FINALIZE ─────────────────────────────────────────────────────────
+            if (turnContext != null) {
+                runCatching {
+                    // A turn "succeeded" if at least one run_build_pipeline tool call returned
+                    // isError=false. If no build tool was called, buildSucceeded=false so the
+                    // snapshot is still finalized (for edit-only turns) but memo is not updated.
+                    val buildSucceeded = collectedToolResults.any {
+                        it.toolName == "run_build_pipeline" && !it.isError
+                    }
+                    if (buildSucceeded) {
+                        outlineGenerator.regenerate(
+                            turnContext.projectId,
+                            turnContext.workspaceRoot,
+                            turnContext.vibeDirs,
+                        )
+                        request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                            diagnosticLogger.logAgentLoopEvent(
+                                context = ctx,
+                                action = "turn_outline_regenerated",
+                                summary = "Outline regenerated for project ${turnContext.projectId}",
+                                payload = buildJsonObject {
+                                    put("action", "turn_outline_regenerated")
+                                    put("projectId", turnContext.projectId)
+                                },
+                            )
                         }
                     }
-                    "update_plan_step" -> {
-                        currentPlan?.let { plan ->
-                            updatePlanFromToolResult(plan, result)?.let { updated ->
-                                currentPlan = updated
-                                emit(AgentLoopEvent.PlanUpdated(iteration, updated))
-                            }
-                        }
+                    // Task 5.2 will populate writtenFiles/deletedFiles; empty in Task 5.1.
+                    turnContext.snapshotHandle.finalize(
+                        buildSucceeded = buildSucceeded,
+                        affectedFiles = turnContext.writtenFiles.toList(),
+                        deletedFiles = turnContext.deletedFiles.toList(),
+                    )
+                    snapshotManager.enforceRetention(turnContext.projectId, turnContext.vibeDirs)
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                        diagnosticLogger.logAgentLoopEvent(
+                            context = ctx,
+                            action = "turn_snapshot_finalized",
+                            summary = "Snapshot ${turnContext.snapshotHandle.id} finalized (build=$buildSucceeded)",
+                            payload = buildJsonObject {
+                                put("action", "turn_snapshot_finalized")
+                                put("snapshotId", turnContext.snapshotHandle.id)
+                                put("buildSucceeded", buildSucceeded)
+                                put("turnIndex", turnContext.turnIndex)
+                            },
+                        )
+                    }
+                }.onFailure { e ->
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                        diagnosticLogger.logAgentLoopEvent(
+                            context = ctx,
+                            action = "iteration_finalize_failed",
+                            level = DiagnosticLevels.WARN,
+                            summary = "FINALIZE failed: ${e.message?.take(120)}",
+                            payload = buildJsonObject {
+                                put("action", "iteration_finalize_failed")
+                                put("error", e.message.orEmpty().take(500))
+                            },
+                        )
                     }
                 }
             }
-
-            // Build tool result items and append to full history.
-            val toolResultItems = pendingToolResults.map { result ->
-                AgentConversationItem(
-                    role = AgentMessageRole.TOOL,
-                    toolCallId = result.toolCallId,
-                    toolName = result.toolName,
-                    payload = result.output,
-                )
-            }
-            fullConversation += toolResultItems
-
-            // For stateful providers (OpenAI), only the tool results are needed as the delta.
-            conversationDelta = toolResultItems
-        }
-
-        // All iterations exhausted — give the model one final chance to produce a summary
-        // instead of hard-failing. Inject a wind-down message and force text-only response.
-        request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-            diagnosticLogger.logAgentLoopEvent(
-                context = ctx,
-                action = "wind_down_started",
-                level = DiagnosticLevels.WARN,
-                summary = "Max iterations (${request.policy.maxIterations}) exhausted, entering wind-down",
-                payload = buildJsonObject {
-                    put("action", "wind_down_started")
-                    put("maxIterations", request.policy.maxIterations)
-                    put("totalToolCalls", collectedToolResults.size)
-                    put("conversationItemCount", fullConversation.size)
-                    put("durationMs", System.currentTimeMillis() - loopStartedAt)
-                },
-            )
-        }
-        val windDownMessage = AgentConversationItem(
-            role = AgentMessageRole.USER,
-            text = "[System] You have used all available iterations. Do NOT call any more tools. " +
-                "Summarize what you have accomplished so far and what still needs to be done. " +
-                "The user can continue in the next message.",
-        )
-        fullConversation += windDownMessage
-        conversationDelta = listOf(windDownMessage)
-
-        emit(AgentLoopEvent.ModelTurnStarted(request.policy.maxIterations + 1))
-        val finalOutput = StringBuilder()
-        val windDownCompaction = conversationCompactor.compact(
-            items = fullConversation.toList(),
-            clientType = request.platform.compatibleType,
-            platform = request.platform,
-        )
-        agentModelGateway.streamTurn(
-            AgentModelRequest(
-                platform = request.platform,
-                diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
-                conversation = conversationDelta,
-                fullConversation = windDownCompaction.items,
-                instructions = buildInstructions(request, currentPlan),
-                tools = emptyList(),
-                policy = request.policy.copy(toolChoiceMode = AgentToolChoiceMode.NONE),
-                previousResponseId = previousResponseId,
-            ),
-        ).collect { event ->
-            when (event) {
-                is AgentModelEvent.OutputDelta -> {
-                    finalOutput.append(event.delta)
-                    emit(AgentLoopEvent.OutputDelta(request.policy.maxIterations + 1, event.delta))
-                }
-                is AgentModelEvent.ThinkingDelta -> {
-                    emit(AgentLoopEvent.ThinkingDelta(request.policy.maxIterations + 1, event.delta))
-                }
-                else -> Unit
-            }
-        }
-
-        val summary = finalOutput.toString().trim()
-        if (summary.isNotEmpty()) {
-            request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                diagnosticLogger.logAgentLoopEvent(
-                    context = ctx,
-                    action = "loop_completed",
-                    level = DiagnosticLevels.WARN,
-                    summary = "Agent loop completed via wind-down (${collectedToolResults.size} tool calls)",
-                    payload = buildJsonObject {
-                        put("action", "loop_completed")
-                        put("reason", "wind_down")
-                        put("iterationsUsed", request.policy.maxIterations)
-                        put("totalToolCalls", collectedToolResults.size)
-                        put("durationMs", System.currentTimeMillis() - loopStartedAt)
-                        put("finalTextChars", summary.length)
-                    },
-                )
-            }
-            emit(AgentLoopEvent.LoopCompleted(finalText = summary, toolResults = collectedToolResults.toList()))
-        } else {
-            request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                diagnosticLogger.logAgentLoopEvent(
-                    context = ctx,
-                    action = "loop_failed",
-                    level = DiagnosticLevels.ERROR,
-                    summary = "Agent loop failed: exceeded ${request.policy.maxIterations} iterations with no summary",
-                    payload = buildJsonObject {
-                        put("action", "loop_failed")
-                        put("reason", "max_iterations_exhausted")
-                        put("maxIterations", request.policy.maxIterations)
-                        put("totalToolCalls", collectedToolResults.size)
-                        put("durationMs", System.currentTimeMillis() - loopStartedAt)
-                    },
-                )
-            }
-            emit(
-                AgentLoopEvent.LoopFailed(
-                    message = "Agent loop exceeded max iterations: ${request.policy.maxIterations}",
-                    iteration = request.policy.maxIterations,
-                ),
-            )
         }
     }
 
@@ -645,9 +795,19 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         context.assets.open("agent-system-prompt.md").bufferedReader().use { it.readText() }
     }
 
+    private val iterationAppendix: String by lazy {
+        context.assets.open("iteration-mode-appendix.md").bufferedReader().use { it.readText() }
+    }
+
+    /** Returns the text of the first user message in the request, or null if none. */
+    private fun firstUserText(request: AgentLoopRequest): String? =
+        request.userMessages.firstOrNull()?.content
+
     private suspend fun buildInstructions(
         request: AgentLoopRequest,
         activePlan: AgentPlan? = null,
+        mode: AgentMode = AgentMode.GREENFIELD,
+        memo: ProjectMemo? = null,
     ): String {
         val packageName = request.projectId
             ?.let { "com.vibe.generated.p$it" }
@@ -657,12 +817,19 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             ?.takeIf { it.isNotBlank() }
             ?: request.platform.systemPrompt?.takeIf { it.isNotBlank() }
 
+        val basePrompt = promptTemplate
+            .replace("{{PACKAGE_NAME}}", packageName)
+            .replace("{{PACKAGE_PATH}}", packagePath)
+
+        val assembled = PromptAssembler.assemble(
+            basePrompt = basePrompt,
+            iterationAppendix = iterationAppendix,
+            mode = mode,
+            memo = memo,
+        )
+
         return buildString {
-            append(
-                promptTemplate
-                    .replace("{{PACKAGE_NAME}}", packageName)
-                    .replace("{{PACKAGE_PATH}}", packagePath)
-            )
+            append(assembled)
             if (custom != null) {
                 append("\n\n[Additional System Prompt]\n")
                 append(custom)
