@@ -269,8 +269,8 @@ VibeApp/
 
 > Goal: Generate higher-quality utility apps and lightweight data tools that anyone can use
 
-- [ ] Richer UI component templates — more built-in patterns for common utility app layouts
-- [ ] Smarter auto-fix — broader error coverage and higher first-attempt success rate
+- [x] Richer UI component templates — more built-in patterns for common utility app layouts
+- [x] Smarter auto-fix — broader error coverage and higher first-attempt success rate
 - [ ] Utility app enhancements — network requests, local storage, scheduled tasks, and other common capabilities
 - [ ] Web scraping & data tools — structured data fetching and display powered by jsoup
 - [ ] Continuous iteration — keep refining a generated app through multi-turn conversation

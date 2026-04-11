@@ -17,6 +17,7 @@ import com.vibe.app.feature.agent.service.AgentSessionManager
 import com.vibe.app.feature.agent.service.AgentSessionStatus
 import com.vibe.app.feature.agent.service.SessionMessageState
 import com.vibe.app.feature.agent.service.BuildMutex
+import com.vibe.app.feature.build.BuildFailureAnalyzer
 import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
@@ -61,6 +62,7 @@ class ChatViewModel @Inject constructor(
     private val sessionManager: AgentSessionManager,
     private val buildMutex: BuildMutex,
     private val pluginManager: PluginManager,
+    private val buildFailureAnalyzer: BuildFailureAnalyzer,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -340,7 +342,7 @@ class ChatViewModel @Inject constructor(
                         Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
                     }
                 } else {
-                    val errorMsg = buildBuildErrorMessage(result)
+                    val errorMsg = buildBuildErrorMessage(projectId, result)
                     Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
                     sendBuildErrorToChat(errorMsg)
                 }
@@ -373,7 +375,7 @@ class ChatViewModel @Inject constructor(
                         _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
                     }
                 } else {
-                    sendBuildErrorToChat(buildBuildErrorMessage(result))
+                    sendBuildErrorToChat(buildBuildErrorMessage(projectId, result))
                 }
             } finally {
                 _isBuildRunning.update { false }
@@ -382,12 +384,17 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun buildBuildErrorMessage(result: com.vibe.build.engine.model.BuildResult): String {
-        val baseError = result.errorMessage ?: ""
-        val errorLogs = result.logs
-            .filter { it.level == BuildLogLevel.ERROR }
-            .joinToString("\n") { it.message }
-        return if (baseError.isNotBlank()) baseError else errorLogs
+    private fun buildBuildErrorMessage(
+        projectId: String,
+        result: com.vibe.build.engine.model.BuildResult,
+    ): String {
+        val projectRoot = File(appContext.filesDir, "projects/$projectId/app")
+        val analysis = buildFailureAnalyzer.analyze(result, projectRoot)
+        return analysis?.toChatPrompt()
+            ?: result.errorMessage
+            ?: result.logs
+                .filter { it.level == BuildLogLevel.ERROR }
+                .joinToString("\n") { it.message }
     }
 
     /**

@@ -6,6 +6,7 @@ import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.feature.agent.service.BuildMutex
+import com.vibe.app.feature.build.BuildFailureAnalyzer
 import com.vibe.app.feature.project.ProjectManager
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,6 +18,7 @@ import kotlinx.serialization.json.buildJsonObject
 class RunBuildPipelineTool @Inject constructor(
     private val projectManager: ProjectManager,
     private val buildMutex: BuildMutex,
+    private val buildFailureAnalyzer: BuildFailureAnalyzer,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -42,7 +44,8 @@ class RunBuildPipelineTool @Inject constructor(
         val result = buildMutex.withBuildLock {
             workspace.buildProject()
         }
-        val output = result.toFilteredJson().let { json ->
+        val analysis = buildFailureAnalyzer.analyze(result, workspace.rootDir)
+        val output = result.toFilteredJson(analysis).let { json ->
             if (result.errorMessage == null) {
                 // Add hint so the model knows it can launch and test the app
                 JsonObject(json.toMutableMap().apply {
@@ -51,7 +54,11 @@ class RunBuildPipelineTool @Inject constructor(
                     ))
                 })
             } else {
-                json
+                JsonObject(json.toMutableMap().apply {
+                    analysis?.summary?.let {
+                        put("hint", JsonPrimitive("Fix the primary errors in analysis first, then rebuild."))
+                    }
+                })
             }
         }
         return call.result(
