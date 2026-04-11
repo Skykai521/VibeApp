@@ -140,6 +140,28 @@ class DefaultSnapshotManager @Inject constructor(
         }
     }
 
+    override suspend fun recoverPendingRestore(
+        projectId: String,
+        workspaceRoot: File,
+        vibeDirs: VibeProjectDirs,
+    ) = withContext(Dispatchers.IO) {
+        val marker = vibeDirs.pendingRestoreMarker
+        if (!marker.exists()) return@withContext
+        val snapshotId = marker.readText().trim()
+        val snapDir = File(vibeDirs.snapshotsDir, snapshotId)
+        val manifestFile = File(snapDir, "manifest.json")
+        if (!snapDir.exists() || !manifestFile.exists()) {
+            marker.delete()
+            return@withContext
+        }
+        val manifest = manifestJson.decodeFromString(
+            SnapshotManifest.serializer(),
+            manifestFile.readText()
+        )
+        storage.restoreSnapshot(manifest, snapDir, workspaceRoot)
+        marker.delete()
+    }
+
     internal suspend fun appendToIndex(entry: Snapshot, vibeDirs: VibeProjectDirs) {
         indexMutex.withLock {
             val current = indexIo.load(vibeDirs.snapshotIndexFile)

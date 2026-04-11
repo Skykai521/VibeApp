@@ -112,6 +112,39 @@ class DefaultSnapshotManagerTest {
         assertNotNull(backup)
         assertEquals(SnapshotType.MANUAL, backup!!.type)
     }
+
+    @Test
+    fun `recoverPendingRestore replays an interrupted restore`() = runTest {
+        // Turn 1: v1 (already written by setup())
+        val h1 = manager.prepare("p1", workspaceRoot, dirs, SnapshotType.TURN, "t1", 1)
+        h1.commit(); h1.finalize(true, listOf("src/Main.java"), emptyList())
+        val turn1Id = manager.list("p1", dirs)[0].id
+
+        // Simulate a mid-restore crash: workspace partly modified, marker still present.
+        File(workspaceRoot, "src/Main.java").writeText("partial")
+        dirs.pendingRestoreMarker.writeText(turn1Id)
+
+        manager.recoverPendingRestore("p1", workspaceRoot, dirs)
+
+        assertEquals("v1", File(workspaceRoot, "src/Main.java").readText())
+        assertFalse(dirs.pendingRestoreMarker.exists())
+    }
+
+    @Test
+    fun `recoverPendingRestore with no marker is a no-op`() = runTest {
+        // Write a file to the workspace and confirm it's untouched after recovery.
+        File(workspaceRoot, "src/Main.java").writeText("untouched")
+        manager.recoverPendingRestore("p1", workspaceRoot, dirs)
+        assertEquals("untouched", File(workspaceRoot, "src/Main.java").readText())
+        assertFalse(dirs.pendingRestoreMarker.exists())
+    }
+
+    @Test
+    fun `recoverPendingRestore with stale marker pointing at missing snapshot deletes marker`() = runTest {
+        dirs.pendingRestoreMarker.writeText("snap_nonexistent")
+        manager.recoverPendingRestore("p1", workspaceRoot, dirs)
+        assertFalse(dirs.pendingRestoreMarker.exists())
+    }
 }
 
 // Test helpers — kept in the same file so the test is self-contained.

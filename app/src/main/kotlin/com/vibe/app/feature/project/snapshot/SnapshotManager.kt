@@ -33,6 +33,17 @@ interface SnapshotManager {
         vibeDirs: VibeProjectDirs,
         keepTurnCount: Int = 20,
     )
+
+    /**
+     * If `.vibe/snapshots/.pending_restore` exists from a previous interrupted
+     * restore, replay the restore to reach a consistent workspace state and delete
+     * the marker. Safe to call on every startup — a no-op when the marker is absent.
+     */
+    suspend fun recoverPendingRestore(
+        projectId: String,
+        workspaceRoot: File,
+        vibeDirs: VibeProjectDirs,
+    )
 }
 
 /**
