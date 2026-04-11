@@ -1,6 +1,7 @@
 package com.vibe.app.feature.project
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -24,6 +25,7 @@ class VibeProjectDirsTest {
         assertEquals(File(projectRoot, ".vibe/memo/outline.json"), dirs.outlineFile)
         assertEquals(File(projectRoot, ".vibe/memo/intent.md"), dirs.intentFile)
         assertEquals(File(projectRoot, ".vibe/snapshots/index.json"), dirs.snapshotIndexFile)
+        assertEquals(File(projectRoot, ".vibe/snapshots/.pending_restore"), dirs.pendingRestoreMarker)
     }
 
     @Test
@@ -33,8 +35,8 @@ class VibeProjectDirsTest {
 
         val dirs = VibeProjectDirs.fromWorkspaceRoot(appDir).also { it.ensureCreated() }
 
-        assert(dirs.vibeDir.isDirectory)
-        assert(dirs.snapshotsDir.isDirectory)
-        assert(dirs.memoDir.isDirectory)
+        assertTrue(dirs.vibeDir.isDirectory)
+        assertTrue(dirs.snapshotsDir.isDirectory)
+        assertTrue(dirs.memoDir.isDirectory)
     }
 }

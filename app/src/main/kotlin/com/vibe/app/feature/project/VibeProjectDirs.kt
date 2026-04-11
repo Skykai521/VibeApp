@@ -10,13 +10,13 @@ import java.io.File
 class VibeProjectDirs(
     val projectRoot: File,
 ) {
-    val vibeDir: File get() = File(projectRoot, ".vibe")
-    val snapshotsDir: File get() = File(vibeDir, "snapshots")
-    val snapshotIndexFile: File get() = File(snapshotsDir, "index.json")
-    val memoDir: File get() = File(vibeDir, "memo")
-    val outlineFile: File get() = File(memoDir, "outline.json")
-    val intentFile: File get() = File(memoDir, "intent.md")
-    val pendingRestoreMarker: File get() = File(snapshotsDir, ".pending_restore")
+    val vibeDir: File = File(projectRoot, ".vibe")
+    val snapshotsDir: File = File(vibeDir, "snapshots")
+    val snapshotIndexFile: File = File(snapshotsDir, "index.json")
+    val memoDir: File = File(vibeDir, "memo")
+    val outlineFile: File = File(memoDir, "outline.json")
+    val intentFile: File = File(memoDir, "intent.md")
+    val pendingRestoreMarker: File = File(snapshotsDir, ".pending_restore")
 
     fun ensureCreated() {
         snapshotsDir.mkdirs()
