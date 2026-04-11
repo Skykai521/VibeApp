@@ -42,6 +42,7 @@ interface SnapshotManager {
  * no trace.
  */
 interface SnapshotHandle {
+    val id: String
     suspend fun commit()
     suspend fun finalize(
         buildSucceeded: Boolean,

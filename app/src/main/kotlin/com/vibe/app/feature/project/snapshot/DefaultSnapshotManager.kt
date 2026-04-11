@@ -73,12 +73,18 @@ class DefaultSnapshotManager @Inject constructor(
             .map { it.toRelativeString(workspaceRoot) }
             .toList()
         backup.finalize(buildSucceeded = true, affectedFiles = currentFiles, deletedFiles = emptyList())
-        val backupId = (backup as DefaultSnapshotHandle).id
+        val backupId = backup.id
 
         // 2. Mark pending, restore, clear marker (crash-safe: recovered on next startup).
         vibeDirs.pendingRestoreMarker.writeText(snapshotId)
         val snapDir = File(vibeDirs.snapshotsDir, snapshotId)
+        require(snapDir.exists() && snapDir.isDirectory) {
+            "Snapshot $snapshotId not found at ${snapDir.path}"
+        }
         val manifestFile = File(snapDir, "manifest.json")
+        require(manifestFile.exists()) {
+            "Snapshot $snapshotId manifest.json missing"
+        }
         val manifest = manifestJson.decodeFromString(
             SnapshotManifest.serializer(),
             manifestFile.readText()
@@ -100,7 +106,9 @@ class DefaultSnapshotManager @Inject constructor(
     ) {
         indexMutex.withLock {
             val current = indexIo.load(vibeDirs.snapshotIndexFile)
-            val updated = SnapshotIndex(current.entries.filterNot { it.id == snapshotId })
+            val updated = SnapshotIndex(current.entries.filterNot {
+                it.id == snapshotId && it.projectId == projectId
+            })
             indexIo.save(vibeDirs.snapshotIndexFile, updated)
             File(vibeDirs.snapshotsDir, snapshotId).deleteRecursively()
         }
@@ -122,6 +130,7 @@ class DefaultSnapshotManager @Inject constructor(
             val toDrop = if (turns.size > keepTurnCount) {
                 turns.subList(0, turns.size - keepTurnCount)
             } else emptyList()
+            if (toDrop.isEmpty()) return@withLock  // no rewrite when nothing changes
             toDrop.forEach { File(vibeDirs.snapshotsDir, it.id).deleteRecursively() }
             val keptTurns = turns - toDrop.toSet()
             indexIo.save(
@@ -139,7 +148,7 @@ class DefaultSnapshotManager @Inject constructor(
     }
 
     private inner class DefaultSnapshotHandle(
-        val id: String,
+        override val id: String,
         val projectId: String,
         val type: SnapshotType,
         val label: String,
@@ -148,6 +157,7 @@ class DefaultSnapshotManager @Inject constructor(
         val vibeDirs: VibeProjectDirs,
         val createdAt: Long,
     ) : SnapshotHandle {
+        @Volatile
         private var committed = false
 
         override suspend fun commit() {
