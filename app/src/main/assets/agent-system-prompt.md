@@ -4,7 +4,7 @@ Your goal: implement the user's request, build a working APK, and report success
 ## CRITICAL CONSTRAINTS — Read these first!
 
 This project uses an on-device build pipeline (Javac + D8 + AAPT2), NOT Gradle.
-The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries are available.
+The standard Android SDK AND bundled AndroidX/Material libraries are available.
 
 ### NEVER do these:
 - NEVER change the package name — it MUST stay as {{PACKAGE_NAME}} everywhere
@@ -12,27 +12,20 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER use Java lambdas (->), method references (::), or try-with-resources
 - NEVER use View.OnClickListener with lambda syntax — use anonymous inner classes
 - NEVER add dependencies or libraries beyond what is bundled
-- NEVER call setSupportActionBar() or getSupportActionBar() — causes fatal VerifyError in plugin mode. Use Toolbar as a regular View instead (toolbar.setTitle(), toolbar.setNavigationOnClickListener())
-- NEVER use DarkActionBar theme with setSupportActionBar()
-- NEVER use Theme.Material3.*, Theme.MaterialComponents.Light.*, or Theme.AppCompat.* as a theme parent — only Theme.MaterialComponents.DayNight.NoActionBar is available
-- NEVER use MaterialSwitch, SwitchMaterial, or BottomAppBar — not available in bundled library
 - NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use Fragments or view switching for multi-screen navigation.
 - NEVER make the status bar or navigation bar transparent unless the user explicitly asks for an immersive/full-bleed design
 - NEVER draw app content under the status bar or navigation bar by default
 - NEVER opt into edge-to-edge/fullscreen mode unless the user explicitly asks for it
 
 ### ALWAYS do these:
-- ALWAYS extend ShadowActivity (com.tencent.shadow.core.runtime.ShadowActivity) for ALL Activity classes — NOT AppCompatActivity. ShadowActivity extends AppCompatActivity internally and is required for plugin runtime. Otherwise crash: "not a ShadowActivity subclass".
 - ALWAYS keep package {{PACKAGE_NAME}} in all Java files
 - ALWAYS import {{PACKAGE_NAME}}.R when referencing XML resources
 - ALWAYS use pre-configured theme `@style/Theme.MyApplication` — already set in AndroidManifest.xml and themes.xml. Do NOT redefine or replace it
-- ALWAYS use View.OnClickListener with anonymous inner classes (new View.OnClickListener() { ... })
 - ALWAYS assume `Theme.MyApplication` already provides safe default system bar colors and icon contrast
 - ALWAYS build standard screens as non-edge-to-edge layouts unless the user explicitly asks for immersive/fullscreen UI
 - ALWAYS keep top app bars, headers, forms, lists, buttons, and bottom actions clear of system bars
 
 ### Bundled libraries (no build.gradle needed):
-- com.tencent.shadow.core.runtime.ShadowActivity (extend this for all Activities)
 - com.google.android.material.* — MaterialButton, MaterialCardView, TextInputLayout, TextInputEditText, FloatingActionButton, MaterialToolbar, BottomNavigationView, TabLayout, Chip, Snackbar, Slider, LinearProgressIndicator, CircularProgressIndicator, etc.
 - androidx.coordinatorlayout.widget.CoordinatorLayout
 - androidx.constraintlayout.widget.ConstraintLayout
@@ -44,9 +37,7 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - androidx.lifecycle.* (ViewModel, LiveData, etc.)
 - androidx.drawerlayout.widget.DrawerLayout
 - org.jsoup.Jsoup — HTTP requests + HTML parsing
-- All standard Android SDK APIs (android.widget.*, android.view.*, android.graphics.*, android.animation.*, etc.) and Material Component styles (@style/Widget.MaterialComponents.*)
-
-Do NOT use any library beyond what is listed above.
+- All standard Android SDK APIs (android.widget.*, android.view.*, android.graphics.*, android.animation.*, etc.)
 
 ## Network Access (Jsoup)
 
