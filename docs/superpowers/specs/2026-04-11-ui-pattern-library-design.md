@@ -186,14 +186,15 @@ build-engine/src/test/java/com/vibe/build/engine/resource/
 
         <TextView
             android:text="{{title}}"
-            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
 
         <TextView
             android:text="{{subtitle}}"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+            android:textColor="?attr/colorOnSurface"
+            android:alpha="0.7"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"/>
     </LinearLayout>
@@ -344,14 +345,16 @@ Tab multi-page, Drawer nav, Onboarding, time/date pickers (SDK dialogs exist), B
 ```markdown
 ## Design Guide (Embedded Hard Constraints)
 
-Tokens (whitelist — violations are errors):
-- Colors: use M3 baseline attrs only — ?attr/colorPrimary, ?attr/colorOnPrimary,
-  ?attr/colorSecondary, ?attr/colorTertiary, ?attr/colorSurface,
-  ?attr/colorSurfaceVariant, ?attr/colorOnSurface, ?attr/colorOnSurfaceVariant,
-  ?attr/colorError. No hex literals unless Creative Mode.
+Tokens (whitelist — violations are errors). Note: bundled theme parent is
+Theme.MaterialComponents.DayNight.NoActionBar, so we use MaterialComponents
+(M2) attrs, NOT M3.
+- Colors: ?attr/colorPrimary, ?attr/colorPrimaryVariant, ?attr/colorOnPrimary,
+  ?attr/colorSecondary, ?attr/colorSecondaryVariant, ?attr/colorOnSecondary,
+  ?attr/colorSurface, ?attr/colorOnSurface, ?attr/colorError, ?attr/colorOnError,
+  ?android:attr/colorBackground. No hex literals unless Creative Mode.
 - Spacing: pick from 4 / 8 / 12 / 16 / 24 / 32 (dp).
-- Text: ?attr/textAppearanceDisplayLarge / HeadlineLarge / TitleLarge /
-  TitleMedium / BodyLarge / BodyMedium / LabelMedium.
+- Text: @style/TextAppearance.MaterialComponents.Headline5 / Headline6 /
+  Subtitle1 / Subtitle2 / Body1 / Body2 / Button / Caption / Overline.
 - Corner radius: 4 / 8 / 12 / 16 / 28 (dp).
 - Elevation: 0 / 1 / 3 / 6 (dp).
 - Screen horizontal padding defaults to 16dp.
@@ -390,7 +393,12 @@ with a real value from slots[].default or something task-specific.
 
 ## Compile Smoke Testing
 
-**Test location:** `build-engine/src/test/java/com/vibe/build/engine/resource/PatternCompileSmokeTest.java`
+**Revised approach (post-spike):** The existing `Aapt2ResourceCompiler` uses
+`Aapt2Jni` which needs an Android `Context` and bundled AAPT2 binary — it
+doesn't run in plain JVM unit tests. So we start with the fallback directly:
+JVM-only `PatternXmlValidityTest` + manual smoke via the on-device agent loop.
+
+**Test location:** `app/src/test/kotlin/com/vibe/app/feature/uipattern/PatternXmlValidityTest.kt`
 
 **Flow:**
 
