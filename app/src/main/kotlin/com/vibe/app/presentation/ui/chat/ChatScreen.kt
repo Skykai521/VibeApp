@@ -51,6 +51,8 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -894,13 +896,19 @@ fun ChatDropdownMenu(
         )
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
-            text = { Text("历史版本") },
+            text = { Text(text = stringResource(R.string.snapshot_history_title)) },
             onClick = onOpenSnapshotHistory,
+            leadingIcon = {
+                Icon(Icons.Outlined.History, contentDescription = null)
+            },
         )
         DropdownMenuItem(
             enabled = isProjectMenuEnabled,
-            text = { Text("项目记忆") },
+            text = { Text(text = stringResource(R.string.project_memo_title)) },
             onClick = onOpenProjectMemo,
+            leadingIcon = {
+                Icon(Icons.AutoMirrored.Outlined.StickyNote2, contentDescription = null)
+            },
         )
 
         HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
