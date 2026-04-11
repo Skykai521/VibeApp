@@ -24,7 +24,6 @@ import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.DiagnosticLevels
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.app.feature.project.VibeProjectDirs
-import com.vibe.app.feature.project.memo.IntentStore
 import com.vibe.app.feature.project.memo.MemoLoader
 import com.vibe.app.feature.project.memo.OutlineGenerator
 import com.vibe.app.feature.project.memo.ProjectMemo
@@ -57,7 +56,6 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     private val iterationModeDetector: IterationModeDetector,
     private val memoLoader: MemoLoader,
     private val outlineGenerator: OutlineGenerator,
-    private val intentStore: IntentStore,
 ) : AgentLoopCoordinator {
 
     override suspend fun run(request: AgentLoopRequest): Flow<AgentLoopEvent> = flow {
@@ -102,7 +100,7 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 val priorTurnCount = snapshotManager.list(projectId, vibeDirs)
                     .count { it.type == SnapshotType.TURN }
                 val nextTurnIndex = priorTurnCount + 1
-                val label = firstUserText(request).orEmpty().take(40)
+                val label = currentUserText(request).orEmpty().take(40)
                 val handle = snapshotManager.prepare(
                     projectId = projectId,
                     workspaceRoot = workspace.rootDir,
@@ -799,9 +797,9 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         context.assets.open("iteration-mode-appendix.md").bufferedReader().use { it.readText() }
     }
 
-    /** Returns the text of the first user message in the request, or null if none. */
-    private fun firstUserText(request: AgentLoopRequest): String? =
-        request.userMessages.firstOrNull()?.content
+    /** Returns the text of the current (last) user message in the request, or null if none. */
+    private fun currentUserText(request: AgentLoopRequest): String? =
+        request.userMessages.lastOrNull()?.content
 
     private suspend fun buildInstructions(
         request: AgentLoopRequest,
