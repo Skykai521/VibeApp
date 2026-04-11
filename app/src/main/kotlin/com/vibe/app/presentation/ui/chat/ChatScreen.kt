@@ -114,6 +114,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vibe.app.R
 import com.vibe.app.data.model.ClientType
+import com.vibe.app.presentation.ui.chat.components.TurnUndoBar
 import com.vibe.app.util.FileUtils
 import java.io.File
 import java.util.zip.ZipEntry
@@ -177,6 +178,7 @@ fun ChatScreen(
         chatPlatforms.size == enabledPlatformsInChat.size &&
         chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
     val isDebugEnabled by chatViewModel.isDebugEnabled.collectAsStateWithLifecycle()
+    val lastTurnSnapshot by chatViewModel.lastTurnSnapshot.collectAsStateWithLifecycle()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -417,6 +419,18 @@ fun ChatScreen(
                                     onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
                                     onRetryClick = { chatViewModel.retryChat(platformIndexState) }
                                 )
+                                // Show undo bar only beneath the latest completed turn, and only
+                                // when there are at least 2 TURN snapshots (guaranteed by VM).
+                                if (isLastTurn && !isTurnLoading) {
+                                    lastTurnSnapshot?.let { snap ->
+                                        TurnUndoBar(
+                                            turnIndex = snap.turnIndex ?: 0,
+                                            affectedFileCount = snap.affectedFiles.size,
+                                            onUndoClick = { chatViewModel.undoLastTurn() },
+                                            modifier = Modifier.padding(top = 4.dp),
+                                        )
+                                    }
+                                }
                             }
                         }
 

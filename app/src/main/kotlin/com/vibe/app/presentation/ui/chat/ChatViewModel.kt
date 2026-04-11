@@ -22,6 +22,11 @@ import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
 import com.vibe.app.feature.diagnostic.DiagnosticContext
+import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.feature.project.VibeProjectDirs
+import com.vibe.app.feature.project.snapshot.Snapshot
+import com.vibe.app.feature.project.snapshot.SnapshotManager
+import com.vibe.app.feature.project.snapshot.SnapshotType
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.FileUtils
@@ -63,6 +68,8 @@ class ChatViewModel @Inject constructor(
     private val buildMutex: BuildMutex,
     private val pluginManager: PluginManager,
     private val buildFailureAnalyzer: BuildFailureAnalyzer,
+    private val snapshotManager: SnapshotManager,
+    private val projectManager: ProjectManager,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -196,6 +203,12 @@ class ChatViewModel @Inject constructor(
     // State for the message loading state (From the database)
     private val _isLoaded = MutableStateFlow(false)
     val isLoaded = _isLoaded.asStateFlow()
+
+    // The most-recent TURN-type snapshot for the current project, exposed so the UI
+    // can render the TurnUndoBar. Only non-null when there are at least 2 TURN snapshots
+    // (i.e. there is a prior state to roll back to).
+    private val _lastTurnSnapshot = MutableStateFlow<Snapshot?>(null)
+    val lastTurnSnapshot: StateFlow<Snapshot?> = _lastTurnSnapshot.asStateFlow()
 
     init {
         Log.d("ViewModel", "$chatRoomId")
@@ -933,6 +946,8 @@ class ChatViewModel @Inject constructor(
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
                     // Refresh project name in case the agent called rename_project
                     _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+                    // Refresh the undo bar state now that the turn is complete.
+                    refreshLastTurnSnapshot(_currentProjectId.value)
                     sessionFinished = true
                 }
             }
@@ -1081,5 +1096,54 @@ class ChatViewModel @Inject constructor(
         // Flatten the grouped messages into a single list
         val merged = _groupedMessages.value.userMessages + _groupedMessages.value.assistantMessages.flatten()
         return merged.filter { it.content.isNotBlank() }.sortedBy { it.createdAt }
+    }
+
+    /**
+     * Refreshes [lastTurnSnapshot] by listing all TURN-type snapshots for the current
+     * project. Only exposes the latest snapshot when there are at least 2 TURN snapshots
+     * so the undo button always has a prior state to roll back to.
+     */
+    private suspend fun refreshLastTurnSnapshot(projectId: String?) {
+        if (projectId.isNullOrBlank()) {
+            _lastTurnSnapshot.value = null
+            return
+        }
+        runCatching {
+            val workspace = projectManager.openWorkspace(projectId)
+            val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+            val turns = snapshotManager.list(projectId, vibeDirs)
+                .filter { it.type == SnapshotType.TURN }
+                .sortedBy { it.createdAtEpochMs }
+            // Only expose the latest turn if there's at least one earlier state to roll back to.
+            _lastTurnSnapshot.value = if (turns.size >= 2) turns.last() else null
+        }.onFailure {
+            _lastTurnSnapshot.value = null
+        }
+    }
+
+    /**
+     * Restores the workspace to the state captured by the snapshot immediately before
+     * the latest TURN snapshot, then refreshes [lastTurnSnapshot].
+     */
+    fun undoLastTurn() {
+        viewModelScope.launch {
+            val latestSnap = _lastTurnSnapshot.value ?: return@launch
+            val projectId = _currentProjectId.value ?: return@launch
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                val turns = snapshotManager.list(projectId, vibeDirs)
+                    .filter { it.type == SnapshotType.TURN }
+                    .sortedBy { it.createdAtEpochMs }
+                val idx = turns.indexOfFirst { it.id == latestSnap.id }
+                if (idx <= 0) return@runCatching  // no previous state
+                val previous = turns[idx - 1]
+                snapshotManager.restore(previous.id, projectId, workspace.rootDir, vibeDirs)
+                // Refresh so the UI reflects the post-restore state.
+                refreshLastTurnSnapshot(projectId)
+            }.onFailure { e ->
+                Log.e("ChatViewModel", "undoLastTurn failed", e)
+            }
+        }
     }
 }
