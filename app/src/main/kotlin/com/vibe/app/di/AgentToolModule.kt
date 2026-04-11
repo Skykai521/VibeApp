@@ -13,6 +13,8 @@ import com.vibe.app.feature.agent.tool.ReadProjectFileTool
 import com.vibe.app.feature.agent.tool.ReadRuntimeLogTool
 import com.vibe.app.feature.agent.tool.RenameProjectTool
 import com.vibe.app.feature.agent.tool.RunBuildPipelineTool
+import com.vibe.app.feature.agent.tool.SearchIconTool
+import com.vibe.app.feature.agent.tool.UpdateProjectIconCustomTool
 import com.vibe.app.feature.agent.tool.UpdateProjectIconTool
 import com.vibe.app.feature.agent.tool.WriteProjectFileTool
 import com.vibe.app.feature.agent.tool.CreatePlanTool
@@ -38,7 +40,9 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindGrepProjectFiles(tool: GrepProjectFilesTool): AgentTool
     @Binds @IntoSet abstract fun bindRunBuildPipeline(tool: RunBuildPipelineTool): AgentTool
     @Binds @IntoSet abstract fun bindRenameProject(tool: RenameProjectTool): AgentTool
+    @Binds @IntoSet abstract fun bindSearchIcon(tool: SearchIconTool): AgentTool
     @Binds @IntoSet abstract fun bindUpdateProjectIcon(tool: UpdateProjectIconTool): AgentTool
+    @Binds @IntoSet abstract fun bindUpdateProjectIconCustom(tool: UpdateProjectIconCustomTool): AgentTool
     @Binds @IntoSet abstract fun bindReadRuntimeLog(tool: ReadRuntimeLogTool): AgentTool
     @Binds @IntoSet abstract fun bindFixCrashGuide(tool: FixCrashGuideTool): AgentTool
     @Binds @IntoSet abstract fun bindLaunchApp(tool: LaunchAppTool): AgentTool

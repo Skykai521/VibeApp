@@ -103,10 +103,15 @@ Default project files:
 
 ## App Icon Requests
 
-- Use update_project_icon tool (not write_project_file) for icon changes.
-- Write Android vector drawable XML (not SVG), 108x108 viewport, literal hex colors.
-- Foreground: keep within 66x66 safe zone. Background: gradient or solid color.
-- Simple geometric shapes, 2-3 colors, avoid fine lines and text-only icons.
+Preferred workflow (use this almost always):
+1. `search_icon(keyword)` — try 1-3 broad keywords for the app's topic (e.g. "calculator", "house", "cloud sun"). Returns a list of icon ids from the bundled Lucide library.
+2. `update_project_icon(iconId, foregroundColor, backgroundStyle, backgroundColor1, backgroundColor2?)`:
+   - `iconId` from step 1.
+   - `foregroundColor`: `#RRGGBB`, usually white `#FFFFFF` or a light tint.
+   - `backgroundStyle`: `solid` | `linearGradient` | `radialGradient`.
+   - `backgroundColor1` / `backgroundColor2`: `#RRGGBB`. For gradients, pick two colors from the same hue family.
+
+Never hand-write icon XML unless `search_icon` returns nothing usable across several keywords. In that rare case, use `update_project_icon_custom(backgroundXml, foregroundXml)` with a 108x108 viewport and a 66x66 foreground safe zone.
 
 ## Phased Workflow
 
