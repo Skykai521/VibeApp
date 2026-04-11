@@ -133,6 +133,14 @@ class ChatViewModel @Inject constructor(
     private val _buildEvent = MutableSharedFlow<BuildEvent>()
     val buildEvent: SharedFlow<BuildEvent> = _buildEvent.asSharedFlow()
 
+    private val _undoEvent = MutableSharedFlow<UndoEvent>()
+    val undoEvent: SharedFlow<UndoEvent> = _undoEvent.asSharedFlow()
+
+    sealed class UndoEvent {
+        data object Success : UndoEvent()
+        data object Failure : UndoEvent()
+    }
+
     private val currentTimeStamp: Long
         get() = System.currentTimeMillis() / 1000
 
@@ -1103,27 +1111,46 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Restores the workspace to the state captured by the snapshot immediately before
-     * the latest TURN snapshot, then refreshes [lastTurnSnapshot].
+     * Rolls back the latest completed turn. Under post-turn snapshot semantics, turn N's
+     * snapshot captures the state at the END of turn N, so undoing turn N means restoring
+     * the prior TURN snapshot (end of turn N-1) and then deleting turn N's snapshot so it
+     * disappears from history — keeping the undo mental model simple.
      */
     fun undoLastTurn() {
         viewModelScope.launch {
-            val latestSnap = _lastTurnSnapshot.value ?: return@launch
-            val projectId = _currentProjectId.value ?: return@launch
-            runCatching {
+            val latestSnap = _lastTurnSnapshot.value
+            val projectId = _currentProjectId.value
+            if (latestSnap == null || projectId == null) {
+                _undoEvent.emit(UndoEvent.Failure)
+                return@launch
+            }
+            val result = runCatching {
                 val workspace = projectManager.openWorkspace(projectId)
                 val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
                 val turns = snapshotManager.list(projectId, vibeDirs)
                     .filter { it.type == SnapshotType.TURN }
                     .sortedBy { it.createdAtEpochMs }
                 val idx = turns.indexOfFirst { it.id == latestSnap.id }
-                if (idx <= 0) return@runCatching  // no previous state
+                check(idx > 0) { "no previous TURN snapshot to roll back to" }
                 val previous = turns[idx - 1]
-                snapshotManager.restore(previous.id, projectId, workspace.rootDir, vibeDirs)
-                // Refresh so the UI reflects the post-restore state.
-                refreshLastTurnSnapshot(projectId)
-            }.onFailure { e ->
-                Log.e("ChatViewModel", "undoLastTurn failed", e)
+                snapshotManager.restore(
+                    snapshotId = previous.id,
+                    projectId = projectId,
+                    workspaceRoot = workspace.rootDir,
+                    vibeDirs = vibeDirs,
+                    createBackup = false,
+                )
+                snapshotManager.delete(latestSnap.id, projectId, vibeDirs)
+            }
+            if (result.isSuccess) {
+                // Hide the undo bar immediately; don't refresh here — we don't want to
+                // auto-chain to the previous turn's undo. The bar will re-populate the
+                // next time a turn writes, via the regular turn-completion refresh path.
+                _lastTurnSnapshot.value = null
+                _undoEvent.emit(UndoEvent.Success)
+            } else {
+                Log.e("ChatViewModel", "undoLastTurn failed", result.exceptionOrNull())
+                _undoEvent.emit(UndoEvent.Failure)
             }
         }
     }

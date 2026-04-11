@@ -31,7 +31,7 @@ data class SnapshotIndex(
 data class RestoreResult(
     val restoredFiles: List<String>,
     val deletedFiles: List<String>,
-    val backupSnapshotId: String,
+    val backupSnapshotId: String?,
 )
 
 /**

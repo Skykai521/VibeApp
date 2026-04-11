@@ -18,7 +18,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.vibe.app.R
 
 /**
  * A narrow row rendered beneath the latest completed agent turn, showing the
@@ -44,7 +46,7 @@ fun TurnUndoBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "第 $turnIndex 轮 · 改动 $affectedFileCount 个文件",
+                text = stringResource(R.string.turn_undo_bar_label, turnIndex, affectedFileCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -56,7 +58,7 @@ fun TurnUndoBar(
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(4.dp))
-                Text("撤销")
+                Text(stringResource(R.string.turn_undo_button))
             }
         }
     }

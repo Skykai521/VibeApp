@@ -332,24 +332,9 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                             startedAt = toolStartedAt,
                         )
                     }
-                    // WriteInterceptor: trigger lazy snapshot commit on first write-tool call.
+                    // WriteInterceptor: mark that this turn mutated the workspace so FINALIZE
+                    // knows to capture a post-turn snapshot of the resulting state.
                     if (turnContext != null && call.name in WRITE_TOOL_NAMES && !turnContext.firstWriteDone) {
-                        runCatching { turnContext.snapshotHandle.commit() }
-                            .onFailure { e ->
-                                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                                    diagnosticLogger.logAgentLoopEvent(
-                                        context = ctx,
-                                        action = "turn_snapshot_commit_failed",
-                                        level = DiagnosticLevels.WARN,
-                                        summary = "Snapshot commit failed on first write: ${e.message?.take(120)}",
-                                        payload = buildJsonObject {
-                                            put("action", "turn_snapshot_commit_failed")
-                                            put("toolName", call.name)
-                                            put("error", e.message.orEmpty().take(500))
-                                        },
-                                    )
-                                }
-                            }
                         turnContext.firstWriteDone = true
                     }
                     val result = runCatching {
@@ -561,6 +546,26 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                                 },
                             )
                         }
+                    }
+                    // Capture the POST-turn workspace state so the snapshot labeled "turn N"
+                    // represents the result of turn N. Skip for edit-free turns — finalize()
+                    // is a no-op when nothing was committed.
+                    if (turnContext.firstWriteDone) {
+                        runCatching { turnContext.snapshotHandle.commit() }
+                            .onFailure { e ->
+                                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                                    diagnosticLogger.logAgentLoopEvent(
+                                        context = ctx,
+                                        action = "turn_snapshot_commit_failed",
+                                        level = DiagnosticLevels.WARN,
+                                        summary = "Snapshot commit failed at finalize: ${e.message?.take(120)}",
+                                        payload = buildJsonObject {
+                                            put("action", "turn_snapshot_commit_failed")
+                                            put("error", e.message.orEmpty().take(500))
+                                        },
+                                    )
+                                }
+                            }
                     }
                     turnContext.snapshotHandle.finalize(
                         buildSucceeded = buildSucceeded,

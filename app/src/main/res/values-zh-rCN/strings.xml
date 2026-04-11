@@ -160,6 +160,12 @@
     <string name="export_source_code">导出源码</string>
     <string name="export_apk">导出安装包</string>
 
+    <!-- Turn undo bar -->
+    <string name="turn_undo_bar_label">第 %1$d 轮 · 改动 %2$d 个文件</string>
+    <string name="turn_undo_button">撤销</string>
+    <string name="turn_undo_done_toast">已撤销本轮修改</string>
+    <string name="turn_undo_failed_toast">撤销失败</string>
+
     <!-- Snapshot history -->
     <string name="snapshot_history_title">历史版本</string>
     <string name="snapshot_history_empty">暂无快照</string>

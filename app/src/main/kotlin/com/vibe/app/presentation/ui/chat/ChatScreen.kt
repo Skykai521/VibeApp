@@ -292,6 +292,16 @@ fun ChatScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        chatViewModel.undoEvent.collect { event ->
+            val messageRes = when (event) {
+                ChatViewModel.UndoEvent.Success -> R.string.turn_undo_done_toast
+                ChatViewModel.UndoEvent.Failure -> R.string.turn_undo_failed_toast
+            }
+            Toast.makeText(context, context.getString(messageRes), Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Re-sync platforms, messages, and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {

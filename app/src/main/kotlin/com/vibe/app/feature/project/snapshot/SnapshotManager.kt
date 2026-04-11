@@ -20,6 +20,7 @@ interface SnapshotManager {
         projectId: String,
         workspaceRoot: File,
         vibeDirs: VibeProjectDirs,
+        createBackup: Boolean = true,
     ): RestoreResult
 
     suspend fun delete(

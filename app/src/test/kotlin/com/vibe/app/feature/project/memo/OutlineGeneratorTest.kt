@@ -124,7 +124,7 @@ private class FakeSnapshotManager(private val entries: List<Snapshot>) : Snapsho
     override suspend fun list(projectId: String, vibeDirs: VibeProjectDirs): List<Snapshot> = entries
     override suspend fun prepare(projectId: String, workspaceRoot: File, vibeDirs: VibeProjectDirs,
         type: SnapshotType, label: String, turnIndex: Int?): SnapshotHandle = error("not used")
-    override suspend fun restore(snapshotId: String, projectId: String, workspaceRoot: File, vibeDirs: VibeProjectDirs): RestoreResult = error("not used")
+    override suspend fun restore(snapshotId: String, projectId: String, workspaceRoot: File, vibeDirs: VibeProjectDirs, createBackup: Boolean): RestoreResult = error("not used")
     override suspend fun delete(snapshotId: String, projectId: String, vibeDirs: VibeProjectDirs) = Unit
     override suspend fun enforceRetention(projectId: String, vibeDirs: VibeProjectDirs, keepTurnCount: Int) = Unit
     override suspend fun recoverPendingRestore(projectId: String, workspaceRoot: File, vibeDirs: VibeProjectDirs) = Unit

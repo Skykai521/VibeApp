@@ -56,24 +56,27 @@ class DefaultSnapshotManager @Inject constructor(
         projectId: String,
         workspaceRoot: File,
         vibeDirs: VibeProjectDirs,
+        createBackup: Boolean,
     ): RestoreResult = withContext(Dispatchers.IO) {
-        // 1. Take a backup MANUAL snapshot of current state before destroying it.
-        val backup = prepare(
-            projectId = projectId,
-            workspaceRoot = workspaceRoot,
-            vibeDirs = vibeDirs,
-            type = SnapshotType.MANUAL,
-            label = "Before restore",
-            turnIndex = null,
-        )
-        backup.commit()
-        val currentFiles = workspaceRoot.walkTopDown()
-            .onEnter { it.name != "build" }
-            .filter { it.isFile }
-            .map { it.toRelativeString(workspaceRoot) }
-            .toList()
-        backup.finalize(buildSucceeded = true, affectedFiles = currentFiles, deletedFiles = emptyList())
-        val backupId = backup.id
+        // 1. Optionally take a backup MANUAL snapshot of current state before destroying it.
+        val backupId: String? = if (createBackup) {
+            val backup = prepare(
+                projectId = projectId,
+                workspaceRoot = workspaceRoot,
+                vibeDirs = vibeDirs,
+                type = SnapshotType.MANUAL,
+                label = "Before restore",
+                turnIndex = null,
+            )
+            backup.commit()
+            val currentFiles = workspaceRoot.walkTopDown()
+                .onEnter { it.name != "build" }
+                .filter { it.isFile }
+                .map { it.toRelativeString(workspaceRoot) }
+                .toList()
+            backup.finalize(buildSucceeded = true, affectedFiles = currentFiles, deletedFiles = emptyList())
+            backup.id
+        } else null
 
         // 2. Mark pending, restore, clear marker (crash-safe: recovered on next startup).
         vibeDirs.pendingRestoreMarker.writeText(snapshotId)
