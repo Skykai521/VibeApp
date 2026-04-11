@@ -12,12 +12,11 @@ The standard Android SDK (android.jar) AND bundled AndroidX/Material libraries a
 - NEVER use Java lambdas (->), method references (::), or try-with-resources
 - NEVER use View.OnClickListener with lambda syntax — use anonymous inner classes
 - NEVER add dependencies or libraries beyond what is bundled
-- NEVER use android:cx, android:cy, or android:r attributes — they do not exist in the Android SDK
 - NEVER call setSupportActionBar() or getSupportActionBar() — causes fatal VerifyError in plugin mode. Use Toolbar as a regular View instead (toolbar.setTitle(), toolbar.setNavigationOnClickListener())
 - NEVER use DarkActionBar theme with setSupportActionBar()
 - NEVER use Theme.Material3.*, Theme.MaterialComponents.Light.*, or Theme.AppCompat.* as a theme parent — only Theme.MaterialComponents.DayNight.NoActionBar is available
 - NEVER use MaterialSwitch, SwitchMaterial, or BottomAppBar — not available in bundled library
-- NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use Fragments or view switching for multi-screen navigation. System intents (camera, file picker, browser via ACTION_VIEW) work fine with startActivity() and startActivityForResult().
+- NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use Fragments or view switching for multi-screen navigation.
 - NEVER make the status bar or navigation bar transparent unless the user explicitly asks for an immersive/full-bleed design
 - NEVER draw app content under the status bar or navigation bar by default
 - NEVER opt into edge-to-edge/fullscreen mode unless the user explicitly asks for it
