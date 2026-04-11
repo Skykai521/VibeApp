@@ -161,6 +161,10 @@ dependencies {
     // HTML parsing (web search)
     implementation(libs.jsoup)
 
+    // Hidden API bypass — lets plugin inspector reflect WindowManagerGlobal.getRootViews()
+    // so that dialogs / popup menus / bottom sheets are visible to the agent on API 30+.
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
+
     implementation(project(":build-engine"))
     implementation(project(":shadow-runtime"))
 
