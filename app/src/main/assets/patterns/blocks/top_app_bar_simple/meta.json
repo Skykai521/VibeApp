@@ -1,0 +1,11 @@
+{
+  "id": "top_app_bar_simple",
+  "kind": "block",
+  "description": "Single-line MaterialToolbar with title and optional navigation icon",
+  "keywords": ["toolbar", "app bar", "title", "顶栏", "标题栏"],
+  "slots": [
+    { "name": "title", "description": "Toolbar title text", "default": "Screen title" },
+    { "name": "nav_icon", "description": "Navigation icon drawable (e.g. back arrow)", "default": "@android:drawable/ic_menu_revert" }
+  ],
+  "dependencies": ["AppBarLayout", "MaterialToolbar"]
+}

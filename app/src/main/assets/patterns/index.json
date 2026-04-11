@@ -1,5 +1,194 @@
 {
     "version": 1,
     "generated": "2026-04-11T00:00:00Z",
-    "patterns": []
+    "patterns": [
+        {
+            "id": "empty_state",
+            "kind": "block",
+            "description": "Centered empty-state: large icon, title, description, and a CTA button",
+            "keywords": [
+                "empty",
+                "placeholder",
+                "nothing",
+                "no data",
+                "空状态"
+            ],
+            "slotNames": [
+                "icon",
+                "title",
+                "description",
+                "cta"
+            ],
+            "dependencies": [
+                "MaterialButton"
+            ]
+        },
+        {
+            "id": "error_state",
+            "kind": "block",
+            "description": "Error display with tinted icon, title, description, and retry button",
+            "keywords": [
+                "error",
+                "failure",
+                "retry",
+                "错误",
+                "失败"
+            ],
+            "slotNames": [
+                "icon",
+                "title",
+                "description",
+                "cta"
+            ],
+            "dependencies": [
+                "MaterialButton"
+            ]
+        },
+        {
+            "id": "form_row_labeled",
+            "kind": "block",
+            "description": "Static form row with label on the left and value on the right",
+            "keywords": [
+                "form",
+                "row",
+                "label",
+                "value",
+                "表单"
+            ],
+            "slotNames": [
+                "label",
+                "value"
+            ],
+            "dependencies": []
+        },
+        {
+            "id": "form_text_field",
+            "kind": "block",
+            "description": "Material outlined text field with hint and helper text",
+            "keywords": [
+                "form",
+                "input",
+                "text field",
+                "输入框"
+            ],
+            "slotNames": [
+                "label",
+                "helper",
+                "input_type"
+            ],
+            "dependencies": [
+                "TextInputLayout",
+                "TextInputEditText"
+            ]
+        },
+        {
+            "id": "list_item_two_line",
+            "kind": "block",
+            "description": "Standard two-line list row with leading icon, title, and subtitle",
+            "keywords": [
+                "list",
+                "item",
+                "row",
+                "列表",
+                "条目"
+            ],
+            "slotNames": [
+                "icon",
+                "title",
+                "subtitle"
+            ],
+            "dependencies": []
+        },
+        {
+            "id": "loading_state",
+            "kind": "block",
+            "description": "Centered indeterminate progress with a caption",
+            "keywords": [
+                "loading",
+                "progress",
+                "spinner",
+                "wait",
+                "加载"
+            ],
+            "slotNames": [
+                "message"
+            ],
+            "dependencies": []
+        },
+        {
+            "id": "preference_item",
+            "kind": "block",
+            "description": "Settings-style entry: title, description, and trailing value or chevron",
+            "keywords": [
+                "settings",
+                "preference",
+                "row",
+                "option",
+                "设置",
+                "选项"
+            ],
+            "slotNames": [
+                "title",
+                "description",
+                "trailing"
+            ],
+            "dependencies": []
+        },
+        {
+            "id": "section_header",
+            "kind": "block",
+            "description": "Section title with optional subtitle, used to group content",
+            "keywords": [
+                "header",
+                "title",
+                "section",
+                "group",
+                "标题",
+                "分组"
+            ],
+            "slotNames": [
+                "title",
+                "subtitle"
+            ],
+            "dependencies": []
+        },
+        {
+            "id": "top_app_bar_search",
+            "kind": "block",
+            "description": "Toolbar housing an inline EditText for search input",
+            "keywords": [
+                "toolbar",
+                "search",
+                "filter",
+                "搜索"
+            ],
+            "slotNames": [
+                "hint"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar"
+            ]
+        },
+        {
+            "id": "top_app_bar_simple",
+            "kind": "block",
+            "description": "Single-line MaterialToolbar with title and optional navigation icon",
+            "keywords": [
+                "toolbar",
+                "app bar",
+                "title",
+                "顶栏",
+                "标题栏"
+            ],
+            "slotNames": [
+                "title",
+                "nav_icon"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar"
+            ]
+        }
+    ]
 }

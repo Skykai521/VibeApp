@@ -1,0 +1,12 @@
+{
+  "id": "form_text_field",
+  "kind": "block",
+  "description": "Material outlined text field with hint and helper text",
+  "keywords": ["form", "input", "text field", "输入框"],
+  "slots": [
+    { "name": "label", "description": "Floating label / hint", "default": "Label" },
+    { "name": "helper", "description": "Helper text under the field", "default": "Helper description" },
+    { "name": "input_type", "description": "Android inputType", "default": "text" }
+  ],
+  "dependencies": ["TextInputLayout", "TextInputEditText"]
+}
