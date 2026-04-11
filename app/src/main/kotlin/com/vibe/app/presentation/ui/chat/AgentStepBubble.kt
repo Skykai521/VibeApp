@@ -30,23 +30,6 @@ import com.vibe.app.feature.agent.AgentStepType
 import com.vibe.app.feature.agent.AgentToolStatus
 import com.vibe.app.feature.agent.ToolCallInfo
 
-private val TOOL_NAME_MAP_KEYS = mapOf(
-    "read_project_file" to R.string.tool_name_read_project_file,
-    "write_project_file" to R.string.tool_name_write_project_file,
-    "edit_project_file" to R.string.tool_name_edit_project_file,
-    "delete_project_file" to R.string.tool_name_delete_project_file,
-    "list_project_files" to R.string.tool_name_list_project_files,
-    "run_build_pipeline" to R.string.tool_name_run_build_pipeline,
-    "rename_project" to R.string.tool_name_rename_project,
-    "update_project_icon" to R.string.tool_name_update_project_icon,
-    "read_runtime_log" to R.string.tool_name_read_runtime_log,
-    "fix_crash_guide" to R.string.tool_name_fix_crash_guide,
-    "inspect_ui" to R.string.tool_name_inspect_ui,
-    "interact_ui" to R.string.tool_name_interact_ui,
-    "create_plan" to R.string.tool_name_create_plan,
-    "update_plan_step" to R.string.tool_name_update_plan_step,
-)
-
 /**
  * Renders a single agent step as an independent chat item.
  * Three types: THINKING (reasoning text), TOOL_CALL (tool invocation with status), OUTPUT (streamed text).
@@ -155,12 +138,6 @@ private fun ToolCallStep(
             }
         }
     }
-}
-
-@Composable
-private fun resolveToolDisplayName(toolName: String): String {
-    val resId = TOOL_NAME_MAP_KEYS[toolName]
-    return if (resId != null) stringResource(resId) else toolName
 }
 
 @Composable
