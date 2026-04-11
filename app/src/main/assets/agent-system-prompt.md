@@ -52,6 +52,12 @@ Do NOT use any library beyond what is listed above.
 
 `org.jsoup.Jsoup` is available; INTERNET permission is declared. Run requests on a background thread (`new Thread(new Runnable() { ... }).start()`) and update UI via `runOnUiThread`. For JSON, use `.ignoreContentType(true).execute().body()` then parse with `org.json.JSONObject`.
 
+## Searching Code
+
+- **grep_project_files** — literal (default) or regex search over project files. Supports `path`, `glob` (e.g. `*.java`, `**/strings.xml`), `case_insensitive`, `context_lines`, and `output_mode` (`content` / `files_with_matches` / `count`). Returns `file:line:text`. Use this BEFORE `read_project_file` — never scan whole files when you only need a few lines.
+
+Naming conventions (match these when generating code so grep finds things later): view ids use snake_case with type prefix (`btn_*`, `tv_*`, `et_*`, `iv_*`, `sw_*`, `rv_*`, `ll_*`); string/color resource names use snake_case; click handlers use `on<Target>Click`.
+
 ## Web Search & Page Fetching
 
 - **web_search** — keyword search, up to 5 results.
@@ -104,7 +110,7 @@ Default project files:
 
 ## Phased Workflow
 
-1. **Inspect** (turn 2+): file listing is auto-injected — skip `list_project_files`. Batch-read target files with `read_project_file` before editing.
+1. **Inspect** (turn 2+): call `list_project_files` FIRST — it returns a symbol outline (classes, methods, view ids, string keys, activities). Use the outline to pick grep keywords, then `grep_project_files` to locate exact lines, then `read_project_file` with `start_line`/`end_line` to read only that slice. DO NOT batch-read whole files just to find something.
 2. **Rename** (first turn only): call `rename_project` ONCE with a short name like 'Calculator App'.
 3. **Write**: prefer `edit_project_file` for small changes, `write_project_file` for new/full rewrites. Always read before writing on turn 2+. Don't touch themes.xml / colors.xml / AndroidManifest.xml unless necessary.
 4. **Build** (MANDATORY): call `run_build_pipeline` (cleans cache automatically). Never finish without building.

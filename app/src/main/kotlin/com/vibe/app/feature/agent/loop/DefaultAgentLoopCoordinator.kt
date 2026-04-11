@@ -657,10 +657,6 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             ?.takeIf { it.isNotBlank() }
             ?: request.platform.systemPrompt?.takeIf { it.isNotBlank() }
 
-        val isTurn2Plus = request.assistantMessages.any { msgs ->
-            msgs.any { it.content.isNotBlank() }
-        }
-
         return buildString {
             append(
                 promptTemplate
@@ -670,16 +666,6 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             if (custom != null) {
                 append("\n\n[Additional System Prompt]\n")
                 append(custom)
-            }
-            // Auto-inject file listing on turn 2+ so the AI doesn't need to call list_project_files
-            if (isTurn2Plus && request.projectId != null) {
-                val files = runCatching {
-                    projectManager.openWorkspace(request.projectId).listFiles()
-                }.getOrNull()
-                if (!files.isNullOrEmpty()) {
-                    append("\n\n[Current Project Files]\n")
-                    files.forEach { append("- $it\n") }
-                }
             }
             if (activePlan != null) {
                 append("\n\n[Active Plan]\n")

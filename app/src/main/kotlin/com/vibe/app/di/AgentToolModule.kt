@@ -19,6 +19,7 @@ import com.vibe.app.feature.agent.tool.CreatePlanTool
 import com.vibe.app.feature.agent.tool.UpdatePlanStepTool
 import com.vibe.app.feature.agent.tool.WebSearchTool
 import com.vibe.app.feature.agent.tool.FetchWebPageTool
+import com.vibe.app.feature.agent.tool.GrepProjectFilesTool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -34,6 +35,7 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindEditProjectFile(tool: EditProjectFileTool): AgentTool
     @Binds @IntoSet abstract fun bindDeleteProjectFile(tool: DeleteProjectFileTool): AgentTool
     @Binds @IntoSet abstract fun bindListProjectFiles(tool: ListProjectFilesTool): AgentTool
+    @Binds @IntoSet abstract fun bindGrepProjectFiles(tool: GrepProjectFilesTool): AgentTool
     @Binds @IntoSet abstract fun bindRunBuildPipeline(tool: RunBuildPipelineTool): AgentTool
     @Binds @IntoSet abstract fun bindRenameProject(tool: RenameProjectTool): AgentTool
     @Binds @IntoSet abstract fun bindUpdateProjectIcon(tool: UpdateProjectIconTool): AgentTool
