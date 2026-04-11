@@ -1,0 +1,12 @@
+{
+  "id": "stat_card",
+  "kind": "block",
+  "description": "Dashboard card showing a large numeric value with label and caption",
+  "keywords": ["card", "stat", "number", "metric", "数据卡", "统计"],
+  "slots": [
+    { "name": "label", "description": "Small uppercase label", "default": "Steps today" },
+    { "name": "value", "description": "Large headline number", "default": "8,432" },
+    { "name": "caption", "description": "Secondary context line", "default": "+12% from yesterday" }
+  ],
+  "dependencies": ["MaterialCardView"]
+}
