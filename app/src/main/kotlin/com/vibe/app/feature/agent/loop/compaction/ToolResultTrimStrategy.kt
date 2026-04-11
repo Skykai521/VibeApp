@@ -88,6 +88,7 @@ class ToolResultTrimStrategy : CompactionStrategy {
             "read_runtime_log" -> buildJsonObject {
                 put("note", JsonPrimitive("[Runtime logs trimmed — use read_runtime_log for latest]"))
             }
+            "grep_project_files" -> trimGrepPayload(payload)
             else -> payload
         }
     }
@@ -146,6 +147,13 @@ class ToolResultTrimStrategy : CompactionStrategy {
             }
             put("note", JsonPrimitive("[Source files trimmed from earlier turn]"))
         }
+    }
+
+    private fun trimGrepPayload(payload: JsonObject): JsonElement = buildJsonObject {
+        payload["match_count"]?.let { put("match_count", it) }
+        payload["file_count"]?.let { put("file_count", it) }
+        payload["truncated"]?.let { put("truncated", it) }
+        put("note", JsonPrimitive("[Grep results trimmed — run grep_project_files again if you need the matches]"))
     }
 
     private fun trimInteractUiPayload(payload: JsonObject): JsonElement {
