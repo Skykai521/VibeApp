@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.flow
 import com.vibe.app.feature.agent.AgentPlan
 import com.vibe.app.feature.agent.AgentPlanStep
 import com.vibe.app.feature.agent.PlanStepStatus
+import com.vibe.app.feature.agent.tool.requireString
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
@@ -331,6 +332,26 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                             startedAt = toolStartedAt,
                         )
                     }
+                    // WriteInterceptor: trigger lazy snapshot commit on first write-tool call.
+                    if (turnContext != null && call.name in WRITE_TOOL_NAMES && !turnContext.firstWriteDone) {
+                        runCatching { turnContext.snapshotHandle.commit() }
+                            .onFailure { e ->
+                                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                                    diagnosticLogger.logAgentLoopEvent(
+                                        context = ctx,
+                                        action = "turn_snapshot_commit_failed",
+                                        level = DiagnosticLevels.WARN,
+                                        summary = "Snapshot commit failed on first write: ${e.message?.take(120)}",
+                                        payload = buildJsonObject {
+                                            put("action", "turn_snapshot_commit_failed")
+                                            put("toolName", call.name)
+                                            put("error", e.message.orEmpty().take(500))
+                                        },
+                                    )
+                                }
+                            }
+                        turnContext.firstWriteDone = true
+                    }
                     val result = runCatching {
                         tool.execute(
                             call = call,
@@ -353,6 +374,24 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     }
                     pendingToolResults += result
                     collectedToolResults += result
+                    // WriteInterceptor: track affected/deleted file paths for snapshot metadata.
+                    if (turnContext != null && !result.isError) {
+                        runCatching {
+                            when (call.name) {
+                                "write_project_file", "edit_project_file" -> {
+                                    val path = call.arguments.requireString("path")
+                                    turnContext.writtenFiles += path
+                                }
+                                "delete_project_file" -> {
+                                    val path = call.arguments.requireString("path")
+                                    turnContext.deletedFiles += path
+                                }
+                                // icon tools: commit was triggered above; paths not tracked individually
+                            }
+                        }
+                        // Path-extraction failures are silent — worst case, affectedFiles is empty
+                        // and the UI shows a snapshot without per-file detail. Not a correctness issue.
+                    }
                     request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { diagnosticContext ->
                         diagnosticLogger.logAgentToolFinished(
                             context = diagnosticContext,
@@ -686,6 +725,15 @@ class DefaultAgentLoopCoordinator @Inject constructor(
     }
 
     companion object {
+        /** Write-type tool names that trigger the lazy snapshot commit (WriteInterceptor). */
+        private val WRITE_TOOL_NAMES: Set<String> = setOf(
+            "write_project_file",
+            "edit_project_file",
+            "delete_project_file",
+            "update_project_icon",
+            "update_project_icon_custom",
+        )
+
         /** Most recent assistant message from Room: preserve enough for continuity. */
         private const val MAX_RECENT_ASSISTANT_CHARS = 4000
         /** Second most recent: moderate detail. */
