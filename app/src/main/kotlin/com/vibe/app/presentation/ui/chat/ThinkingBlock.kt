@@ -137,6 +137,7 @@ fun ThinkingBlock(
                     codeBackground = MaterialTheme.colorScheme.surfaceVariant,
                 ),
                 typography = chatMarkdownTypography(),
+                padding = chatMarkdownPadding(),
                 components = chatMarkdownComponents(),
             )
         }

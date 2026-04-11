@@ -49,7 +49,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -57,13 +59,17 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownBulletList
 import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCode
+import com.mikepenz.markdown.compose.elements.MarkdownOrderedList
 import com.mikepenz.markdown.compose.elements.MarkdownTable
+import com.mikepenz.markdown.compose.elements.listDepth
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.model.markdownPadding
 import com.vibe.app.R
 import com.vibe.app.presentation.theme.VibeAppTheme
 import java.io.File
@@ -101,6 +107,7 @@ fun UserChatBubble(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
                 colors = chatMarkdownColors(),
                 typography = chatMarkdownTypography(),
+                padding = chatMarkdownPadding(),
                 components = chatMarkdownComponents(),
             )
         }
@@ -145,6 +152,7 @@ fun OpponentChatBubble(
                     modifier = Modifier.padding(16.dp),
                     colors = chatMarkdownColors(),
                     typography = chatMarkdownTypography(),
+                    padding = chatMarkdownPadding(),
                     components = chatMarkdownComponents(),
                 )
             }
@@ -417,17 +425,59 @@ private fun chatMarkdownColors() = markdownColor(
 )
 
 @Composable
-fun chatMarkdownTypography() = markdownTypography(
-    h1 = MaterialTheme.typography.headlineSmall,
-    h2 = MaterialTheme.typography.titleLarge,
-    h3 = MaterialTheme.typography.titleMedium,
-    h4 = MaterialTheme.typography.titleSmall,
-    h5 = MaterialTheme.typography.bodyLarge,
-    h6 = MaterialTheme.typography.bodyMedium,
+fun chatMarkdownTypography(): com.mikepenz.markdown.model.MarkdownTypography {
+    val uniformLineHeightStyle = LineHeightStyle(
+        alignment = LineHeightStyle.Alignment.Center,
+        trim = LineHeightStyle.Trim.None,
+    )
+    val body = MaterialTheme.typography.bodyLarge.copy(
+        lineHeight = 24.sp,
+        lineHeightStyle = uniformLineHeightStyle,
+    )
+    return markdownTypography(
+        h1 = MaterialTheme.typography.headlineSmall,
+        h2 = MaterialTheme.typography.titleLarge,
+        h3 = MaterialTheme.typography.titleMedium,
+        h4 = MaterialTheme.typography.titleSmall,
+        h5 = MaterialTheme.typography.bodyLarge,
+        h6 = MaterialTheme.typography.bodyMedium,
+        text = body,
+        paragraph = body,
+        list = body,
+        bullet = body,
+        ordered = body,
+    )
+}
+
+@Composable
+fun chatMarkdownPadding() = markdownPadding(
+    list = 0.dp,
+    listItemTop = 0.dp,
+    listItemBottom = 0.dp,
 )
 
 @Composable
 fun chatMarkdownComponents() = markdownComponents(
+    orderedList = {
+        MarkdownOrderedList(
+            content = it.content,
+            node = it.node,
+            style = it.typography.ordered,
+            depth = it.listDepth,
+            markerModifier = { Modifier.alignByBaseline() },
+            listModifier = { Modifier.alignByBaseline() },
+        )
+    },
+    unorderedList = {
+        MarkdownBulletList(
+            content = it.content,
+            node = it.node,
+            style = it.typography.bullet,
+            depth = it.listDepth,
+            markerModifier = { Modifier.alignByBaseline() },
+            listModifier = { Modifier.alignByBaseline() },
+        )
+    },
     codeFence = {
         MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style ->
             MarkdownHighlightedCode(
