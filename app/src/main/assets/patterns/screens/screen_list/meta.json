@@ -1,0 +1,11 @@
+{
+  "id": "screen_list",
+  "kind": "screen",
+  "description": "List screen: toolbar + RecyclerView + FAB. Use with empty/loading/error state blocks.",
+  "keywords": ["list", "screen", "recyclerview", "列表页"],
+  "slots": [
+    { "name": "title", "description": "Toolbar title", "default": "Items" },
+    { "name": "fab_description", "description": "FAB content description", "default": "Add new item" }
+  ],
+  "dependencies": ["AppBarLayout", "MaterialToolbar", "RecyclerView", "FloatingActionButton"]
+}

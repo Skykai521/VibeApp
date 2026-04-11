@@ -1,0 +1,14 @@
+{
+  "id": "screen_detail",
+  "kind": "screen",
+  "description": "Detail screen: toolbar + scrollable headline/body + single primary action",
+  "keywords": ["detail", "article", "view", "详情"],
+  "slots": [
+    { "name": "title", "description": "Toolbar title", "default": "Details" },
+    { "name": "headline", "description": "Large headline", "default": "Item headline" },
+    { "name": "subhead", "description": "Secondary info", "default": "Subhead text" },
+    { "name": "body", "description": "Long body content", "default": "Multi-paragraph body copy describing the item in detail." },
+    { "name": "primary_label", "description": "Bottom action button label", "default": "Action" }
+  ],
+  "dependencies": ["AppBarLayout", "MaterialToolbar", "MaterialButton"]
+}

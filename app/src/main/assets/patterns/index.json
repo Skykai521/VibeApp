@@ -3,6 +3,48 @@
     "generated": "2026-04-11T00:00:00Z",
     "patterns": [
         {
+            "id": "bottom_action_bar",
+            "kind": "block",
+            "description": "Fixed bottom bar with secondary (outlined) and primary (filled) action buttons",
+            "keywords": [
+                "action",
+                "button",
+                "bottom bar",
+                "cta",
+                "底部",
+                "按钮"
+            ],
+            "slotNames": [
+                "secondary_label",
+                "primary_label"
+            ],
+            "dependencies": [
+                "MaterialButton"
+            ]
+        },
+        {
+            "id": "chip_group_filter",
+            "kind": "block",
+            "description": "Horizontally scrolling filter chip group with single selection",
+            "keywords": [
+                "chip",
+                "filter",
+                "tag",
+                "category",
+                "筛选",
+                "标签"
+            ],
+            "slotNames": [
+                "chip_1",
+                "chip_2",
+                "chip_3"
+            ],
+            "dependencies": [
+                "ChipGroup",
+                "Chip"
+            ]
+        },
+        {
             "id": "empty_state",
             "kind": "block",
             "description": "Centered empty-state: large icon, title, description, and a CTA button",
@@ -82,6 +124,26 @@
             ]
         },
         {
+            "id": "info_card",
+            "kind": "block",
+            "description": "Generic info card: title, body copy, and an optional text action",
+            "keywords": [
+                "card",
+                "info",
+                "article",
+                "信息卡"
+            ],
+            "slotNames": [
+                "title",
+                "body",
+                "action"
+            ],
+            "dependencies": [
+                "MaterialCardView",
+                "MaterialButton"
+            ]
+        },
+        {
             "id": "list_item_two_line",
             "kind": "block",
             "description": "Standard two-line list row with leading icon, title, and subtitle",
@@ -135,6 +197,123 @@
             "dependencies": []
         },
         {
+            "id": "screen_dashboard",
+            "kind": "screen",
+            "description": "Dashboard screen: toolbar + two stat cards side by side + one wide info card",
+            "keywords": [
+                "dashboard",
+                "home",
+                "overview",
+                "stats",
+                "仪表盘"
+            ],
+            "slotNames": [
+                "title",
+                "stat_1_label",
+                "stat_1_value",
+                "stat_2_label",
+                "stat_2_value",
+                "info_title",
+                "info_body"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar",
+                "MaterialCardView"
+            ]
+        },
+        {
+            "id": "screen_detail",
+            "kind": "screen",
+            "description": "Detail screen: toolbar + scrollable headline/body + single primary action",
+            "keywords": [
+                "detail",
+                "article",
+                "view",
+                "详情"
+            ],
+            "slotNames": [
+                "title",
+                "headline",
+                "subhead",
+                "body",
+                "primary_label"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar",
+                "MaterialButton"
+            ]
+        },
+        {
+            "id": "screen_form",
+            "kind": "screen",
+            "description": "Form screen: toolbar + scrolling input fields + bottom action bar",
+            "keywords": [
+                "form",
+                "input",
+                "edit",
+                "表单"
+            ],
+            "slotNames": [
+                "title",
+                "field_1_label",
+                "field_2_label",
+                "cancel_label",
+                "submit_label"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar",
+                "TextInputLayout",
+                "TextInputEditText",
+                "MaterialButton"
+            ]
+        },
+        {
+            "id": "screen_list",
+            "kind": "screen",
+            "description": "List screen: toolbar + RecyclerView + FAB. Use with empty/loading/error state blocks.",
+            "keywords": [
+                "list",
+                "screen",
+                "recyclerview",
+                "列表页"
+            ],
+            "slotNames": [
+                "title",
+                "fab_description"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar",
+                "RecyclerView",
+                "FloatingActionButton"
+            ]
+        },
+        {
+            "id": "screen_settings",
+            "kind": "screen",
+            "description": "Settings screen: toolbar + scrollable list of grouped preferences",
+            "keywords": [
+                "settings",
+                "preferences",
+                "config",
+                "设置"
+            ],
+            "slotNames": [
+                "title",
+                "section_1_title",
+                "pref_1_title",
+                "pref_1_description"
+            ],
+            "dependencies": [
+                "AppBarLayout",
+                "MaterialToolbar",
+                "SwitchCompat"
+            ]
+        },
+        {
             "id": "section_header",
             "kind": "block",
             "description": "Section title with optional subtitle, used to group content",
@@ -151,6 +330,27 @@
                 "subtitle"
             ],
             "dependencies": []
+        },
+        {
+            "id": "stat_card",
+            "kind": "block",
+            "description": "Dashboard card showing a large numeric value with label and caption",
+            "keywords": [
+                "card",
+                "stat",
+                "number",
+                "metric",
+                "数据卡",
+                "统计"
+            ],
+            "slotNames": [
+                "label",
+                "value",
+                "caption"
+            ],
+            "dependencies": [
+                "MaterialCardView"
+            ]
         },
         {
             "id": "top_app_bar_search",
