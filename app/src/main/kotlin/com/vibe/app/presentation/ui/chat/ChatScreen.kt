@@ -419,13 +419,11 @@ fun ChatScreen(
                                         .fillMaxWidth()
                                         .padding(horizontal = 4.dp)
                                         .widthIn(max = maximumOpponentChatBubbleWidth),
-                                    canRetry = canUseChat && isLastTurn && !isTurnLoading,
                                     isLoading = isTurnLoading,
                                     text = assistantContent,
                                     loadingMinHeight = assistantLoadingMinHeight,
                                     onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
                                     onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
-                                    onRetryClick = { chatViewModel.retryChat(platformIndexState) }
                                 )
                                 // Show undo bar only beneath the latest completed turn, and only
                                 // when there are at least 2 TURN snapshots (guaranteed by VM).

@@ -504,41 +504,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun retryChat(platformIndex: Int) {
-        if (platformIndex >= _enabledPlatformsInChat.value.size || platformIndex < 0) return
-        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == _enabledPlatformsInChat.value[platformIndex] }
-        if (platform == null) {
-            Log.w("ChatViewModel", "Platform at index $platformIndex is no longer available")
-            return
-        }
-        val platformWithChatModel = resolvePlatformModel(platform)
-        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Loading } }
-        _groupedMessages.update {
-            val updatedAssistantMessages = it.assistantMessages.toMutableList()
-            updatedAssistantMessages[it.assistantMessages.lastIndex] = updatedAssistantMessages[it.assistantMessages.lastIndex].toMutableList().apply {
-                this[platformIndex] = MessageV2(chatId = chatRoomId, content = "", platformType = platformWithChatModel.uid)
-            }
-            it.copy(assistantMessages = updatedAssistantMessages)
-        }
-
-        val turnState = startTurn(_groupedMessages.value.userMessages.last(), listOf(platformWithChatModel.uid))
-        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
-        sessionManager.startSession(
-            chatId = effectiveChatId,
-            projectId = _currentProjectId.value,
-            platform = platformWithChatModel,
-            userMessages = _groupedMessages.value.userMessages,
-            assistantMessages = _groupedMessages.value.assistantMessages,
-            systemPrompt = platformWithChatModel.systemPrompt,
-            diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-            chatRoom = _chatRoom.value,
-            chatPlatformModels = _chatPlatformModels.value,
-        )
-        viewModelScope.launch {
-            observeAgentSessionState(effectiveChatId)
-        }
-    }
-
     fun updateProjectName(name: String) {
         val projectId = _currentProjectId.value ?: return
         val normalizedName = name.trim()

@@ -122,14 +122,12 @@ fun UserChatBubble(
 @Composable
 fun OpponentChatBubble(
     modifier: Modifier = Modifier,
-    canRetry: Boolean,
     isLoading: Boolean,
     isError: Boolean = false,
     text: String,
     loadingMinHeight: Dp = 0.dp,
     onCopyClick: () -> Unit = {},
     onSelectClick: () -> Unit = {},
-    onRetryClick: () -> Unit = {}
 ) {
     val cardColor = CardColors(
         containerColor = MaterialTheme.colorScheme.background,
@@ -165,10 +163,6 @@ fun OpponentChatBubble(
                         CopyTextIcon(onCopyClick)
                         Spacer(modifier = Modifier.width(4.dp))
                         SelectTextIcon(onSelectClick)
-                    }
-                    if (canRetry) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        RetryIcon(onRetryClick)
                     }
                 }
             }
@@ -206,39 +200,6 @@ fun VibeAppIcon(loading: Boolean) {
 }
 
 @Composable
-fun PlatformButton(
-    isLoading: Boolean,
-    name: String,
-    selected: Boolean,
-    onPlatformClick: () -> Unit
-) {
-    val buttonContent: @Composable RowScope.() -> Unit = {
-        Spacer(modifier = Modifier.width(12.dp))
-
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-
-        Text(
-            text = name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        if (isLoading) Spacer(modifier = Modifier.width(4.dp))
-    }
-
-    TextButton(
-        modifier = Modifier.widthIn(max = 160.dp),
-        onClick = onPlatformClick,
-        colors = if (selected) ButtonDefaults.filledTonalButtonColors() else ButtonDefaults.textButtonColors(),
-        content = buttonContent
-    )
-}
-
-@Composable
 private fun CopyTextIcon(onCopyClick: () -> Unit) {
     IconButton(onClick = onCopyClick, modifier = Modifier.size(38.dp)) {
         Icon(
@@ -256,18 +217,6 @@ private fun SelectTextIcon(onSelectClick: () -> Unit) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_select),
             contentDescription = stringResource(R.string.select_text),
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-        )
-    }
-}
-
-@Composable
-private fun RetryIcon(onRetryClick: () -> Unit) {
-    IconButton(onClick = onRetryClick, modifier = Modifier.size(38.dp)) {
-        Icon(
-            Icons.Rounded.Refresh,
-            contentDescription = stringResource(R.string.retry),
             modifier = Modifier.size(16.dp),
             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
@@ -307,10 +256,8 @@ fun OpponentChatBubblePreview() {
     VibeAppTheme {
         OpponentChatBubble(
             text = sampleText,
-            canRetry = true,
             isLoading = false,
             onCopyClick = {},
-            onRetryClick = {}
         )
     }
 }
