@@ -257,7 +257,7 @@ VibeApp/
 
 > Goal: Make the generation process visible, controllable, and iterable
 
-- [x] Multi-project management + version snapshots
+- [x] Multi-project management
 - [x] Multi-model switching (Claude / GPT / Gemini / Qwen / Kimi / MiniMax / Groq / OpenRouter / Ollama)
 - [x] Plugin system — run generated apps inside VibeApp without installation (Shadow-based, 5 process-isolated slots)
 - [x] Build cache — pre-dex caching for library JARs, significantly faster subsequent builds
@@ -273,7 +273,7 @@ VibeApp/
 - [x] Smarter auto-fix — broader error coverage and higher first-attempt success rate
 - [ ] Utility app enhancements — network requests, local storage, scheduled tasks, and other common capabilities
 - [ ] Web scraping & data tools — structured data fetching and display powered by jsoup
-- [ ] Continuous iteration — keep refining a generated app through multi-turn conversation
+- [x] Continuous iteration — per-turn auto snapshots with undo, project memo injected into every iterate-mode turn, multi-turn refinement
 - [ ] Community template marketplace — share and reuse high-quality tool templates
 
 ---

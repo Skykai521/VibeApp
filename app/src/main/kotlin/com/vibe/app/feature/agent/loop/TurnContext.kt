@@ -22,11 +22,18 @@ class TurnContext(
     val snapshotHandle: SnapshotHandle,
     val turnIndex: Int,
 ) {
-    /** Set by Task 5.2 WriteInterceptor on first write-tool call in this turn. */
+    /** Flipped to true by the Coordinator's write interceptor on the first
+     *  file-mutating tool call in this turn, so snapshotHandle.commit() runs
+     *  exactly once — and only when the turn actually changes workspace state. */
     @Volatile
     var firstWriteDone: Boolean = false
 
-    /** Task 5.2 will populate these as write tools execute. Empty in Task 5.1. */
+    /** Relative paths touched by this turn's write/edit tools, used as the
+     *  snapshot entry's affectedFiles. Populated by the Coordinator after each
+     *  successful write-tool result; read once in FINALIZE. */
     val writtenFiles: MutableSet<String> = mutableSetOf()
+
+    /** Relative paths removed by this turn's delete tool, paired with
+     *  writtenFiles for snapshot metadata. */
     val deletedFiles: MutableSet<String> = mutableSetOf()
 }
