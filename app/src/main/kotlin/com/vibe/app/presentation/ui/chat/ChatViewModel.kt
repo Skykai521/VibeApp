@@ -24,6 +24,7 @@ import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
 import com.vibe.app.feature.diagnostic.DiagnosticContext
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.app.feature.project.VibeProjectDirs
+import com.vibe.app.feature.project.memo.IntentStore
 import com.vibe.app.feature.project.snapshot.Snapshot
 import com.vibe.app.feature.project.snapshot.SnapshotManager
 import com.vibe.app.feature.project.snapshot.SnapshotType
@@ -70,6 +71,7 @@ class ChatViewModel @Inject constructor(
     private val buildFailureAnalyzer: BuildFailureAnalyzer,
     private val snapshotManager: SnapshotManager,
     private val projectManager: ProjectManager,
+    private val intentStore: IntentStore,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -209,6 +211,20 @@ class ChatViewModel @Inject constructor(
     // (i.e. there is a prior state to roll back to).
     private val _lastTurnSnapshot = MutableStateFlow<Snapshot?>(null)
     val lastTurnSnapshot: StateFlow<Snapshot?> = _lastTurnSnapshot.asStateFlow()
+
+    // --- Snapshot History (Task 7.2) ---
+    private val _snapshotHistory = MutableStateFlow<List<Snapshot>>(emptyList())
+    val snapshotHistory: StateFlow<List<Snapshot>> = _snapshotHistory.asStateFlow()
+
+    private val _showSnapshotHistory = MutableStateFlow(false)
+    val showSnapshotHistory: StateFlow<Boolean> = _showSnapshotHistory.asStateFlow()
+
+    // --- Project Memo (Task 7.3) ---
+    private val _projectMemoMarkdown = MutableStateFlow<String?>(null)
+    val projectMemoMarkdown: StateFlow<String?> = _projectMemoMarkdown.asStateFlow()
+
+    private val _showProjectMemo = MutableStateFlow(false)
+    val showProjectMemo: StateFlow<Boolean> = _showProjectMemo.asStateFlow()
 
     init {
         Log.d("ViewModel", "$chatRoomId")
@@ -1143,6 +1159,73 @@ class ChatViewModel @Inject constructor(
                 refreshLastTurnSnapshot(projectId)
             }.onFailure { e ->
                 Log.e("ChatViewModel", "undoLastTurn failed", e)
+            }
+        }
+    }
+
+    // --- Task 7.2: Snapshot History ---
+
+    fun openSnapshotHistory() {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                val list = snapshotManager.list(projectId, vibeDirs)
+                    .sortedByDescending { it.createdAtEpochMs }
+                _snapshotHistory.value = list
+                _showSnapshotHistory.value = true
+            }
+        }
+    }
+
+    fun closeSnapshotHistory() {
+        _showSnapshotHistory.value = false
+    }
+
+    fun restoreSnapshot(snapshotId: String) {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                snapshotManager.restore(snapshotId, projectId, workspace.rootDir, vibeDirs)
+                // Refresh both the history list and the latest-turn snapshot shown in the undo bar.
+                val refreshed = snapshotManager.list(projectId, vibeDirs)
+                    .sortedByDescending { it.createdAtEpochMs }
+                _snapshotHistory.value = refreshed
+                refreshLastTurnSnapshot(projectId)
+            }
+            _showSnapshotHistory.value = false
+        }
+    }
+
+    // --- Task 7.3: Project Memo ---
+
+    fun openProjectMemo() {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                _projectMemoMarkdown.value = intentStore.loadRawMarkdown(vibeDirs)
+                _showProjectMemo.value = true
+            }
+        }
+    }
+
+    fun closeProjectMemo() {
+        _showProjectMemo.value = false
+    }
+
+    fun saveProjectMemo(markdown: String) {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                intentStore.saveRawMarkdown(vibeDirs, markdown)
+                _projectMemoMarkdown.value = markdown
             }
         }
     }

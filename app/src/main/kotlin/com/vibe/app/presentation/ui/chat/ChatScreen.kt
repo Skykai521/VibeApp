@@ -114,6 +114,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vibe.app.R
 import com.vibe.app.data.model.ClientType
+import com.vibe.app.presentation.ui.chat.components.ProjectMemoPanel
+import com.vibe.app.presentation.ui.chat.components.SnapshotHistoryPanel
 import com.vibe.app.presentation.ui.chat.components.TurnUndoBar
 import com.vibe.app.util.FileUtils
 import java.io.File
@@ -179,6 +181,8 @@ fun ChatScreen(
         chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
     val isDebugEnabled by chatViewModel.isDebugEnabled.collectAsStateWithLifecycle()
     val lastTurnSnapshot by chatViewModel.lastTurnSnapshot.collectAsStateWithLifecycle()
+    val showSnapshotHistory by chatViewModel.showSnapshotHistory.collectAsStateWithLifecycle()
+    val showProjectMemo by chatViewModel.showProjectMemo.collectAsStateWithLifecycle()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -344,6 +348,8 @@ fun ChatScreen(
                 },
                 onClearChatHistoryClick = { isClearChatDialogOpen = true },
                 onDiagnosticClick = onNavigateToDiagnostic,
+                onOpenSnapshotHistory = chatViewModel::openSnapshotHistory,
+                onOpenProjectMemo = chatViewModel::openProjectMemo,
             )
         }
     ) { innerPadding ->
@@ -647,6 +653,26 @@ fun ChatScreen(
                 }
             }
         }
+
+        if (showSnapshotHistory) {
+            ModalBottomSheet(onDismissRequest = chatViewModel::closeSnapshotHistory) {
+                val snapshots by chatViewModel.snapshotHistory.collectAsStateWithLifecycle()
+                SnapshotHistoryPanel(
+                    snapshots = snapshots,
+                    onRestoreClick = { snap -> chatViewModel.restoreSnapshot(snap.id) },
+                )
+            }
+        }
+
+        if (showProjectMemo) {
+            ModalBottomSheet(onDismissRequest = chatViewModel::closeProjectMemo) {
+                val memoMarkdown by chatViewModel.projectMemoMarkdown.collectAsStateWithLifecycle()
+                ProjectMemoPanel(
+                    intentMarkdown = memoMarkdown,
+                    onSave = { chatViewModel.saveProjectMemo(it) },
+                )
+            }
+        }
     }
 }
 
@@ -738,6 +764,8 @@ private fun ChatTopBar(
     onExportApkItemClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
+    onOpenSnapshotHistory: () -> Unit,
+    onOpenProjectMemo: () -> Unit,
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
@@ -798,6 +826,14 @@ private fun ChatTopBar(
                     onDiagnosticClick = {
                         onDiagnosticClick()
                     },
+                    onOpenSnapshotHistory = {
+                        isDropDownMenuExpanded = false
+                        onOpenSnapshotHistory()
+                    },
+                    onOpenProjectMemo = {
+                        isDropDownMenuExpanded = false
+                        onOpenProjectMemo()
+                    },
                 )
             },
             scrollBehavior = scrollBehavior
@@ -829,6 +865,8 @@ fun ChatDropdownMenu(
     onExportApkItemClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
+    onOpenSnapshotHistory: () -> Unit,
+    onOpenProjectMemo: () -> Unit,
 ) {
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
@@ -853,6 +891,16 @@ fun ChatDropdownMenu(
             leadingIcon = {
                 Icon(Icons.Outlined.InstallMobile, contentDescription = null)
             },
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text("历史版本") },
+            onClick = onOpenSnapshotHistory,
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text("项目记忆") },
+            onClick = onOpenProjectMemo,
         )
 
         HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
