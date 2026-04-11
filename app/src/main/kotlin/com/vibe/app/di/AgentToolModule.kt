@@ -22,6 +22,9 @@ import com.vibe.app.feature.agent.tool.UpdatePlanStepTool
 import com.vibe.app.feature.agent.tool.WebSearchTool
 import com.vibe.app.feature.agent.tool.FetchWebPageTool
 import com.vibe.app.feature.agent.tool.GrepProjectFilesTool
+import com.vibe.app.feature.agent.tool.SearchUiPatternTool
+import com.vibe.app.feature.agent.tool.GetUiPatternTool
+import com.vibe.app.feature.agent.tool.GetDesignGuideTool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -53,4 +56,7 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindUpdatePlanStep(tool: UpdatePlanStepTool): AgentTool
     @Binds @IntoSet abstract fun bindWebSearch(tool: WebSearchTool): AgentTool
     @Binds @IntoSet abstract fun bindFetchWebPage(tool: FetchWebPageTool): AgentTool
+    @Binds @IntoSet abstract fun bindSearchUiPattern(tool: SearchUiPatternTool): AgentTool
+    @Binds @IntoSet abstract fun bindGetUiPattern(tool: GetUiPatternTool): AgentTool
+    @Binds @IntoSet abstract fun bindGetDesignGuide(tool: GetDesignGuideTool): AgentTool
 }

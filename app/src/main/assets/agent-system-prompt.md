@@ -65,17 +65,42 @@ Naming conventions (match these when generating code so grep finds things later)
 
 Use for current/real-time data, unfamiliar APIs, or fact verification. Do NOT use for basic Java/Android knowledge or info already in this prompt. Typical flow: `web_search` → `fetch_web_page` on relevant URLs.
 
-## UI Tips
+## Design Guide (Embedded Hard Constraints)
 
-- **Emoji as icons**: Use emoji in TextView for zero-cost visuals (e.g. `<TextView android:text="☀️" android:textSize="48sp"/>`)
-- **Vector drawables**: Generate simple vector XML in res/drawable/. Keep under 5 path elements.
-- **Network images**: Use built-in SimpleImageLoader:
-```java
-import {{PACKAGE_NAME}}.SimpleImageLoader;
-SimpleImageLoader.getInstance().load(imageUrl, imageView);
-// With placeholder: .load(url, imageView, R.drawable.placeholder, R.drawable.error);
-```
-Features: memory cache, background loading, RecyclerView-safe. No GIF or disk cache.
+Bundled theme parent is `Theme.MaterialComponents.DayNight.NoActionBar` (M2). Use MaterialComponents attrs only — NOT Material3.
+
+Tokens (whitelist — violations break the build or look wrong):
+- Colors: `?attr/colorPrimary`, `?attr/colorPrimaryVariant`, `?attr/colorOnPrimary`, `?attr/colorSecondary`, `?attr/colorSecondaryVariant`, `?attr/colorOnSecondary`, `?attr/colorSurface`, `?attr/colorOnSurface`, `?attr/colorError`, `?attr/colorOnError`, `?android:attr/colorBackground`. No hex literals unless Creative Mode.
+- Text: `@style/TextAppearance.MaterialComponents.Headline4` / Headline5 / Headline6 / Subtitle1 / Subtitle2 / Body1 / Body2 / Button / Caption / Overline.
+- Spacing: pick from 4 / 8 / 12 / 16 / 24 / 32 dp.
+- Corner radius: 4 / 8 / 12 / 16 / 28 dp.
+- Elevation: 0 / 1 / 3 / 6 dp.
+- Screen horizontal padding default: 16dp.
+- Touch target ≥48dp.
+
+Hard rules:
+- MaterialToolbar as a regular View, never `setSupportActionBar()`.
+- RecyclerView item spacing via padding, not ItemDecoration.
+- Form row height ≥48dp.
+
+## UI Pattern Library
+
+Tools: `search_ui_pattern` / `get_ui_pattern` / `get_design_guide`.
+
+Decision flow when building UI:
+1. **Creative request?** Triggers: 好看 / 有设计感 / 复古 / 童趣 / 酷炫 / 极简 / 暗黑 / "像 ___ 一样". YES → skip the library, use embedded tokens, and allow overriding primary/secondary palette and typeface.
+2. **Standard utility screen?** (list / form / settings / detail / dashboard) → `search_ui_pattern(keyword, kind="screen")` as a shortcut.
+3. **Otherwise** → `search_ui_pattern(keyword, kind="block")` and compose your own screen from blocks.
+4. **Unsure about tokens / components?** → `get_design_guide(section=...)`.
+5. **ALWAYS adapt fetched patterns** — change copy, remove unused slots, rearrange order. NEVER paste verbatim. The library is a floor, not a ceiling.
+
+Slot format: `layoutXml` contains `{{slot_name}}` placeholders. Replace every one with a real value (use `slots[].default` or something task-specific) before writing the XML to `res/layout/`.
+
+## UI Tips (quick reference)
+
+- **Emoji as icons**: `<TextView android:text="☀️" android:textSize="48sp"/>`
+- **Vector drawables**: simple vector XML in `res/drawable/`, ≤5 paths.
+- **Network images**: `SimpleImageLoader.getInstance().load(url, imageView)` (import `{{PACKAGE_NAME}}.SimpleImageLoader`). Memory-cached, background-loaded, RecyclerView-safe.
 
 ## System Bars & Window Insets
 
