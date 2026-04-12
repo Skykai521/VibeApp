@@ -137,12 +137,24 @@
     <string name="tool_name_run_build_pipeline">Run build</string>
     <string name="tool_name_rename_project">Rename project</string>
     <string name="tool_name_update_project_icon">Update icon</string>
+    <string name="tool_name_update_project_icon_custom">Update custom icon</string>
     <string name="tool_name_read_runtime_log">Read app log</string>
     <string name="tool_name_fix_crash_guide">Diagnose crash</string>
+    <string name="tool_name_launch_app">Launch app</string>
+    <string name="tool_name_close_app">Close app</string>
     <string name="tool_name_inspect_ui">Inspect UI</string>
     <string name="tool_name_interact_ui">Interact UI</string>
+    <string name="tool_name_grep_project_files">Search project files</string>
+    <string name="tool_name_web_search">Web search</string>
+    <string name="tool_name_fetch_web_page">Fetch web page</string>
+    <string name="tool_name_search_ui_pattern">Search UI pattern</string>
+    <string name="tool_name_get_ui_pattern">Get UI pattern</string>
+    <string name="tool_name_get_design_guide">Get design guide</string>
+    <string name="tool_name_search_icon">Search icon</string>
     <string name="tool_name_create_plan">Create plan</string>
     <string name="tool_name_update_plan_step">Update plan</string>
+    <string name="tool_name_get_project_memo">Get project memo</string>
+    <string name="tool_name_update_project_intent">Update project memo</string>
     <string name="plan_header">Plan (%1$d/%2$d completed)</string>
     <string name="crash_detected_title">App Crashed</string>
     <string name="crash_auto_fix">Auto Fix</string>
@@ -186,6 +198,28 @@
     <string name="install_apk">Install APK</string>
     <string name="export_source_code">Export Source Code</string>
     <string name="export_apk">Export APK</string>
+
+    <!-- Turn undo bar -->
+    <string name="turn_undo_bar_label">Turn %1$d · %2$d files changed</string>
+    <string name="turn_undo_button">Undo</string>
+    <string name="turn_undo_done_toast">Turn undone</string>
+    <string name="turn_undo_failed_toast">Undo failed</string>
+
+    <!-- Snapshot history -->
+    <string name="snapshot_history_title">Version History</string>
+    <string name="snapshot_history_empty">No snapshots yet</string>
+    <string name="snapshot_history_turn_label">⦿ Turn %1$s · %2$s</string>
+    <string name="snapshot_history_manual_label">★ %1$s</string>
+    <string name="snapshot_history_supporting">%1$s · %2$d files</string>
+    <string name="snapshot_history_restore">Restore</string>
+    <string name="snapshot_time_just_now">Just now</string>
+    <string name="snapshot_time_minutes_ago">%1$d min ago</string>
+    <string name="snapshot_time_hours_ago">%1$d h ago</string>
+
+    <!-- Project memory -->
+    <string name="project_memo_title">Project Memory</string>
+    <string name="project_memo_save">Save</string>
+    <string name="project_memo_empty">(No project memory yet — it will be generated after the AI completes a successful build.)</string>
 
     <!-- Notification strings -->
     <string name="notification_channel_ongoing">Agent Working</string>

@@ -19,10 +19,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
@@ -229,6 +233,7 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                     put("model", context.model)
                     put("stream", context.stream)
                     put("reasoningEnabled", context.reasoningEnabled)
+                    put("estimatedTokens", context.estimatedContextTokens)
                     put("messageCount", context.messageCount)
                     putIfNotNull("userMessageCount", context.userMessageCount)
                     putIfNotNull("assistantMessageCount", context.assistantMessageCount)
@@ -271,6 +276,8 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                     putIfNotNull("durationMs", durationMs)
                     putIfNotNull("firstByteLatencyMs", trace.requestStartedAt?.let { trace.firstByteAt?.minus(it) })
                     putIfNotNull("firstSemanticLatencyMs", trace.requestStartedAt?.let { trace.firstSemanticAt?.minus(it) })
+                    put("contextTokens", trace.inputTokens ?: context.estimatedContextTokens)
+                    putIfNotNull("inputTokens", trace.inputTokens)
                     put("outputChars", trace.outputChars)
                     put("thinkingChars", trace.thinkingChars)
                     put("toolCallCount", trace.toolCallCount)
@@ -352,6 +359,22 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
         startedAt: Long,
         completedAt: Long,
     ) {
+        val outputString = result.output.toString()
+        val errorMessage = if (result.isError) result.output.extractErrorMessage() else null
+        val errorKind = if (result.isError) classifyToolError(errorMessage, result.output) else null
+        val summary = if (result.isError) {
+            val preview = errorMessage?.clipPreview(120) ?: "no error message"
+            "Tool ${result.toolName} failed: $preview"
+        } else {
+            "Tool ${result.toolName} finished"
+        }
+        if (result.isError) {
+            Log.w(
+                TAG,
+                "Tool ${result.toolName} (callId=${result.toolCallId}, iter=$iteration) failed: " +
+                    "${errorMessage ?: "<no message>"} | output=${outputString.clipPreview(500)}",
+            )
+        }
         writeEvent(
             DiagnosticEvent(
                 id = createDiagnosticEventId(completedAt),
@@ -362,7 +385,7 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                 turnId = context.turnId,
                 category = DiagnosticCategories.AGENT_TOOL,
                 level = if (result.isError) DiagnosticLevels.WARN else DiagnosticLevels.INFO,
-                summary = "Tool ${result.toolName} ${if (result.isError) "failed" else "finished"}",
+                summary = summary,
                 payload = buildJsonObject {
                     put("action", "tool_finished")
                     put("iteration", iteration)
@@ -372,11 +395,39 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
                     put("completedAt", completedAt)
                     put("durationMs", (completedAt - startedAt).coerceAtLeast(0L))
                     put("success", !result.isError)
-                    putIfNotNull("errorKind", result.takeIf { it.isError }?.let { "tool_error" })
-                    put("outputBytesApprox", result.output.toString().toByteArray(StandardCharsets.UTF_8).size)
+                    putIfNotNull("errorKind", errorKind)
+                    putIfNotNull("errorMessage", errorMessage)
+                    putIfNotNull("errorMessagePreview", errorMessage?.clipPreview())
+                    if (result.isError) {
+                        // Keep the raw output preview so non-standard error shapes
+                        // (missing "error" key, nested objects) remain debuggable from the log alone.
+                        put("outputPreview", outputString.clipPreview(1000))
+                    }
+                    put("outputBytesApprox", outputString.toByteArray(StandardCharsets.UTF_8).size)
                 },
             ),
         )
+    }
+
+    private fun JsonElement.extractErrorMessage(): String? {
+        return runCatching {
+            val obj = jsonObject
+            // Conventional shape from AgentToolCall.errorResult: {"error": "..."}.
+            obj["error"]?.jsonPrimitive?.contentOrNull
+                ?: obj["message"]?.jsonPrimitive?.contentOrNull
+                ?: obj["errorMessage"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    private fun classifyToolError(message: String?, output: JsonElement): String {
+        val probe = (message ?: output.toString()).lowercase()
+        return when {
+            "timeout" in probe || "timed out" in probe -> "tool_timeout"
+            "not found" in probe || "no such" in probe || "missing" in probe -> "tool_not_found"
+            "permission" in probe || "denied" in probe -> "tool_permission_denied"
+            "cancel" in probe -> "tool_cancelled"
+            else -> "tool_error"
+        }
     }
 
     override suspend fun logBuildResult(

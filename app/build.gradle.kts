@@ -18,8 +18,8 @@ android {
         applicationId = "com.vibe.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.8.0"
+        versionCode = 15
+        versionName = "1.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -160,13 +160,17 @@ dependencies {
 
     // HTML parsing (web search)
     implementation(libs.jsoup)
-    implementation(libs.readability4j)
+
+    // Hidden API bypass — lets plugin inspector reflect WindowManagerGlobal.getRootViews()
+    // so that dialogs / popup menus / bottom sheets are visible to the agent on API 30+.
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
 
     implementation(project(":build-engine"))
     implementation(project(":shadow-runtime"))
 
     // Test
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

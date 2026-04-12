@@ -1,0 +1,11 @@
+{
+  "id": "form_row_labeled",
+  "kind": "block",
+  "description": "Static form row with label on the left and value on the right",
+  "keywords": ["form", "row", "label", "value", "表单"],
+  "slots": [
+    { "name": "label", "description": "Field label", "default": "Label" },
+    { "name": "value", "description": "Field value", "default": "Value" }
+  ],
+  "dependencies": []
+}

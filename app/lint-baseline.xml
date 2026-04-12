@@ -8,8 +8,30 @@
         errorLine2="                 ~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/plugin/PluginContainerActivity.kt"
-            line="196"
+            line="200"
             column="18"/>
+    </issue>
+
+    <issue
+        id="DiscouragedPrivateApi"
+        message="Reflective access to mViews, which is not part of the public SDK and therefore likely to change in future Android releases"
+        errorLine1="            val field = clazz.getDeclaredField(&quot;mViews&quot;).apply { isAccessible = true }"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt"
+            line="196"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="DiscouragedPrivateApi"
+        message="Reflective access to mRoots, which is not part of the public SDK and therefore likely to change in future Android releases"
+        errorLine1="            val field = clazz.getDeclaredField(&quot;mRoots&quot;).apply { isAccessible = true }"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt"
+            line="210"
+            column="25"/>
     </issue>
 
     <issue
@@ -46,13 +68,24 @@
     </issue>
 
     <issue
+        id="PrivateApi"
+        message="Accessing internal APIs via reflection is not supported and may not work on all devices or in the future"
+        errorLine1="            clazz = Class.forName(&quot;android.view.WindowManagerGlobal&quot;)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt"
+            line="186"
+            column="21"/>
+    </issue>
+
+    <issue
         id="SimpleDateFormat"
         message="To get local formatting use `getDateInstance()`, `getDateTimeInstance()`, or `getTimeInstance()`, or use `new SimpleDateFormat(String template, Locale locale)` with for example `Locale.US` for ASCII dates."
         errorLine1="            val timestamp = SimpleDateFormat(&quot;MM-dd HH:mm:ss.SSS&quot;).format(Date())"
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/plugin/PluginContainerActivity.kt"
-            line="305"
+            line="362"
             column="29"/>
     </issue>
 
@@ -98,6 +131,17 @@
             file="$HOME/Documents/work/VibeApp/gradle/libs.versions.toml"
             line="11"
             column="14"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.lsposed.hiddenapibypass:hiddenapibypass than 4.3 is available: 6.1"
+        errorLine1="    implementation(&quot;org.lsposed.hiddenapibypass:hiddenapibypass:4.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="166"
+            column="20"/>
     </issue>
 
     <issue
@@ -222,13 +266,24 @@
     </issue>
 
     <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jsoup:jsoup than 1.18.3 is available: 1.22.1"
+        errorLine1="jsoup = &quot;1.18.3&quot;"
+        errorLine2="        ~~~~~~~~">
+        <location
+            file="$HOME/Documents/work/VibeApp/gradle/libs.versions.toml"
+            line="25"
+            column="9"/>
+    </issue>
+
+    <issue
         id="RestrictedApi"
         message="PathDataNode.nodesToPath can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`VibeApp`)"
         errorLine1="            PathParser.PathDataNode.nodesToPath(nodes, path)"
         errorLine2="                                    ~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/feature/projecticon/ProjectIconRenderer.kt"
-            line="144"
+            line="208"
             column="37"/>
     </issue>
 
@@ -244,13 +299,24 @@
     </issue>
 
     <issue
+        id="LocalContextResourcesRead"
+        message="Reading Resources using LocalContext.current.resources"
+        errorLine1="            Toast.makeText(context, context.resources.getString(messageRes), Toast.LENGTH_SHORT).show()"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/presentation/ui/chat/ChatScreen.kt"
+            line="301"
+            column="37"/>
+    </issue>
+
+    <issue
         id="ModifierParameter"
         message="Modifier parameter should be the first optional parameter"
         errorLine1="    modifier: Modifier = Modifier,"
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/presentation/ui/chat/AgentStepBubble.kt"
-            line="55"
+            line="41"
             column="5"/>
     </issue>
 
@@ -261,7 +327,18 @@
         errorLine2="    ~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/presentation/ui/chat/AgentStepBubble.kt"
-            line="116"
+            line="157"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/presentation/ui/chat/PlanBubble.kt"
+            line="34"
             column="5"/>
     </issue>
 
@@ -272,7 +349,7 @@
         errorLine2="                                               ~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/plugin/PluginContainerActivity.kt"
-            line="73"
+            line="76"
             column="48"/>
     </issue>
 
@@ -1323,17 +1400,6 @@
 
     <issue
         id="MissingTranslation"
-        message="&quot;client_type_google_desc&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
-        errorLine1="    &lt;string name=&quot;client_type_google_desc&quot;>Google Gemini Generative AI API&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="114"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="MissingTranslation"
         message="&quot;api_url_hint&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
         errorLine1="    &lt;string name=&quot;api_url_hint&quot;>https://api.example.com&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~">
@@ -1466,23 +1532,122 @@
 
     <issue
         id="MissingTranslation"
-        message="&quot;tool_name_inspect_ui&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;zh&quot; (Chinese), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        message="&quot;tool_name_inspect_ui&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
         errorLine1="    &lt;string name=&quot;tool_name_inspect_ui&quot;>Inspect UI&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="142"
+            line="145"
             column="13"/>
     </issue>
 
     <issue
         id="MissingTranslation"
-        message="&quot;tool_name_interact_ui&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;zh&quot; (Chinese), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        message="&quot;tool_name_interact_ui&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
         errorLine1="    &lt;string name=&quot;tool_name_interact_ui&quot;>Interact UI&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="143"
+            line="146"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_grep_project_files&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_grep_project_files&quot;>Search project files&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="147"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_web_search&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_web_search&quot;>Web search&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="148"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_fetch_web_page&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_fetch_web_page&quot;>Fetch web page&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="149"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_search_ui_pattern&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_search_ui_pattern&quot;>Search UI pattern&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="150"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_get_ui_pattern&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_get_ui_pattern&quot;>Get UI pattern&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="151"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_get_design_guide&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_get_design_guide&quot;>Get design guide&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="152"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_search_icon&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_search_icon&quot;>Search icon&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="153"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_get_project_memo&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_get_project_memo&quot;>Get project memo&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="156"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;tool_name_update_project_intent&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish)"
+        errorLine1="    &lt;string name=&quot;tool_name_update_project_intent&quot;>Update project memo&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="157"
             column="13"/>
     </issue>
 
@@ -1493,7 +1658,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="147"
+            line="162"
             column="13"/>
     </issue>
 
@@ -1504,7 +1669,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="148"
+            line="163"
             column="13"/>
     </issue>
 
@@ -1515,7 +1680,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="151"
+            line="166"
             column="13"/>
     </issue>
 
@@ -1526,7 +1691,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="152"
+            line="167"
             column="13"/>
     </issue>
 
@@ -1537,7 +1702,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="153"
+            line="168"
             column="13"/>
     </issue>
 
@@ -1548,7 +1713,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="154"
+            line="169"
             column="13"/>
     </issue>
 
@@ -1559,7 +1724,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="155"
+            line="170"
             column="13"/>
     </issue>
 
@@ -1570,7 +1735,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="156"
+            line="171"
             column="13"/>
     </issue>
 
@@ -1581,7 +1746,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="157"
+            line="172"
             column="13"/>
     </issue>
 
@@ -1592,18 +1757,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="158"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="MissingTranslation"
-        message="&quot;api_key_optional_note&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
-        errorLine1="    &lt;string name=&quot;api_key_optional_note&quot;>API key is optional for local providers like Ollama&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/strings.xml"
-            line="159"
+            line="173"
             column="13"/>
     </issue>
 
@@ -1614,18 +1768,18 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="160"
+            line="175"
             column="13"/>
     </issue>
 
     <issue
         id="MissingTranslation"
         message="&quot;model_examples&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
-        errorLine1="    &lt;string name=&quot;model_examples&quot;>Examples: gpt-4o, claude-sonnet-4-20250514, gemini-1.5-pro&lt;/string>"
+        errorLine1="    &lt;string name=&quot;model_examples&quot;>Examples: gpt–5.4, claude-sonnet-4-6&lt;/string>"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="161"
+            line="176"
             column="13"/>
     </issue>
 
@@ -1636,7 +1790,7 @@
         errorLine2="            ~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="162"
+            line="177"
             column="13"/>
     </issue>
 
@@ -1647,7 +1801,7 @@
         errorLine2="            ~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="163"
+            line="178"
             column="13"/>
     </issue>
 
@@ -1658,7 +1812,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="165"
+            line="180"
             column="13"/>
     </issue>
 
@@ -1669,7 +1823,7 @@
         errorLine2="            ~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="170"
+            line="187"
             column="13"/>
     </issue>
 
@@ -1680,7 +1834,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="173"
+            line="190"
             column="13"/>
     </issue>
 
@@ -1691,7 +1845,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="174"
+            line="191"
             column="13"/>
     </issue>
 
@@ -1702,7 +1856,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="175"
+            line="192"
             column="13"/>
     </issue>
 
@@ -1713,7 +1867,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="176"
+            line="193"
             column="13"/>
     </issue>
 
@@ -1724,7 +1878,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="177"
+            line="194"
             column="13"/>
     </issue>
 
@@ -1735,7 +1889,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="178"
+            line="195"
             column="13"/>
     </issue>
 
@@ -1746,7 +1900,7 @@
         errorLine2="            ~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="180"
+            line="197"
             column="13"/>
     </issue>
 
@@ -1757,7 +1911,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="182"
+            line="199"
             column="13"/>
     </issue>
 
@@ -1768,7 +1922,183 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="183"
+            line="200"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;turn_undo_bar_label&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;turn_undo_bar_label&quot;>Turn %1$d · %2$d files changed&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="203"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;turn_undo_button&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;turn_undo_button&quot;>Undo&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="204"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;turn_undo_done_toast&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;turn_undo_done_toast&quot;>Turn undone&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="205"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;turn_undo_failed_toast&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;turn_undo_failed_toast&quot;>Undo failed&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="206"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_history_title&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_history_title&quot;>Version History&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="209"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_history_empty&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_history_empty&quot;>No snapshots yet&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="210"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_history_turn_label&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_history_turn_label&quot;>⦿ Turn %1$s · %2$s&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="211"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_history_manual_label&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_history_manual_label&quot;>★ %1$s&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="212"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_history_supporting&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_history_supporting&quot;>%1$s · %2$d files&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="213"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_history_restore&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_history_restore&quot;>Restore&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="214"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_time_just_now&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_time_just_now&quot;>Just now&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="215"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_time_minutes_ago&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_time_minutes_ago&quot;>%1$d min ago&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="216"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;snapshot_time_hours_ago&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;snapshot_time_hours_ago&quot;>%1$d h ago&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="217"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;project_memo_title&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;project_memo_title&quot;>Project Memory&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="220"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;project_memo_save&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;project_memo_save&quot;>Save&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="221"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="MissingTranslation"
+        message="&quot;project_memo_empty&quot; is not translated in &quot;de&quot; (German), &quot;ars&quot;, &quot;ru&quot; (Russian), &quot;ko&quot; (Korean), &quot;pt&quot; (Portuguese), &quot;in&quot; (Indonesian), &quot;fr&quot; (French), &quot;ta&quot; (Tamil), &quot;es&quot; (Spanish), &quot;iw&quot; (Hebrew), &quot;ar&quot; (Arabic), &quot;ja&quot; (Japanese), &quot;fa&quot; (Persian), &quot;pl&quot; (Polish), &quot;tr&quot; (Turkish)"
+        errorLine1="    &lt;string name=&quot;project_memo_empty&quot;>(No project memory yet — it will be generated after the AI completes a successful build.)&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="222"
             column="13"/>
     </issue>
 
@@ -1779,7 +2109,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="186"
+            line="225"
             column="13"/>
     </issue>
 
@@ -1790,7 +2120,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="187"
+            line="226"
             column="13"/>
     </issue>
 
@@ -1801,7 +2131,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="188"
+            line="227"
             column="13"/>
     </issue>
 
@@ -1812,7 +2142,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="189"
+            line="228"
             column="13"/>
     </issue>
 
@@ -1823,7 +2153,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="190"
+            line="229"
             column="13"/>
     </issue>
 
@@ -1834,7 +2164,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="191"
+            line="230"
             column="13"/>
     </issue>
 
@@ -1845,7 +2175,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="192"
+            line="231"
             column="13"/>
     </issue>
 
@@ -1856,7 +2186,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="193"
+            line="232"
             column="13"/>
     </issue>
 
@@ -1867,7 +2197,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="194"
+            line="233"
             column="13"/>
     </issue>
 
@@ -1878,7 +2208,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="195"
+            line="234"
             column="13"/>
     </issue>
 
@@ -1889,7 +2219,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="196"
+            line="235"
             column="13"/>
     </issue>
 
@@ -1900,7 +2230,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="197"
+            line="236"
             column="13"/>
     </issue>
 
@@ -1911,7 +2241,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="198"
+            line="237"
             column="13"/>
     </issue>
 
@@ -1922,7 +2252,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="201"
+            line="240"
             column="13"/>
     </issue>
 
@@ -1933,7 +2263,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="204"
+            line="243"
             column="13"/>
     </issue>
 
@@ -1944,7 +2274,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="205"
+            line="244"
             column="13"/>
     </issue>
 
@@ -1955,7 +2285,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="206"
+            line="245"
             column="13"/>
     </issue>
 
@@ -1966,7 +2296,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="207"
+            line="246"
             column="13"/>
     </issue>
 
@@ -1977,7 +2307,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="210"
+            line="249"
             column="13"/>
     </issue>
 
@@ -1988,7 +2318,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="211"
+            line="250"
             column="13"/>
     </issue>
 
@@ -1999,7 +2329,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="212"
+            line="251"
             column="13"/>
     </issue>
 
@@ -2010,7 +2340,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="216"
+            line="255"
             column="13"/>
     </issue>
 
@@ -2021,7 +2351,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="217"
+            line="256"
             column="13"/>
     </issue>
 
@@ -2032,7 +2362,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="220"
+            line="259"
             column="13"/>
     </issue>
 
@@ -2043,7 +2373,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="221"
+            line="260"
             column="13"/>
     </issue>
 
@@ -2054,7 +2384,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="222"
+            line="261"
             column="13"/>
     </issue>
 
@@ -2065,7 +2395,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="223"
+            line="262"
             column="13"/>
     </issue>
 
@@ -2076,7 +2406,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="224"
+            line="263"
             column="13"/>
     </issue>
 
@@ -2087,7 +2417,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="225"
+            line="264"
             column="13"/>
     </issue>
 
@@ -2098,7 +2428,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="226"
+            line="265"
             column="13"/>
     </issue>
 
@@ -2109,7 +2439,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="227"
+            line="266"
             column="13"/>
     </issue>
 
@@ -2120,7 +2450,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="228"
+            line="267"
             column="13"/>
     </issue>
 
@@ -2191,13 +2521,35 @@
     </issue>
 
     <issue
+        id="Untranslatable"
+        message="The resource string &quot;deepseek&quot; is marked as translatable=&quot;false&quot;, but is translated to &quot;zh&quot; (Chinese) here"
+        errorLine1="    &lt;string name=&quot;deepseek&quot; translatable=&quot;false&quot;>DeepSeek&lt;/string>"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="167"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;completed&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;plan_header&quot;>Plan (%1$d/%2$d completed)&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="158"
+            column="5"/>
+    </issue>
+
+    <issue
         id="PluralsCandidate"
         message="Formatting %d followed by words (&quot;selected&quot;): This should probably be a plural rather than a string"
         errorLine1="    &lt;string name=&quot;projects_selected&quot;>%d selected&lt;/string>"
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="176"
+            line="193"
             column="5"/>
     </issue>
 
@@ -2208,7 +2560,29 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="178"
+            line="195"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;files&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;turn_undo_bar_label&quot;>Turn %1$d · %2$d files changed&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="203"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;files&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;snapshot_history_supporting&quot;>%1$s · %2$d files&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="213"
             column="5"/>
     </issue>
 
@@ -2219,7 +2593,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="192"
+            line="231"
             column="5"/>
     </issue>
 
@@ -2232,6 +2606,28 @@
             file="build.gradle.kts"
             line="29"
             column="27"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 29"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginContainerActivity.kt"
+            line="278"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 29"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.P) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt"
+            line="774"
+            column="13"/>
     </issue>
 
     <issue
@@ -2315,24 +2711,35 @@
     </issue>
 
     <issue
+        id="UnusedResources"
+        message="The resource `R.string.retry` appears to be unused"
+        errorLine1="    &lt;string name=&quot;retry&quot;>Retry&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="37"
+            column="13"/>
+    </issue>
+
+    <issue
         id="TypographyDashes"
         message="Replace &quot;-&quot; with an &quot;en dash&quot; character (–, &amp;#8211;) ?"
-        errorLine1="    &lt;string name=&quot;model_examples&quot;>例如：gpt-4o、claude-sonnet-4-20250514、gemini-1.5-pro&lt;/string>"
-        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="    &lt;string name=&quot;model_examples&quot;>例如：gpt–5.4, claude–sonnet-4-6&lt;/string>"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values-zh-rCN/strings.xml"
-            line="143"
+            line="160"
             column="35"/>
     </issue>
 
     <issue
         id="TypographyDashes"
         message="Replace &quot;-&quot; with an &quot;en dash&quot; character (–, &amp;#8211;) ?"
-        errorLine1="    &lt;string name=&quot;model_examples&quot;>Examples: gpt-4o, claude-sonnet-4-20250514, gemini-1.5-pro&lt;/string>"
-        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="    &lt;string name=&quot;model_examples&quot;>Examples: gpt–5.4, claude-sonnet-4-6&lt;/string>"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="161"
+            line="176"
             column="35"/>
     </issue>
 
@@ -2387,23 +2794,45 @@
 
     <issue
         id="UseKtx"
+        message="Use the KTX extension property `View.isGone` instead?"
+        errorLine1="        if (view.visibility == View.GONE) return null"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt"
+            line="254"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension property `View.isVisible` instead?"
+        errorLine1="            DumpOptions.Scope.VISIBLE -> view.visibility == View.VISIBLE"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt"
+            line="313"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
         message="Use the KTX function `createBitmap` instead?"
         errorLine1="        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)"
         errorLine2="                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/feature/projecticon/ProjectIconRenderer.kt"
-            line="35"
+            line="50"
             column="22"/>
     </issue>
 
     <issue
         id="UseKtx"
-        message="Use the KTX extension function `Canvas.withScale` instead?"
+        message="Use the KTX extension function `Canvas.withSave` instead?"
         errorLine1="        canvas.save()"
         errorLine2="        ~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/feature/projecticon/ProjectIconRenderer.kt"
-            line="117"
+            line="166"
             column="9"/>
     </issue>
 
@@ -2414,7 +2843,7 @@
         errorLine2="        ~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/feature/projecticon/ProjectIconRenderer.kt"
-            line="124"
+            line="188"
             column="9"/>
     </issue>
 
@@ -2425,7 +2854,7 @@
         errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/feature/projecticon/ProjectIconRenderer.kt"
-            line="179"
+            line="274"
             column="30"/>
     </issue>
 
@@ -2436,7 +2865,7 @@
         errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/vibe/app/feature/projecticon/ProjectIconRenderer.kt"
-            line="235"
+            line="341"
             column="26"/>
     </issue>
 
@@ -2460,6 +2889,28 @@
             file="build.gradle.kts"
             line="109"
             column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;org.lsposed.hiddenapibypass:hiddenapibypass:4.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="166"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    testImplementation(&quot;org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2&quot;)"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="173"
+            column="24"/>
     </issue>
 
 </issues>

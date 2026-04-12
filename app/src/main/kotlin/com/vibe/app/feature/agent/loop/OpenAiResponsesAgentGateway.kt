@@ -78,6 +78,7 @@ class OpenAiResponsesAgentGateway @Inject constructor(
                 model = request.platform.model,
                 stream = true,
                 reasoningEnabled = request.platform.reasoning,
+                estimatedContextTokens = request.estimateContextTokensForDiagnostics(),
                 messageCount = request.conversation.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
                 toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),

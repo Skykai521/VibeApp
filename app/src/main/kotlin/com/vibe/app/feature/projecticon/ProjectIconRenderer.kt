@@ -2,9 +2,11 @@ package com.vibe.app.feature.projecticon
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Matrix
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.util.Log
 import android.util.Xml
 import androidx.compose.ui.graphics.ImageBitmap
@@ -17,6 +19,19 @@ import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
 
 object ProjectIconRenderer {
+
+    /**
+     * How the 108-unit adaptive-icon vector is mapped into the target pixel canvas.
+     *
+     * - [FULL_CANVAS]: the full viewport (e.g. 108×108) maps to the target. Used for
+     *   in-app previews that show the whole adaptive surface.
+     * - [SAFE_ZONE]: only the center 66/108 (adaptive-icon safe zone) maps to the
+     *   target. Used for legacy mipmap PNG fallbacks so the content fills the
+     *   square the way a pre-API-26 launcher expects.
+     */
+    private enum class RenderFit { FULL_CANVAS, SAFE_ZONE }
+
+    private const val SAFE_ZONE_RATIO = 66f / 108f
 
     fun iconSignature(workspacePath: String): Long {
         val backgroundFile = File(workspacePath, ICON_BACKGROUND_PATH)
@@ -35,17 +50,17 @@ object ProjectIconRenderer {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        renderVectorXml(canvas, backgroundFile, sizePx)
-        renderVectorXml(canvas, foregroundFile, sizePx)
+        renderVectorXml(canvas, backgroundFile, sizePx, RenderFit.FULL_CANVAS)
+        renderVectorXml(canvas, foregroundFile, sizePx, RenderFit.FULL_CANVAS)
 
         bitmap.asImageBitmap()
     }
 
-    private fun renderVectorXml(canvas: Canvas, file: File, sizePx: Int) {
+    private fun renderVectorXml(canvas: Canvas, file: File, sizePx: Int, fit: RenderFit) {
         if (!file.exists()) return
         runCatching {
             val vector = parseVectorXml(file)
-            drawVector(canvas, vector, sizePx)
+            drawVector(canvas, vector, sizePx, fit)
         }.onFailure { error ->
             Log.w(TAG, "Failed to render icon ${file.absolutePath}", error)
         }
@@ -58,6 +73,11 @@ object ProjectIconRenderer {
         val rootGroup = GroupData()
         val groupStack = ArrayDeque<GroupData>()
         groupStack.addLast(rootGroup)
+
+        // Tracks the <path> currently being parsed so we can attach a nested
+        // <aapt:attr><gradient>…</gradient></aapt:attr> fill to it.
+        var pendingPath: PathData? = null
+        var pendingGradient: GradientData? = null
 
         file.inputStream().buffered().reader(Charsets.UTF_8).use { reader ->
             parser.setInput(reader)
@@ -85,22 +105,53 @@ object ProjectIconRenderer {
                                 groupStack.addLast(group)
                             }
                             "path" -> {
-                                val pathData = parser.getAttr("pathData") ?: continue
-                                val pathItem = PathData(
-                                    pathData = pathData,
-                                    fillColor = parseColor(parser.getAttr("fillColor")),
-                                    strokeColor = parseColor(parser.getAttr("strokeColor")),
-                                    strokeWidth = parser.getAttr("strokeWidth")?.toFloatOrNull() ?: 0f,
-                                    strokeLineCap = parser.getAttr("strokeLineCap") ?: "butt",
-                                    strokeLineJoin = parser.getAttr("strokeLineJoin") ?: "miter",
+                                val pathData = parser.getAttr("pathData")
+                                if (pathData != null) {
+                                    val pathItem = PathData(
+                                        pathData = pathData,
+                                        fillColor = parseColor(parser.getAttr("fillColor")),
+                                        strokeColor = parseColor(parser.getAttr("strokeColor")),
+                                        strokeWidth = parser.getAttr("strokeWidth")?.toFloatOrNull() ?: 0f,
+                                        strokeLineCap = parser.getAttr("strokeLineCap") ?: "butt",
+                                        strokeLineJoin = parser.getAttr("strokeLineJoin") ?: "miter",
+                                    )
+                                    groupStack.last().paths.add(pathItem)
+                                    pendingPath = pathItem
+                                }
+                            }
+                            "gradient" -> {
+                                pendingGradient = GradientData(
+                                    type = parser.getAttr("type") ?: "linear",
+                                    startX = parser.getAttr("startX")?.toFloatOrNull() ?: 0f,
+                                    startY = parser.getAttr("startY")?.toFloatOrNull() ?: 0f,
+                                    endX = parser.getAttr("endX")?.toFloatOrNull() ?: 0f,
+                                    endY = parser.getAttr("endY")?.toFloatOrNull() ?: 0f,
+                                    centerX = parser.getAttr("centerX")?.toFloatOrNull() ?: 0f,
+                                    centerY = parser.getAttr("centerY")?.toFloatOrNull() ?: 0f,
+                                    gradientRadius = parser.getAttr("gradientRadius")?.toFloatOrNull() ?: 0f,
                                 )
-                                groupStack.last().paths.add(pathItem)
+                            }
+                            "item" -> {
+                                val g = pendingGradient
+                                if (g != null) {
+                                    val offset = parser.getAttr("offset")?.toFloatOrNull()
+                                    val color = parseColor(parser.getAttr("color"))
+                                    if (offset != null && color != null) {
+                                        g.stops.add(GradientStop(offset, color))
+                                    }
+                                }
                             }
                         }
                     }
                     XmlPullParser.END_TAG -> {
-                        if (parser.name == "group" && groupStack.size > 1) {
-                            groupStack.removeLast()
+                        when (parser.name) {
+                            "path" -> pendingPath = null
+                            "gradient" -> {
+                                val g = pendingGradient
+                                if (g != null) pendingPath?.gradient = g
+                                pendingGradient = null
+                            }
+                            "group" -> if (groupStack.size > 1) groupStack.removeLast()
                         }
                     }
                 }
@@ -111,11 +162,24 @@ object ProjectIconRenderer {
         return VectorData(viewportWidth, viewportHeight, rootGroup)
     }
 
-    private fun drawVector(canvas: Canvas, vector: VectorData, sizePx: Int) {
-        val scaleX = sizePx / vector.viewportWidth
-        val scaleY = sizePx / vector.viewportHeight
+    private fun drawVector(canvas: Canvas, vector: VectorData, sizePx: Int, fit: RenderFit) {
         canvas.save()
-        canvas.scale(scaleX, scaleY)
+        when (fit) {
+            RenderFit.FULL_CANVAS -> {
+                canvas.scale(sizePx / vector.viewportWidth, sizePx / vector.viewportHeight)
+            }
+            RenderFit.SAFE_ZONE -> {
+                // Map the center 66/108 of the viewport to the full target square.
+                val safeWidth = vector.viewportWidth * SAFE_ZONE_RATIO
+                val safeHeight = vector.viewportHeight * SAFE_ZONE_RATIO
+                val offsetX = (vector.viewportWidth - safeWidth) / 2f
+                val offsetY = (vector.viewportHeight - safeHeight) / 2f
+                val scaleX = sizePx / safeWidth
+                val scaleY = sizePx / safeHeight
+                canvas.translate(-offsetX * scaleX, -offsetY * scaleY)
+                canvas.scale(scaleX, scaleY)
+            }
+        }
         drawGroup(canvas, vector.rootGroup)
         canvas.restore()
     }
@@ -144,8 +208,15 @@ object ProjectIconRenderer {
             PathParser.PathDataNode.nodesToPath(nodes, path)
         }.onFailure { return }
 
-        // Fill
-        if (pathData.fillColor != null && pathData.fillColor != 0) {
+        // Fill — gradient takes precedence over solid fillColor.
+        val gradient = pathData.gradient
+        if (gradient != null && gradient.stops.size >= 2) {
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                shader = buildShader(gradient)
+            }
+            canvas.drawPath(path, paint)
+        } else if (pathData.fillColor != null && pathData.fillColor != 0) {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 style = Paint.Style.FILL
                 color = pathData.fillColor
@@ -174,13 +245,36 @@ object ProjectIconRenderer {
         }
     }
 
+    private fun buildShader(g: GradientData): Shader {
+        val colors = g.stops.map { it.color }.toIntArray()
+        val positions = g.stops.map { it.offset.coerceIn(0f, 1f) }.toFloatArray()
+        return when (g.type) {
+            "radial" -> RadialGradient(
+                g.centerX,
+                g.centerY,
+                g.gradientRadius.coerceAtLeast(1f),
+                colors,
+                positions,
+                Shader.TileMode.CLAMP,
+            )
+            else -> LinearGradient(
+                g.startX,
+                g.startY,
+                g.endX,
+                g.endY,
+                colors,
+                positions,
+                Shader.TileMode.CLAMP,
+            )
+        }
+    }
+
     private fun parseColor(colorStr: String?): Int? {
         if (colorStr.isNullOrBlank()) return null
         return runCatching { android.graphics.Color.parseColor(colorStr) }.getOrNull()
     }
 
     private fun XmlPullParser.getAttr(name: String): String? {
-        // Try with android namespace first, then without namespace
         return getAttributeValue("http://schemas.android.com/apk/res/android", name)
             ?: getAttributeValue(null, name)
     }
@@ -210,18 +304,30 @@ object ProjectIconRenderer {
         val strokeWidth: Float,
         val strokeLineCap: String,
         val strokeLineJoin: String,
+        var gradient: GradientData? = null,
     )
+
+    private data class GradientData(
+        val type: String,
+        val startX: Float,
+        val startY: Float,
+        val endX: Float,
+        val endY: Float,
+        val centerX: Float,
+        val centerY: Float,
+        val gradientRadius: Float,
+        val stops: MutableList<GradientStop> = mutableListOf(),
+    )
+
+    private data class GradientStop(val offset: Float, val color: Int)
 
     /**
      * Render PNG launcher icons at all standard densities from the vector drawables.
      * Generates both regular and round icons in mipmap-{density} directories.
      *
-     * This ensures launchers that don't properly resolve adaptive icons from
-     * mipmap-anydpi-v26 still get correctly sized PNG fallbacks.
-     */
-    /**
-     * Blocking version — callers are responsible for dispatching to a background thread.
-     * All existing callers run inside withContext(Dispatchers.IO).
+     * Uses [RenderFit.SAFE_ZONE] so the center 66/108 of the adaptive canvas fills
+     * the legacy mipmap square — otherwise pre-API-26 launchers display a tiny icon
+     * inside a mostly-empty 48 dp cell.
      */
     fun renderPngIcons(workspacePath: String) {
         val backgroundFile = File(workspacePath, ICON_BACKGROUND_PATH)
@@ -234,8 +340,8 @@ object ProjectIconRenderer {
 
             val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
-            renderVectorXml(canvas, backgroundFile, sizePx)
-            renderVectorXml(canvas, foregroundFile, sizePx)
+            renderVectorXml(canvas, backgroundFile, sizePx, RenderFit.SAFE_ZONE)
+            renderVectorXml(canvas, foregroundFile, sizePx, RenderFit.SAFE_ZONE)
 
             writePng(bitmap, File(mipmapDir, "ic_launcher.png"))
             writePng(bitmap, File(mipmapDir, "ic_launcher_round.png"))

@@ -21,6 +21,7 @@ import com.vibe.app.data.dto.anthropic.response.ContentStartResponseChunk
 import com.vibe.app.data.dto.anthropic.response.ContentStopResponseChunk
 import com.vibe.app.data.dto.anthropic.response.ErrorResponseChunk
 import com.vibe.app.data.dto.anthropic.response.MessageDeltaResponseChunk
+import com.vibe.app.data.dto.anthropic.response.MessageStartResponseChunk
 import com.vibe.app.data.dto.anthropic.response.MessageStopResponseChunk
 import com.vibe.app.data.dto.anthropic.response.StopReason
 import com.vibe.app.data.network.AnthropicAPI
@@ -99,6 +100,7 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                 model = request.platform.model,
                 stream = true,
                 reasoningEnabled = request.platform.reasoning,
+                estimatedContextTokens = request.estimateContextTokensForDiagnostics(),
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
                 toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),
@@ -115,6 +117,14 @@ class AnthropicMessagesAgentGateway @Inject constructor(
 
         anthropicAPI.streamChatMessage(messageRequest, requestContext, trace).collect { chunk ->
             when (chunk) {
+                is MessageStartResponseChunk -> {
+                    trace.markInputTokens(
+                        chunk.message.usage.inputTokens +
+                            (chunk.message.usage.cacheCreationInputTokens ?: 0) +
+                            (chunk.message.usage.cacheReadInputTokens ?: 0),
+                    )
+                }
+
                 is ContentStartResponseChunk -> {
                     if (chunk.contentBlock.type == ContentBlockType.TOOL_USE) {
                         val id = requireNotNull(chunk.contentBlock.id) {

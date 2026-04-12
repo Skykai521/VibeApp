@@ -1,0 +1,13 @@
+{
+  "id": "screen_settings",
+  "kind": "screen",
+  "description": "Settings screen: toolbar + scrollable list of grouped preferences",
+  "keywords": ["settings", "preferences", "config", "设置"],
+  "slots": [
+    { "name": "title", "description": "Toolbar title", "default": "Settings" },
+    { "name": "section_1_title", "description": "First section header", "default": "GENERAL" },
+    { "name": "pref_1_title", "description": "First preference label", "default": "Notifications" },
+    { "name": "pref_1_description", "description": "First preference helper", "default": "Receive reminder pushes" }
+  ],
+  "dependencies": ["AppBarLayout", "MaterialToolbar", "SwitchCompat"]
+}

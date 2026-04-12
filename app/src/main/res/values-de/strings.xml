@@ -58,6 +58,9 @@
     <string name="tool_name_run_build_pipeline">Build ausführen</string>
     <string name="tool_name_rename_project">Projekt umbenennen</string>
     <string name="tool_name_update_project_icon">Icon aktualisieren</string>
+    <string name="tool_name_update_project_icon_custom">Benutzerdefiniertes Symbol aktualisieren</string>
+    <string name="tool_name_launch_app">App starten</string>
+    <string name="tool_name_close_app">App schließen</string>
     <string name="tool_name_read_runtime_log">App-Log lesen</string>
     <string name="tool_name_fix_crash_guide">Absturzdiagnose</string>
     <string name="crash_detected_title">App abgestürzt</string>

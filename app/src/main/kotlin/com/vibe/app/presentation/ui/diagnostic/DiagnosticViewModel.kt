@@ -69,7 +69,7 @@ class DiagnosticViewModel @Inject constructor(
     }
 
     private fun aggregateSummary(events: List<DiagnosticEvent>, logSizeBytes: Long): SummaryInfo {
-        var estimatedContextTokens: Int? = null
+        var contextTokens: Int? = null
         var hasCompaction = false
         var lastCompactionStrategy: String? = null
         var errorCount = 0
@@ -80,28 +80,25 @@ class DiagnosticViewModel @Inject constructor(
                 DiagnosticLevels.ERROR -> errorCount++
                 DiagnosticLevels.WARN -> warnCount++
             }
+            val eventContextTokens = extractContextTokens(event)
+            if (eventContextTokens != null) {
+                contextTokens = eventContextTokens
+            }
             if (event.category == DiagnosticCategories.AGENT_LOOP) {
                 val action = event.payload["action"]?.jsonPrimitive?.content
                 if (action == "conversation_compaction") {
                     hasCompaction = true
                     val strategy = event.payload["strategy"]?.jsonPrimitive?.content
                     lastCompactionStrategy = strategy
-                    val tokens = runCatching {
-                        event.payload["estimatedTokens"]?.jsonPrimitive?.int
-                    }.getOrNull()
-                    if (tokens != null) estimatedContextTokens = tokens
+                    if (eventContextTokens != null) {
+                        contextTokens = eventContextTokens
+                    }
                 }
-            }
-            if (event.category == DiagnosticCategories.MODEL_REQUEST) {
-                val tokens = runCatching {
-                    event.payload["estimatedTokens"]?.jsonPrimitive?.int
-                }.getOrNull()
-                if (tokens != null) estimatedContextTokens = tokens
             }
         }
 
         return SummaryInfo(
-            estimatedContextTokens = estimatedContextTokens,
+            estimatedContextTokens = contextTokens,
             hasCompaction = hasCompaction,
             lastCompactionStrategy = lastCompactionStrategy,
             totalEvents = events.size,
@@ -109,5 +106,27 @@ class DiagnosticViewModel @Inject constructor(
             warnCount = warnCount,
             logSizeBytes = logSizeBytes,
         )
+    }
+
+    private fun extractContextTokens(event: DiagnosticEvent): Int? {
+        return when (event.category) {
+            DiagnosticCategories.MODEL_RESPONSE -> {
+                readIntPayload(event, "contextTokens")
+                    ?: readIntPayload(event, "inputTokens")
+                    ?: readIntPayload(event, "estimatedTokens")
+            }
+
+            DiagnosticCategories.MODEL_REQUEST,
+            DiagnosticCategories.AGENT_LOOP,
+            -> readIntPayload(event, "estimatedTokens")
+
+            else -> null
+        }
+    }
+
+    private fun readIntPayload(event: DiagnosticEvent, key: String): Int? {
+        return runCatching {
+            event.payload[key]?.jsonPrimitive?.int
+        }.getOrNull()
     }
 }

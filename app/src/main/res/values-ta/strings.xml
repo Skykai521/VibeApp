@@ -95,6 +95,9 @@
     <string name="tool_name_run_build_pipeline">உருவாக்கம் இயக்கு</string>
     <string name="tool_name_rename_project">திட்டம் மறுபெயரிடுதல்</string>
     <string name="tool_name_update_project_icon">சின்னம் புதுப்பிப்பு</string>
+    <string name="tool_name_update_project_icon_custom">தனிப்பயன் ஐகானைப் புதுப்பிக்கவும்</string>
+    <string name="tool_name_launch_app">செயலியைத் தொடங்கு</string>
+    <string name="tool_name_close_app">செயலியை மூடு</string>
     <string name="tool_name_read_runtime_log">ஆப் பதிவை படிக்கவும்</string>
     <string name="tool_name_fix_crash_guide">செயலிழப்பு கண்டறிதல்</string>
     <string name="crash_detected_title">ஆப் செயலிழந்தது</string>

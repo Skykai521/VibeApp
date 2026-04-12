@@ -54,6 +54,7 @@ data class ModelRequestDiagnosticContext(
     val model: String,
     val stream: Boolean,
     val reasoningEnabled: Boolean,
+    val estimatedContextTokens: Int,
     val messageCount: Int,
     val userMessageCount: Int? = null,
     val assistantMessageCount: Int? = null,
@@ -110,6 +111,8 @@ class ModelExecutionTrace(
     var completedAt: Long? = null
         private set
     var statusCode: Int? = null
+        private set
+    var inputTokens: Int? = null
         private set
     var finishReason: String? = null
     var errorKind: String? = null
@@ -205,6 +208,12 @@ class ModelExecutionTrace(
     fun updateStatusCode(statusCode: Int?) {
         if (statusCode != null) {
             this.statusCode = statusCode
+        }
+    }
+
+    fun markInputTokens(tokens: Int?) {
+        if (tokens != null && tokens >= 0) {
+            inputTokens = tokens
         }
     }
 

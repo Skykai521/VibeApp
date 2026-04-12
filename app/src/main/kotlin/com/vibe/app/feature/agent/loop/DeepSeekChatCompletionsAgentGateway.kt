@@ -65,6 +65,7 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
                 model = request.platform.model,
                 stream = true,
                 reasoningEnabled = isReasoning,
+                estimatedContextTokens = request.estimateContextTokensForDiagnostics(),
                 messageCount = messages.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
                 toolChoiceMode = "auto".takeIf { request.tools.isNotEmpty() },

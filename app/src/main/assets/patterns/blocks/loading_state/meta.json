@@ -1,0 +1,10 @@
+{
+  "id": "loading_state",
+  "kind": "block",
+  "description": "Centered indeterminate progress with a caption",
+  "keywords": ["loading", "progress", "spinner", "wait", "加载"],
+  "slots": [
+    { "name": "message", "description": "Short caption under the spinner", "default": "Loading…" }
+  ],
+  "dependencies": []
+}

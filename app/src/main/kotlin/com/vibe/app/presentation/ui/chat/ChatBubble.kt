@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,20 +49,27 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownBulletList
 import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCode
+import com.mikepenz.markdown.compose.elements.MarkdownOrderedList
 import com.mikepenz.markdown.compose.elements.MarkdownTable
+import com.mikepenz.markdown.compose.elements.listDepth
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
+import com.mikepenz.markdown.model.markdownPadding
 import com.vibe.app.R
 import com.vibe.app.presentation.theme.VibeAppTheme
 import java.io.File
@@ -96,9 +104,10 @@ fun UserChatBubble(
         ) {
             Markdown(
                 content = text.trimIndent(),
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
                 colors = chatMarkdownColors(),
                 typography = chatMarkdownTypography(),
+                padding = chatMarkdownPadding(),
                 components = chatMarkdownComponents(),
             )
         }
@@ -113,13 +122,12 @@ fun UserChatBubble(
 @Composable
 fun OpponentChatBubble(
     modifier: Modifier = Modifier,
-    canRetry: Boolean,
     isLoading: Boolean,
     isError: Boolean = false,
     text: String,
+    loadingMinHeight: Dp = 0.dp,
     onCopyClick: () -> Unit = {},
     onSelectClick: () -> Unit = {},
-    onRetryClick: () -> Unit = {}
 ) {
     val cardColor = CardColors(
         containerColor = MaterialTheme.colorScheme.background,
@@ -131,6 +139,7 @@ fun OpponentChatBubble(
     Column(modifier = modifier) {
         Column {
             Card(
+                modifier = Modifier.heightIn(min = if (isLoading) loadingMinHeight else 0.dp),
                 shape = RoundedCornerShape(0.dp),
                 colors = cardColor
             ) {
@@ -141,6 +150,7 @@ fun OpponentChatBubble(
                     modifier = Modifier.padding(16.dp),
                     colors = chatMarkdownColors(),
                     typography = chatMarkdownTypography(),
+                    padding = chatMarkdownPadding(),
                     components = chatMarkdownComponents(),
                 )
             }
@@ -153,10 +163,6 @@ fun OpponentChatBubble(
                         CopyTextIcon(onCopyClick)
                         Spacer(modifier = Modifier.width(4.dp))
                         SelectTextIcon(onSelectClick)
-                    }
-                    if (canRetry) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        RetryIcon(onRetryClick)
                     }
                 }
             }
@@ -194,39 +200,6 @@ fun VibeAppIcon(loading: Boolean) {
 }
 
 @Composable
-fun PlatformButton(
-    isLoading: Boolean,
-    name: String,
-    selected: Boolean,
-    onPlatformClick: () -> Unit
-) {
-    val buttonContent: @Composable RowScope.() -> Unit = {
-        Spacer(modifier = Modifier.width(12.dp))
-
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-
-        Text(
-            text = name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        if (isLoading) Spacer(modifier = Modifier.width(4.dp))
-    }
-
-    TextButton(
-        modifier = Modifier.widthIn(max = 160.dp),
-        onClick = onPlatformClick,
-        colors = if (selected) ButtonDefaults.filledTonalButtonColors() else ButtonDefaults.textButtonColors(),
-        content = buttonContent
-    )
-}
-
-@Composable
 private fun CopyTextIcon(onCopyClick: () -> Unit) {
     IconButton(onClick = onCopyClick, modifier = Modifier.size(38.dp)) {
         Icon(
@@ -244,18 +217,6 @@ private fun SelectTextIcon(onSelectClick: () -> Unit) {
         Icon(
             imageVector = ImageVector.vectorResource(id = R.drawable.ic_select),
             contentDescription = stringResource(R.string.select_text),
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-        )
-    }
-}
-
-@Composable
-private fun RetryIcon(onRetryClick: () -> Unit) {
-    IconButton(onClick = onRetryClick, modifier = Modifier.size(38.dp)) {
-        Icon(
-            Icons.Rounded.Refresh,
-            contentDescription = stringResource(R.string.retry),
             modifier = Modifier.size(16.dp),
             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
         )
@@ -295,10 +256,8 @@ fun OpponentChatBubblePreview() {
     VibeAppTheme {
         OpponentChatBubble(
             text = sampleText,
-            canRetry = true,
             isLoading = false,
             onCopyClick = {},
-            onRetryClick = {}
         )
     }
 }
@@ -413,17 +372,59 @@ private fun chatMarkdownColors() = markdownColor(
 )
 
 @Composable
-fun chatMarkdownTypography() = markdownTypography(
-    h1 = MaterialTheme.typography.headlineSmall,
-    h2 = MaterialTheme.typography.titleLarge,
-    h3 = MaterialTheme.typography.titleMedium,
-    h4 = MaterialTheme.typography.titleSmall,
-    h5 = MaterialTheme.typography.bodyLarge,
-    h6 = MaterialTheme.typography.bodyMedium,
+fun chatMarkdownTypography(): com.mikepenz.markdown.model.MarkdownTypography {
+    val uniformLineHeightStyle = LineHeightStyle(
+        alignment = LineHeightStyle.Alignment.Center,
+        trim = LineHeightStyle.Trim.None,
+    )
+    val body = MaterialTheme.typography.bodyLarge.copy(
+        lineHeight = 24.sp,
+        lineHeightStyle = uniformLineHeightStyle,
+    )
+    return markdownTypography(
+        h1 = MaterialTheme.typography.headlineSmall,
+        h2 = MaterialTheme.typography.titleLarge,
+        h3 = MaterialTheme.typography.titleMedium,
+        h4 = MaterialTheme.typography.titleSmall,
+        h5 = MaterialTheme.typography.bodyLarge,
+        h6 = MaterialTheme.typography.bodyMedium,
+        text = body,
+        paragraph = body,
+        list = body,
+        bullet = body,
+        ordered = body,
+    )
+}
+
+@Composable
+fun chatMarkdownPadding() = markdownPadding(
+    list = 0.dp,
+    listItemTop = 0.dp,
+    listItemBottom = 0.dp,
 )
 
 @Composable
 fun chatMarkdownComponents() = markdownComponents(
+    orderedList = {
+        MarkdownOrderedList(
+            content = it.content,
+            node = it.node,
+            style = it.typography.ordered,
+            depth = it.listDepth,
+            markerModifier = { Modifier.alignByBaseline() },
+            listModifier = { Modifier.alignByBaseline() },
+        )
+    },
+    unorderedList = {
+        MarkdownBulletList(
+            content = it.content,
+            node = it.node,
+            style = it.typography.bullet,
+            depth = it.listDepth,
+            markerModifier = { Modifier.alignByBaseline() },
+            listModifier = { Modifier.alignByBaseline() },
+        )
+    },
     codeFence = {
         MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style ->
             MarkdownHighlightedCode(

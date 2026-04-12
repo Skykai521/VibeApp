@@ -15,6 +15,30 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+/**
+ * Slice [content] by 1-based inclusive line numbers. `endLine = -1` means EOF.
+ * Returns the sliced text and the (clamped) effective range, or empty + [IntRange.EMPTY]
+ * when the requested range doesn't intersect the file.
+ */
+internal fun sliceByLines(content: String, startLine: Int, endLine: Int): Pair<String, IntRange> {
+    val rawLines = content.lines()
+    val lines = if (rawLines.isNotEmpty() && rawLines.last().isEmpty()) {
+        rawLines.dropLast(1)
+    } else {
+        rawLines
+    }
+    val total = lines.size
+    if (total == 0) return "" to IntRange.EMPTY
+
+    val start = startLine.coerceAtLeast(1)
+    val end = if (endLine == -1) total else endLine
+    if (start > total || end < start) return "" to IntRange.EMPTY
+
+    val actualEnd = end.coerceAtMost(total)
+    val sliced = lines.subList(start - 1, actualEnd).joinToString("\n")
+    return sliced to (start..actualEnd)
+}
+
 @Singleton
 class ReadProjectFileTool @Inject constructor(
     private val projectManager: ProjectManager,
@@ -22,7 +46,9 @@ class ReadProjectFileTool @Inject constructor(
 
     override val definition = AgentToolDefinition(
         name = "read_project_file",
-        description = "Read one or more text files from the project workspace.",
+        description = "Read one or more text files from the project workspace. " +
+            "For locating specific code, call `grep_project_files` first to find the " +
+            "line range, then pass start_line/end_line here to avoid reading whole files.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -36,6 +62,20 @@ class ReadProjectFileTool @Inject constructor(
                             put("items", buildJsonObject { put("type", JsonPrimitive("string")) })
                             put("description", JsonPrimitive("Multiple relative file paths to read at once."))
                         },
+                    )
+                    put(
+                        "start_line",
+                        intProp(
+                            "Optional 1-based starting line (inclusive). Only applies to " +
+                                "single-file `path` reads; ignored for batch `paths`.",
+                        ),
+                    )
+                    put(
+                        "end_line",
+                        intProp(
+                            "Optional 1-based ending line (inclusive). Use -1 or omit to " +
+                                "read to EOF. Ignored for batch `paths`.",
+                        ),
                     )
                 },
             )
@@ -54,10 +94,33 @@ class ReadProjectFileTool @Inject constructor(
 
         if (pathsToRead.size == 1) {
             val path = pathsToRead.first()
+            val fullContent = workspace.readTextFile(path)
+            val startLine = call.arguments.optionalInt("start_line", 1)
+            val endLine = call.arguments.optionalInt("end_line", -1)
+            val useRange = startLine != 1 || endLine != -1
+
             return call.result(
                 buildJsonObject {
                     put("path", JsonPrimitive(path))
-                    put("content", JsonPrimitive(workspace.readTextFile(path)))
+                    if (useRange) {
+                        val (sliced, range) = sliceByLines(fullContent, startLine, endLine)
+                        put("content", JsonPrimitive(sliced))
+                        val totalLines = fullContent.lines().let {
+                            if (it.isNotEmpty() && it.last().isEmpty()) it.size - 1 else it.size
+                        }
+                        put("total_lines", JsonPrimitive(totalLines))
+                        if (range != IntRange.EMPTY) {
+                            put(
+                                "range",
+                                buildJsonObject {
+                                    put("start", JsonPrimitive(range.first))
+                                    put("end", JsonPrimitive(range.last))
+                                },
+                            )
+                        }
+                    } else {
+                        put("content", JsonPrimitive(fullContent))
+                    }
                 },
             )
         }
@@ -233,19 +296,41 @@ class DeleteProjectFileTool @Inject constructor(
 @Singleton
 class ListProjectFilesTool @Inject constructor(
     private val projectManager: ProjectManager,
+    private val outlineBuilder: ProjectOutlineBuilder,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
         name = "list_project_files",
-        description = "List all files in the project workspace as relative paths.",
-        inputSchema = buildJsonObject {},
+        description = "List project files with a compact symbol outline (Java classes/" +
+            "methods, layout view ids, values keys, manifest activities). Use the outline " +
+            "to pick keywords for `grep_project_files`.",
+        inputSchema = buildJsonObject {
+            put("type", JsonPrimitive("object"))
+            put(
+                "properties",
+                buildJsonObject {
+                    put(
+                        "include_outline",
+                        booleanProp(
+                            "Include the symbol outline. Default true. Set false for a " +
+                                "bare path list.",
+                        ),
+                    )
+                },
+            )
+        },
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
-        val files = projectManager.openWorkspace(context.projectId).listFiles()
+        val includeOutline = call.arguments.optionalBoolean("include_outline", true)
+        val workspace = projectManager.openWorkspace(context.projectId)
+        val files = workspace.listFiles()
         return call.result(
             buildJsonObject {
                 put("files", buildJsonArray { files.forEach { add(JsonPrimitive(it)) } })
+                if (includeOutline) {
+                    put("outline", JsonPrimitive(outlineBuilder.build(workspace.rootDir)))
+                }
             },
         )
     }

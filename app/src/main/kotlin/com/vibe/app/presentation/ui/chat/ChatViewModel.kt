@@ -17,10 +17,17 @@ import com.vibe.app.feature.agent.service.AgentSessionManager
 import com.vibe.app.feature.agent.service.AgentSessionStatus
 import com.vibe.app.feature.agent.service.SessionMessageState
 import com.vibe.app.feature.agent.service.BuildMutex
+import com.vibe.app.feature.build.BuildFailureAnalyzer
 import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
 import com.vibe.app.feature.diagnostic.DiagnosticContext
+import com.vibe.app.feature.project.ProjectManager
+import com.vibe.app.feature.project.VibeProjectDirs
+import com.vibe.app.feature.project.memo.IntentStore
+import com.vibe.app.feature.project.snapshot.Snapshot
+import com.vibe.app.feature.project.snapshot.SnapshotManager
+import com.vibe.app.feature.project.snapshot.SnapshotType
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.FileUtils
@@ -61,6 +68,10 @@ class ChatViewModel @Inject constructor(
     private val sessionManager: AgentSessionManager,
     private val buildMutex: BuildMutex,
     private val pluginManager: PluginManager,
+    private val buildFailureAnalyzer: BuildFailureAnalyzer,
+    private val snapshotManager: SnapshotManager,
+    private val projectManager: ProjectManager,
+    private val intentStore: IntentStore,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -121,6 +132,14 @@ class ChatViewModel @Inject constructor(
 
     private val _buildEvent = MutableSharedFlow<BuildEvent>()
     val buildEvent: SharedFlow<BuildEvent> = _buildEvent.asSharedFlow()
+
+    private val _undoEvent = MutableSharedFlow<UndoEvent>()
+    val undoEvent: SharedFlow<UndoEvent> = _undoEvent.asSharedFlow()
+
+    sealed class UndoEvent {
+        data object Success : UndoEvent()
+        data object Failure : UndoEvent()
+    }
 
     private val currentTimeStamp: Long
         get() = System.currentTimeMillis() / 1000
@@ -194,6 +213,32 @@ class ChatViewModel @Inject constructor(
     // State for the message loading state (From the database)
     private val _isLoaded = MutableStateFlow(false)
     val isLoaded = _isLoaded.asStateFlow()
+
+    // The most-recent TURN-type snapshot for the current project, exposed so the UI
+    // can render the TurnUndoBar. Only non-null when there are at least 2 TURN snapshots
+    // AND the just-completed turn actually committed a new one (see turnSnapshotBaselineId).
+    private val _lastTurnSnapshot = MutableStateFlow<Snapshot?>(null)
+    val lastTurnSnapshot: StateFlow<Snapshot?> = _lastTurnSnapshot.asStateFlow()
+
+    // Top TURN snapshot id captured at the moment the current (in-flight or most recently
+    // completed) turn started. After the turn ends we compare this to the new top: if they
+    // match, the turn made no file changes and the undo bar stays hidden. Edit-free turns
+    // don't call commit(), so finalize() is a no-op and the top snapshot id doesn't move.
+    private var turnSnapshotBaselineId: String? = null
+
+    // --- Snapshot History (Task 7.2) ---
+    private val _snapshotHistory = MutableStateFlow<List<Snapshot>>(emptyList())
+    val snapshotHistory: StateFlow<List<Snapshot>> = _snapshotHistory.asStateFlow()
+
+    private val _showSnapshotHistory = MutableStateFlow(false)
+    val showSnapshotHistory: StateFlow<Boolean> = _showSnapshotHistory.asStateFlow()
+
+    // --- Project Memo (Task 7.3) ---
+    private val _projectMemoMarkdown = MutableStateFlow<String?>(null)
+    val projectMemoMarkdown: StateFlow<String?> = _projectMemoMarkdown.asStateFlow()
+
+    private val _showProjectMemo = MutableStateFlow(false)
+    val showProjectMemo: StateFlow<Boolean> = _showProjectMemo.asStateFlow()
 
     init {
         Log.d("ViewModel", "$chatRoomId")
@@ -340,7 +385,7 @@ class ChatViewModel @Inject constructor(
                         Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
                     }
                 } else {
-                    val errorMsg = buildBuildErrorMessage(result)
+                    val errorMsg = buildBuildErrorMessage(projectId, result)
                     Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
                     sendBuildErrorToChat(errorMsg)
                 }
@@ -373,7 +418,7 @@ class ChatViewModel @Inject constructor(
                         _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
                     }
                 } else {
-                    sendBuildErrorToChat(buildBuildErrorMessage(result))
+                    sendBuildErrorToChat(buildBuildErrorMessage(projectId, result))
                 }
             } finally {
                 _isBuildRunning.update { false }
@@ -382,12 +427,17 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun buildBuildErrorMessage(result: com.vibe.build.engine.model.BuildResult): String {
-        val baseError = result.errorMessage ?: ""
-        val errorLogs = result.logs
-            .filter { it.level == BuildLogLevel.ERROR }
-            .joinToString("\n") { it.message }
-        return if (baseError.isNotBlank()) baseError else errorLogs
+    private fun buildBuildErrorMessage(
+        projectId: String,
+        result: com.vibe.build.engine.model.BuildResult,
+    ): String {
+        val projectRoot = File(appContext.filesDir, "projects/$projectId/app")
+        val analysis = buildFailureAnalyzer.analyze(result, projectRoot)
+        return analysis?.toChatPrompt()
+            ?: result.errorMessage
+            ?: result.logs
+                .filter { it.level == BuildLogLevel.ERROR }
+                .joinToString("\n") { it.message }
     }
 
     /**
@@ -465,41 +515,6 @@ class ChatViewModel @Inject constructor(
             viewModelScope.launch {
                 chatRepository.saveChatPlatformModels(_chatRoom.value.id, _chatPlatformModels.value)
             }
-        }
-    }
-
-    fun retryChat(platformIndex: Int) {
-        if (platformIndex >= _enabledPlatformsInChat.value.size || platformIndex < 0) return
-        val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == _enabledPlatformsInChat.value[platformIndex] }
-        if (platform == null) {
-            Log.w("ChatViewModel", "Platform at index $platformIndex is no longer available")
-            return
-        }
-        val platformWithChatModel = resolvePlatformModel(platform)
-        _loadingStates.update { it.toMutableList().apply { this[platformIndex] = LoadingState.Loading } }
-        _groupedMessages.update {
-            val updatedAssistantMessages = it.assistantMessages.toMutableList()
-            updatedAssistantMessages[it.assistantMessages.lastIndex] = updatedAssistantMessages[it.assistantMessages.lastIndex].toMutableList().apply {
-                this[platformIndex] = MessageV2(chatId = chatRoomId, content = "", platformType = platformWithChatModel.uid)
-            }
-            it.copy(assistantMessages = updatedAssistantMessages)
-        }
-
-        val turnState = startTurn(_groupedMessages.value.userMessages.last(), listOf(platformWithChatModel.uid))
-        val effectiveChatId = _chatRoom.value.id.takeIf { it > 0 } ?: chatRoomId
-        sessionManager.startSession(
-            chatId = effectiveChatId,
-            projectId = _currentProjectId.value,
-            platform = platformWithChatModel,
-            userMessages = _groupedMessages.value.userMessages,
-            assistantMessages = _groupedMessages.value.assistantMessages,
-            systemPrompt = platformWithChatModel.systemPrompt,
-            diagnosticContext = turnState.context.diagnosticContext.copy(platformUid = platformWithChatModel.uid),
-            chatRoom = _chatRoom.value,
-            chatPlatformModels = _chatPlatformModels.value,
-        )
-        viewModelScope.launch {
-            observeAgentSessionState(effectiveChatId)
         }
     }
 
@@ -668,6 +683,13 @@ class ChatViewModel @Inject constructor(
         // Update all the platform loading states to Loading
         _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Loading } }
         responseJobs.clear()
+
+        // Capture the top TURN snapshot id BEFORE this turn starts, so when the turn
+        // finishes we can tell whether it committed a new snapshot (files changed) or
+        // not. Also hide the undo bar immediately — it belonged to a previous turn.
+        _lastTurnSnapshot.value = null
+        val baselineProjectId = _currentProjectId.value
+        viewModelScope.launch { captureTurnSnapshotBaseline(baselineProjectId) }
 
         // Send chat completion requests
         _enabledPlatformsInChat.value.forEachIndexed { idx, platformUid ->
@@ -926,6 +948,8 @@ class ChatViewModel @Inject constructor(
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
                     // Refresh project name in case the agent called rename_project
                     _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+                    // Refresh the undo bar state now that the turn is complete.
+                    refreshLastTurnSnapshot(_currentProjectId.value)
                     sessionFinished = true
                 }
             }
@@ -1074,5 +1098,175 @@ class ChatViewModel @Inject constructor(
         // Flatten the grouped messages into a single list
         val merged = _groupedMessages.value.userMessages + _groupedMessages.value.assistantMessages.flatten()
         return merged.filter { it.content.isNotBlank() }.sortedBy { it.createdAt }
+    }
+
+    /**
+     * Refreshes [lastTurnSnapshot] by listing all TURN-type snapshots for the current
+     * project. Exposes the latest snapshot only when (a) at least 2 TURN snapshots exist
+     * so the undo button has a prior state to roll back to, AND (b) the latest snapshot
+     * id differs from [turnSnapshotBaselineId] — meaning the just-completed turn actually
+     * committed new file changes. Edit-free turns don't commit, so the latest id stays
+     * equal to the baseline and the bar remains hidden.
+     */
+    private suspend fun refreshLastTurnSnapshot(projectId: String?) {
+        if (projectId.isNullOrBlank()) {
+            _lastTurnSnapshot.value = null
+            return
+        }
+        runCatching {
+            val workspace = projectManager.openWorkspace(projectId)
+            val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+            val turns = snapshotManager.list(projectId, vibeDirs)
+                .filter { it.type == SnapshotType.TURN }
+                .sortedBy { it.createdAtEpochMs }
+            val latest = turns.lastOrNull()
+            _lastTurnSnapshot.value = if (
+                turns.size >= 2 &&
+                latest != null &&
+                latest.id != turnSnapshotBaselineId
+            ) latest else null
+        }.onFailure {
+            _lastTurnSnapshot.value = null
+        }
+    }
+
+    /**
+     * Captures the current top TURN snapshot id as the baseline for the next turn.
+     * Called right before a turn starts and after restore/undo so that subsequent
+     * refreshes correctly detect whether the turn committed a new snapshot.
+     */
+    private suspend fun captureTurnSnapshotBaseline(projectId: String?) {
+        if (projectId.isNullOrBlank()) {
+            turnSnapshotBaselineId = null
+            return
+        }
+        runCatching {
+            val workspace = projectManager.openWorkspace(projectId)
+            val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+            val turns = snapshotManager.list(projectId, vibeDirs)
+                .filter { it.type == SnapshotType.TURN }
+                .sortedBy { it.createdAtEpochMs }
+            turnSnapshotBaselineId = turns.lastOrNull()?.id
+        }.onFailure {
+            turnSnapshotBaselineId = null
+        }
+    }
+
+    /**
+     * Rolls back the latest completed turn. Under post-turn snapshot semantics, turn N's
+     * snapshot captures the state at the END of turn N, so undoing turn N means restoring
+     * the prior TURN snapshot (end of turn N-1) and then deleting turn N's snapshot so it
+     * disappears from history — keeping the undo mental model simple.
+     */
+    fun undoLastTurn() {
+        viewModelScope.launch {
+            val latestSnap = _lastTurnSnapshot.value
+            val projectId = _currentProjectId.value
+            if (latestSnap == null || projectId == null) {
+                _undoEvent.emit(UndoEvent.Failure)
+                return@launch
+            }
+            val result = runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                val turns = snapshotManager.list(projectId, vibeDirs)
+                    .filter { it.type == SnapshotType.TURN }
+                    .sortedBy { it.createdAtEpochMs }
+                val idx = turns.indexOfFirst { it.id == latestSnap.id }
+                check(idx > 0) { "no previous TURN snapshot to roll back to" }
+                val previous = turns[idx - 1]
+                snapshotManager.restore(
+                    snapshotId = previous.id,
+                    projectId = projectId,
+                    workspaceRoot = workspace.rootDir,
+                    vibeDirs = vibeDirs,
+                    createBackup = false,
+                )
+                snapshotManager.delete(latestSnap.id, projectId, vibeDirs)
+            }
+            if (result.isSuccess) {
+                // Hide the undo bar immediately; don't refresh here — we don't want to
+                // auto-chain to the previous turn's undo. The bar will re-populate the
+                // next time a turn writes, via the regular turn-completion refresh path.
+                _lastTurnSnapshot.value = null
+                // Move the baseline to the new top so an edit-free turn afterwards
+                // doesn't resurrect the bar.
+                captureTurnSnapshotBaseline(projectId)
+                _undoEvent.emit(UndoEvent.Success)
+            } else {
+                Log.e("ChatViewModel", "undoLastTurn failed", result.exceptionOrNull())
+                _undoEvent.emit(UndoEvent.Failure)
+            }
+        }
+    }
+
+    // --- Task 7.2: Snapshot History ---
+
+    fun openSnapshotHistory() {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                val list = snapshotManager.list(projectId, vibeDirs)
+                    .sortedByDescending { it.createdAtEpochMs }
+                _snapshotHistory.value = list
+                _showSnapshotHistory.value = true
+            }
+        }
+    }
+
+    fun closeSnapshotHistory() {
+        _showSnapshotHistory.value = false
+    }
+
+    fun restoreSnapshot(snapshotId: String) {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                snapshotManager.restore(snapshotId, projectId, workspace.rootDir, vibeDirs)
+                // Refresh both the history list and the latest-turn snapshot shown in the undo bar.
+                val refreshed = snapshotManager.list(projectId, vibeDirs)
+                    .sortedByDescending { it.createdAtEpochMs }
+                _snapshotHistory.value = refreshed
+                // Reset the baseline to the new top so the bar only reappears when a
+                // subsequent turn commits a genuinely new snapshot.
+                captureTurnSnapshotBaseline(projectId)
+                refreshLastTurnSnapshot(projectId)
+            }
+            _showSnapshotHistory.value = false
+        }
+    }
+
+    // --- Task 7.3: Project Memo ---
+
+    fun openProjectMemo() {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                _projectMemoMarkdown.value = intentStore.loadRawMarkdown(vibeDirs)
+                _showProjectMemo.value = true
+            }
+        }
+    }
+
+    fun closeProjectMemo() {
+        _showProjectMemo.value = false
+    }
+
+    fun saveProjectMemo(markdown: String) {
+        val projectId = _currentProjectId.value ?: return
+        viewModelScope.launch {
+            runCatching {
+                val workspace = projectManager.openWorkspace(projectId)
+                val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+                intentStore.saveRawMarkdown(vibeDirs, markdown)
+                _projectMemoMarkdown.value = markdown
+            }
+        }
     }
 }

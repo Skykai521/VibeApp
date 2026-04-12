@@ -1,0 +1,11 @@
+{
+  "id": "section_header",
+  "kind": "block",
+  "description": "Section title with optional subtitle, used to group content",
+  "keywords": ["header", "title", "section", "group", "标题", "分组"],
+  "slots": [
+    { "name": "title", "description": "Main heading text", "default": "Section title" },
+    { "name": "subtitle", "description": "Secondary description", "default": "Description" }
+  ],
+  "dependencies": []
+}

@@ -102,8 +102,20 @@
     <string name="tool_name_run_build_pipeline">Derlemeyi çalıştır</string>
     <string name="tool_name_rename_project">Projeyi yeniden adlandır</string>
     <string name="tool_name_update_project_icon">Simgeyi güncelle</string>
+    <string name="tool_name_update_project_icon_custom">Özel simgeyi güncelle</string>
     <string name="tool_name_read_runtime_log">Uygulama günlüğü oku</string>
     <string name="tool_name_fix_crash_guide">Çökme tanılama</string>
+    <string name="tool_name_launch_app">Uygulamayı aç</string>
+    <string name="tool_name_close_app">Uygulamayı kapat</string>
+    <string name="tool_name_inspect_ui">Arayüzü incele</string>
+    <string name="tool_name_interact_ui">Arayüzle etkileş</string>
+    <string name="tool_name_grep_project_files">Proje dosyalarında ara</string>
+    <string name="tool_name_web_search">Web araması</string>
+    <string name="tool_name_fetch_web_page">Web sayfasını getir</string>
+    <string name="tool_name_search_ui_pattern">Arayüz şablonu ara</string>
+    <string name="tool_name_get_ui_pattern">Arayüz şablonunu al</string>
+    <string name="tool_name_get_design_guide">Tasarım rehberini al</string>
+    <string name="tool_name_search_icon">Simge ara</string>
     <string name="crash_detected_title">Uygulama çöktü</string>
     <string name="crash_auto_fix">Otomatik onar</string>
     <string name="crash_dismiss">Kapat</string>
@@ -116,6 +128,8 @@
     <string name="install_apk">Install APK</string>
     <string name="tool_name_create_plan">Plan oluştur</string>
     <string name="tool_name_update_plan_step">Planı güncelle</string>
+    <string name="tool_name_get_project_memo">Proje notunu al</string>
+    <string name="tool_name_update_project_intent">Proje notunu güncelle</string>
     <string name="plan_header">Plan (%1$d/%2$d tamamlandı)</string>
     <string name="deepseek_description">DeepSeek\'in yaratıcısı, gelişmiş akıl yürütme modelleri.</string>
 </resources>

@@ -1,5 +1,7 @@
 package com.vibe.app.feature.agent.tool
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.vibe.app.feature.agent.AgentTool
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolContext
@@ -10,7 +12,9 @@ import com.vibe.app.plugin.PluginManager
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
@@ -24,7 +28,8 @@ class LaunchAppTool @Inject constructor(
         name = "launch_app",
         description = "Launch the most recently built APK in plugin mode and wait for it to be ready. " +
             "Call this after a successful run_build_pipeline to test the app. " +
-            "Returns the initial View tree on success.",
+            "Returns the initial View tree on success. " +
+            "Fails if VibeApp itself is not in the foreground — in that case stop testing and finish the turn.",
         inputSchema = buildJsonObject {},
     )
 
@@ -34,6 +39,13 @@ class LaunchAppTool @Inject constructor(
 
         if (!signedApk.exists()) {
             return call.errorResult("No built APK found. Run run_build_pipeline first.")
+        }
+
+        if (!isVibeAppInForeground()) {
+            return call.errorResult(
+                "VibeApp is not in the foreground, so the plugin UI cannot be launched. " +
+                    "Skip UI testing and finish the turn — report the build result to the user and stop calling launch_app / inspect_ui / interact_ui.",
+            )
         }
 
         val packageName = "com.vibe.generated.p${context.projectId}"
@@ -53,7 +65,7 @@ class LaunchAppTool @Inject constructor(
 
         // Return the initial View tree so the model can immediately see the UI
         return try {
-            val viewTree = inspector.dumpViewTree()
+            val viewTree = inspector.dumpViewTree("""{"scope":"visible","include_windows":true}""")
             call.result(
                 buildJsonObject {
                     put("status", JsonPrimitive("running"))
@@ -68,5 +80,9 @@ class LaunchAppTool @Inject constructor(
                 },
             )
         }
+    }
+
+    private suspend fun isVibeAppInForeground(): Boolean = withContext(Dispatchers.Main) {
+        ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
     }
 }

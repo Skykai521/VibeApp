@@ -34,7 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -51,6 +51,8 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -114,6 +116,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vibe.app.R
 import com.vibe.app.data.model.ClientType
+import com.vibe.app.presentation.ui.chat.components.ProjectMemoPanel
+import com.vibe.app.presentation.ui.chat.components.SnapshotHistoryPanel
+import com.vibe.app.presentation.ui.chat.components.TurnUndoBar
 import com.vibe.app.util.FileUtils
 import java.io.File
 import java.util.zip.ZipEntry
@@ -134,12 +139,17 @@ fun ChatScreen(
 ) {
     val containerSize = LocalWindowInfo.current.containerSize
     val screenWidthDp = with(LocalDensity.current) { containerSize.width.toDp() }
+    val screenHeightDp = with(LocalDensity.current) { containerSize.height.toDp() }
     val focusManager = LocalFocusManager.current
     val clipboardManager = LocalClipboard.current
     val systemChatMargin = 32.dp
     val maximumUserChatBubbleWidth = (screenWidthDp - systemChatMargin) * 0.8F
     val maximumOpponentChatBubbleWidth = screenWidthDp - systemChatMargin
-    val listState = rememberLazyListState()
+    val assistantLoadingMinHeight = remember(screenHeightDp) {
+        (screenHeightDp * 0.28f).coerceIn(140.dp, 260.dp)
+    }
+    val bottomScrollOffsetTolerancePx = with(LocalDensity.current) { 48.dp.roundToPx() }
+    val listState = remember { LazyListState() }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     val chatRoom by chatViewModel.chatRoom.collectAsStateWithLifecycle()
@@ -172,6 +182,9 @@ fun ChatScreen(
         chatPlatforms.size == enabledPlatformsInChat.size &&
         chatPlatforms.all { it.compatibleType in imageInputSupportedTypes }
     val isDebugEnabled by chatViewModel.isDebugEnabled.collectAsStateWithLifecycle()
+    val lastTurnSnapshot by chatViewModel.lastTurnSnapshot.collectAsStateWithLifecycle()
+    val showSnapshotHistory by chatViewModel.showSnapshotHistory.collectAsStateWithLifecycle()
+    val showProjectMemo by chatViewModel.showProjectMemo.collectAsStateWithLifecycle()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
     val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
@@ -206,36 +219,34 @@ fun ChatScreen(
 
     val scope = rememberCoroutineScope()
 
-    // Reliable last-item index derived from the actual LazyColumn layout
-    val lastItemIndex by remember {
-        derivedStateOf { (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0) }
+    suspend fun scrollToBottom() {
+        if (listState.layoutInfo.totalItemsCount > 0) {
+            listState.scrollToItem(0)
+        }
     }
 
     // Whether the user is currently near the bottom of the list (within 3 items)
     val isNearBottom by remember {
         derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisible != null && lastVisible.index >= layoutInfo.totalItemsCount - 3
+            listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset <= bottomScrollOffsetTolerancePx
         }
     }
 
     // Show scroll-to-bottom button only when scrolled far enough from bottom (>= 5 items away)
     val showScrollToBottom by remember {
         derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisible != null && lastVisible.index < layoutInfo.totalItemsCount - 5
+            !isNearBottom
         }
     }
 
-    // Scroll to bottom when messages are first loaded from database.
+    // With reverseLayout enabled, item index 0 is the visual bottom.
+    // Re-entering the screen should always anchor there.
     LaunchedEffect(isLoaded) {
         if (isLoaded) {
             snapshotFlow { listState.layoutInfo.totalItemsCount }
-                .first { it > 1 }
-            delay(80)
-            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+                .first { it > 0 }
+            scrollToBottom()
         }
     }
 
@@ -251,14 +262,14 @@ fun ChatScreen(
     LaunchedEffect(messageCount) {
         if (loadedMessageCount >= 0 && messageCount > loadedMessageCount) {
             loadedMessageCount = messageCount
-            listState.scrollToItem(listState.layoutInfo.totalItemsCount - 1)
+            scrollToBottom()
         }
     }
 
     // Auto-scroll when crash prompt appears
     LaunchedEffect(crashPrompt) {
         if (crashPrompt != null) {
-            listState.animateScrollToItem(lastItemIndex)
+            scrollToBottom()
         }
     }
 
@@ -267,29 +278,7 @@ fun ChatScreen(
     LaunchedEffect(imeVisible) {
         if (imeVisible) {
             delay(100) // Small delay to let keyboard animation start
-            listState.scrollToItem(lastItemIndex)
-        }
-    }
-
-    // Single streaming scroll handler: keep view anchored to bottom while AI is generating.
-    // Monitors layout changes (item count, content height) so both new items and growing
-    // text within existing items trigger a scroll.
-    LaunchedEffect(isIdle) {
-        if (isIdle) return@LaunchedEffect
-        snapshotFlow {
-            val info = listState.layoutInfo
-            // Reading totalItemsCount + last visible item's bottom edge covers both
-            // "new item added" and "existing item grew taller" scenarios.
-            val lastVisibleBottom = info.visibleItemsInfo.lastOrNull()?.let { it.offset + it.size } ?: 0
-            Triple(info.totalItemsCount, lastVisibleBottom, info.viewportEndOffset)
-        }.collect { (totalItems, _, _) ->
-            if (totalItems <= 0) return@collect
-            val info = listState.layoutInfo
-            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return@collect
-            // Only auto-scroll when the user hasn't scrolled far up (within 3 items of bottom)
-            if (lastVisible.index >= info.totalItemsCount - 3) {
-                listState.scrollToItem(totalItems - 1)
-            }
+            scrollToBottom()
         }
     }
 
@@ -300,6 +289,16 @@ fun ChatScreen(
             when (event) {
                 is ChatViewModel.BuildEvent.InstallApk -> installApk(context, event.apkPath)
             }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        chatViewModel.undoEvent.collect { event ->
+            val messageRes = when (event) {
+                ChatViewModel.UndoEvent.Success -> R.string.turn_undo_done_toast
+                ChatViewModel.UndoEvent.Failure -> R.string.turn_undo_failed_toast
+            }
+            Toast.makeText(context, context.resources.getString(messageRes), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -361,6 +360,8 @@ fun ChatScreen(
                 },
                 onClearChatHistoryClick = { isClearChatDialogOpen = true },
                 onDiagnosticClick = onNavigateToDiagnostic,
+                onOpenSnapshotHistory = chatViewModel::openSnapshotHistory,
+                onOpenProjectMemo = chatViewModel::openProjectMemo,
             )
         }
     ) { innerPadding ->
@@ -396,49 +397,78 @@ fun ChatScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    state = listState
+                    state = listState,
+                    reverseLayout = true
                 ) {
-                    if (showPlatformSetupPrompt) {
-                        item(key = "platform_setup_prompt") {
-                            MissingPlatformPromptCard(
-                                onAddApiKeyClick = onNavigateToAddPlatform,
+                    if (crashPrompt != null) {
+                        item(key = "crash_prompt") {
+                            CrashAutoFixCard(
+                                crashSummary = crashPrompt!!.crashSummary,
+                                onAutoFix = { chatViewModel.autoFixCrash() },
+                                onDismiss = { chatViewModel.dismissCrashPrompt() },
                             )
                         }
                     }
-                    // Iterate using structural count — DSL only re-executes when
-                    // messageCount or stepIndicesPerTurn changes.
-                    (0 until messageCount).forEach { i ->
-
-                        item(key = "user_$i") {
-                            // Content reads inside item lambda — only this item recomposes
-                            // when content changes, without rebuilding the full item list.
-                            val message = groupedMessages.userMessages.getOrNull(i) ?: return@item
-                            var isDropDownMenuExpanded by remember { mutableStateOf(false) }
+                    // reverseLayout makes index 0 the visual bottom, so declare the newest
+                    // rows first to keep the latest turn anchored there without a follow-up scroll.
+                    for (i in messageCount - 1 downTo 0) {
+                        item(key = "assistant_$i") {
+                            val platformIndexState = indexStates.getOrElse(i) { 0 }
+                            val assistantContent = groupedMessages.assistantMessages.getOrNull(i)
+                                ?.getOrNull(platformIndexState)?.content ?: ""
+                            val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                            val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 12.dp),
-                                horizontalAlignment = Alignment.End
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
                             ) {
-                                Box {
-                                    UserChatBubble(
-                                        modifier = Modifier.widthIn(max = maximumUserChatBubbleWidth),
-                                        text = message.content,
-                                        files = message.files,
-                                        onLongPress = { isDropDownMenuExpanded = true }
-                                    )
-                                    ChatBubbleDropdownMenu(
-                                        isChatBubbleDropdownMenuExpanded = isDropDownMenuExpanded,
-                                        canEdit = canUseChat && isIdle,
-                                        onDismissRequest = { isDropDownMenuExpanded = false },
-                                        onEditItemClick = { chatViewModel.openEditQuestionDialog(message) },
-                                        onCopyItemClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(message.content, message.content))) } }
-                                    )
+                                OpponentChatBubble(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp)
+                                        .widthIn(max = maximumOpponentChatBubbleWidth),
+                                    isLoading = isTurnLoading,
+                                    text = assistantContent,
+                                    loadingMinHeight = assistantLoadingMinHeight,
+                                    onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
+                                    onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
+                                )
+                                // Show undo bar only beneath the latest completed turn, and only
+                                // when there are at least 2 TURN snapshots (guaranteed by VM).
+                                if (isLastTurn && !isTurnLoading) {
+                                    lastTurnSnapshot?.let { snap ->
+                                        TurnUndoBar(
+                                            turnIndex = snap.turnIndex ?: 0,
+                                            affectedFileCount = snap.affectedFiles.size,
+                                            onUndoClick = { chatViewModel.undoLastTurn() },
+                                            modifier = Modifier.padding(top = 4.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        // Platform header
+                        val turnStepIndices = stepIndicesPerTurn.getOrElse(i) { emptyList() }
+                        for (stepIdx in turnStepIndices.asReversed()) {
+                            item(key = "step_${i}_${stepIdx}") {
+                                val step = groupedMessages.agentSteps.getOrNull(i)
+                                    ?.getOrNull(stepIdx) ?: return@item
+                                val platformIndexState = indexStates.getOrElse(i) { 0 }
+                                val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
+                                val isLastTurn = i == groupedMessages.assistantMessages.size - 1
+                                val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+                                val allSteps = groupedMessages.agentSteps.getOrNull(i)
+                                val isLiveStep = isTurnLoading && stepIdx == (allSteps?.lastIndex ?: -1)
+                                AgentStepBubble(
+                                    step = step,
+                                    isLive = isLiveStep,
+                                    modifier = Modifier.padding(horizontal = 4.dp),
+                                )
+                            }
+                        }
+
                         item(key = "platform_$i") {
                             val platformIndexState = indexStates.getOrElse(i) { 0 }
                             val isLastTurn = i == groupedMessages.assistantMessages.size - 1
@@ -473,66 +503,43 @@ fun ChatScreen(
                             }
                         }
 
-                        // Agent step items (thinking, tool calls)
-                        val turnStepIndices = stepIndicesPerTurn.getOrElse(i) { emptyList() }
-                        turnStepIndices.forEach { stepIdx ->
-                            item(key = "step_${i}_${stepIdx}") {
-                                val step = groupedMessages.agentSteps.getOrNull(i)
-                                    ?.getOrNull(stepIdx) ?: return@item
-                                val platformIndexState = indexStates.getOrElse(i) { 0 }
-                                val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
-                                val isLastTurn = i == groupedMessages.assistantMessages.size - 1
-                                val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
-                                val allSteps = groupedMessages.agentSteps.getOrNull(i)
-                                val isLiveStep = isTurnLoading && stepIdx == (allSteps?.lastIndex ?: -1)
-                                AgentStepBubble(
-                                    step = step,
-                                    isLive = isLiveStep,
-                                    modifier = Modifier.padding(horizontal = 4.dp),
-                                )
-                            }
-                        }
-
-                        // Final output bubble (the assistant's text response)
-                        item(key = "assistant_$i") {
-                            val platformIndexState = indexStates.getOrElse(i) { 0 }
-                            val assistantContent = groupedMessages.assistantMessages.getOrNull(i)
-                                ?.getOrNull(platformIndexState)?.content ?: ""
-                            val isCurrentPlatformLoading = loadingStates.getOrElse(platformIndexState) { ChatViewModel.LoadingState.Idle } == ChatViewModel.LoadingState.Loading
-                            val isLastTurn = i == groupedMessages.assistantMessages.size - 1
-                            val isTurnLoading = if (isLastTurn) isCurrentPlatformLoading else false
+                        item(key = "user_$i") {
+                            // Content reads inside item lambda — only this item recomposes
+                            // when content changes, without rebuilding the full item list.
+                            val message = groupedMessages.userMessages.getOrNull(i) ?: return@item
+                            var isDropDownMenuExpanded by remember { mutableStateOf(false) }
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                                    .padding(horizontal = 6.dp, vertical = 12.dp),
+                                horizontalAlignment = Alignment.End
                             ) {
-                                OpponentChatBubble(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 4.dp)
-                                        .widthIn(max = maximumOpponentChatBubbleWidth),
-                                    canRetry = canUseChat && isLastTurn && !isTurnLoading,
-                                    isLoading = isTurnLoading,
-                                    text = assistantContent,
-                                    onCopyClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(assistantContent, assistantContent))) } },
-                                    onSelectClick = { chatViewModel.openSelectTextSheet(assistantContent) },
-                                    onRetryClick = { chatViewModel.retryChat(platformIndexState) }
-                                )
+                                Box {
+                                    UserChatBubble(
+                                        modifier = Modifier.widthIn(max = maximumUserChatBubbleWidth),
+                                        text = message.content,
+                                        files = message.files,
+                                        onLongPress = { isDropDownMenuExpanded = true }
+                                    )
+                                    ChatBubbleDropdownMenu(
+                                        isChatBubbleDropdownMenuExpanded = isDropDownMenuExpanded,
+                                        canEdit = canUseChat && isIdle,
+                                        onDismissRequest = { isDropDownMenuExpanded = false },
+                                        onEditItemClick = { chatViewModel.openEditQuestionDialog(message) },
+                                        onCopyItemClick = { scope.launch { clipboardManager.setClipEntry(ClipEntry(ClipData.newPlainText(message.content, message.content))) } }
+                                    )
+                                }
                             }
                         }
                     }
-                    // Crash auto-fix prompt (shown when plugin crash is detected)
-                    if (crashPrompt != null) {
-                        item(key = "crash_prompt") {
-                            CrashAutoFixCard(
-                                crashSummary = crashPrompt!!.crashSummary,
-                                onAutoFix = { chatViewModel.autoFixCrash() },
-                                onDismiss = { chatViewModel.dismissCrashPrompt() },
+                    if (showPlatformSetupPrompt) {
+                        item(key = "platform_setup_prompt") {
+                            MissingPlatformPromptCard(
+                                onAddApiKeyClick = onNavigateToAddPlatform,
                             )
                         }
                     }
-                    // Bottom spacer so scrolling to this item reveals the full last message
-                    item(key = "bottom_spacer") {
+                    item(key = "top_spacer") {
                         Spacer(modifier = Modifier.height(1.dp))
                     }
                 }
@@ -546,7 +553,7 @@ fun ChatScreen(
                     ) {
                         ScrollToBottomButton {
                             scope.launch {
-                                listState.animateScrollToItem(lastItemIndex)
+                                listState.animateScrollToItem(0)
                             }
                         }
                     }
@@ -656,6 +663,26 @@ fun ChatScreen(
                 }
             }
         }
+
+        if (showSnapshotHistory) {
+            ModalBottomSheet(onDismissRequest = chatViewModel::closeSnapshotHistory) {
+                val snapshots by chatViewModel.snapshotHistory.collectAsStateWithLifecycle()
+                SnapshotHistoryPanel(
+                    snapshots = snapshots,
+                    onRestoreClick = { snap -> chatViewModel.restoreSnapshot(snap.id) },
+                )
+            }
+        }
+
+        if (showProjectMemo) {
+            ModalBottomSheet(onDismissRequest = chatViewModel::closeProjectMemo) {
+                val memoMarkdown by chatViewModel.projectMemoMarkdown.collectAsStateWithLifecycle()
+                ProjectMemoPanel(
+                    intentMarkdown = memoMarkdown,
+                    onSave = { chatViewModel.saveProjectMemo(it) },
+                )
+            }
+        }
     }
 }
 
@@ -747,6 +774,8 @@ private fun ChatTopBar(
     onExportApkItemClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
+    onOpenSnapshotHistory: () -> Unit,
+    onOpenProjectMemo: () -> Unit,
 ) {
     var isDropDownMenuExpanded by remember { mutableStateOf(false) }
 
@@ -807,6 +836,14 @@ private fun ChatTopBar(
                     onDiagnosticClick = {
                         onDiagnosticClick()
                     },
+                    onOpenSnapshotHistory = {
+                        isDropDownMenuExpanded = false
+                        onOpenSnapshotHistory()
+                    },
+                    onOpenProjectMemo = {
+                        isDropDownMenuExpanded = false
+                        onOpenProjectMemo()
+                    },
                 )
             },
             scrollBehavior = scrollBehavior
@@ -838,6 +875,8 @@ fun ChatDropdownMenu(
     onExportApkItemClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
+    onOpenSnapshotHistory: () -> Unit,
+    onOpenProjectMemo: () -> Unit,
 ) {
     DropdownMenu(
         modifier = Modifier.wrapContentSize(),
@@ -861,6 +900,22 @@ fun ChatDropdownMenu(
             onClick = onInstallApkClick,
             leadingIcon = {
                 Icon(Icons.Outlined.InstallMobile, contentDescription = null)
+            },
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.snapshot_history_title)) },
+            onClick = onOpenSnapshotHistory,
+            leadingIcon = {
+                Icon(Icons.Outlined.History, contentDescription = null)
+            },
+        )
+        DropdownMenuItem(
+            enabled = isProjectMenuEnabled,
+            text = { Text(text = stringResource(R.string.project_memo_title)) },
+            onClick = onOpenProjectMemo,
+            leadingIcon = {
+                Icon(Icons.AutoMirrored.Outlined.StickyNote2, contentDescription = null)
             },
         )
 

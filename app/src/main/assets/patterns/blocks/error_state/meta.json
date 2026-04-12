@@ -1,0 +1,13 @@
+{
+  "id": "error_state",
+  "kind": "block",
+  "description": "Error display with tinted icon, title, description, and retry button",
+  "keywords": ["error", "failure", "retry", "错误", "失败"],
+  "slots": [
+    { "name": "icon", "description": "Error drawable", "default": "@android:drawable/stat_notify_error" },
+    { "name": "title", "description": "Short error headline", "default": "Something went wrong" },
+    { "name": "description", "description": "Explanation and recovery hint", "default": "Please check your connection and try again" },
+    { "name": "cta", "description": "Retry action label", "default": "Retry" }
+  ],
+  "dependencies": ["MaterialButton"]
+}

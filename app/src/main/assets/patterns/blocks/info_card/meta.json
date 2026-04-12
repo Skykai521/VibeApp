@@ -1,0 +1,12 @@
+{
+  "id": "info_card",
+  "kind": "block",
+  "description": "Generic info card: title, body copy, and an optional text action",
+  "keywords": ["card", "info", "article", "信息卡"],
+  "slots": [
+    { "name": "title", "description": "Card title", "default": "Card title" },
+    { "name": "body", "description": "Body copy", "default": "Multiple lines of body text describing the content of this card." },
+    { "name": "action", "description": "Text button label", "default": "Learn more" }
+  ],
+  "dependencies": ["MaterialCardView", "MaterialButton"]
+}
