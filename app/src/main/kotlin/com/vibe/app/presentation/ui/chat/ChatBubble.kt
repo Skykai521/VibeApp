@@ -2,6 +2,9 @@ package com.vibe.app.presentation.ui.chat
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -34,10 +37,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -136,15 +142,38 @@ fun OpponentChatBubble(
         disabledContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
     )
 
+    val latestText by rememberUpdatedState(text)
+    var renderedText by remember { mutableStateOf(text) }
+
+    if (isLoading) {
+        LaunchedEffect(isLoading) {
+            while (true) {
+                delay(STREAMING_RENDER_INTERVAL_MS)
+                renderedText = latestText
+            }
+        }
+    } else {
+        renderedText = text
+    }
+
+    val displayText = if (isLoading) renderedText.trimIndent() + "●" else renderedText.trimIndent()
+
     Column(modifier = modifier) {
         Column {
             Card(
-                modifier = Modifier.heightIn(min = if (isLoading) loadingMinHeight else 0.dp),
+                modifier = Modifier
+                    .heightIn(min = if (isLoading) loadingMinHeight else 0.dp)
+                    .then(
+                        if (isLoading) Modifier.animateContentSize(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium,
+                            )
+                        ) else Modifier
+                    ),
                 shape = RoundedCornerShape(0.dp),
                 colors = cardColor
             ) {
-                val displayText = if (isLoading) text.trimIndent() + "●" else text.trimIndent()
-
                 Markdown(
                     content = displayText,
                     modifier = Modifier.padding(16.dp),
@@ -169,6 +198,8 @@ fun OpponentChatBubble(
         }
     }
 }
+
+private const val STREAMING_RENDER_INTERVAL_MS = 80L
 
 @Composable
 fun VibeAppIcon(loading: Boolean) {
