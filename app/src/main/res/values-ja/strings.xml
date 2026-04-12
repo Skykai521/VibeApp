@@ -96,6 +96,9 @@
     <string name="tool_name_run_build_pipeline">ビルド実行</string>
     <string name="tool_name_rename_project">プロジェクト名変更</string>
     <string name="tool_name_update_project_icon">アイコン更新</string>
+    <string name="tool_name_update_project_icon_custom">カスタムアイコンを更新</string>
+    <string name="tool_name_launch_app">アプリを起動</string>
+    <string name="tool_name_close_app">アプリを閉じる</string>
     <string name="tool_name_read_runtime_log">アプリログ読み取り</string>
     <string name="tool_name_fix_crash_guide">クラッシュ診断</string>
     <string name="crash_detected_title">アプリがクラッシュしました</string>

@@ -96,6 +96,9 @@
     <string name="tool_name_run_build_pipeline">Uruchom build</string>
     <string name="tool_name_rename_project">Zmień nazwę projektu</string>
     <string name="tool_name_update_project_icon">Aktualizuj ikonę</string>
+    <string name="tool_name_update_project_icon_custom">Zaktualizuj niestandardową ikonę</string>
+    <string name="tool_name_launch_app">Uruchom aplikację</string>
+    <string name="tool_name_close_app">Zamknij aplikację</string>
     <string name="tool_name_read_runtime_log">Odczytaj log aplikacji</string>
     <string name="tool_name_fix_crash_guide">Diagnoza awarii</string>
     <string name="crash_detected_title">Aplikacja uległa awarii</string>

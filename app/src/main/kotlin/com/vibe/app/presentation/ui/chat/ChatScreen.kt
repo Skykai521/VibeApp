@@ -298,7 +298,7 @@ fun ChatScreen(
                 ChatViewModel.UndoEvent.Success -> R.string.turn_undo_done_toast
                 ChatViewModel.UndoEvent.Failure -> R.string.turn_undo_failed_toast
             }
-            Toast.makeText(context, context.getString(messageRes), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.resources.getString(messageRes), Toast.LENGTH_SHORT).show()
         }
     }
 

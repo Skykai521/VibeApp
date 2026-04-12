@@ -96,6 +96,9 @@
     <string name="tool_name_run_build_pipeline">Запуск сборки</string>
     <string name="tool_name_rename_project">Переименование проекта</string>
     <string name="tool_name_update_project_icon">Обновление иконки</string>
+    <string name="tool_name_update_project_icon_custom">Обновить пользовательский значок</string>
+    <string name="tool_name_launch_app">Запустить приложение</string>
+    <string name="tool_name_close_app">Закрыть приложение</string>
     <string name="tool_name_read_runtime_log">Чтение лога приложения</string>
     <string name="tool_name_fix_crash_guide">Диагностика сбоя</string>
     <string name="crash_detected_title">Приложение упало</string>

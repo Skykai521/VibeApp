@@ -95,6 +95,9 @@
     <string name="tool_name_run_build_pipeline">تشغيل البناء</string>
     <string name="tool_name_rename_project">إعادة تسمية المشروع</string>
     <string name="tool_name_update_project_icon">تحديث الأيقونة</string>
+    <string name="tool_name_update_project_icon_custom">تحديث الأيقونة المخصصة</string>
+    <string name="tool_name_launch_app">تشغيل التطبيق</string>
+    <string name="tool_name_close_app">إغلاق التطبيق</string>
     <string name="tool_name_read_runtime_log">قراءة سجل التطبيق</string>
     <string name="tool_name_fix_crash_guide">تشخيص العطل</string>
     <string name="crash_detected_title">تعطل التطبيق</string>

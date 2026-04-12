@@ -20,6 +20,9 @@
     <string name="tool_name_run_build_pipeline">Lancer la compilation</string>
     <string name="tool_name_rename_project">Renommer le projet</string>
     <string name="tool_name_update_project_icon">Mettre à jour l\'icône</string>
+    <string name="tool_name_update_project_icon_custom">Mettre à jour l\'icône personnalisée</string>
+    <string name="tool_name_launch_app">Lancer l\'application</string>
+    <string name="tool_name_close_app">Fermer l\'application</string>
     <string name="tool_name_read_runtime_log">Lire le journal</string>
     <string name="tool_name_fix_crash_guide">Diagnostiquer le crash</string>
     <string name="crash_detected_title">L\'application a planté</string>

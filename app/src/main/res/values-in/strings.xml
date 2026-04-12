@@ -96,6 +96,9 @@
     <string name="tool_name_run_build_pipeline">Jalankan build</string>
     <string name="tool_name_rename_project">Ganti nama proyek</string>
     <string name="tool_name_update_project_icon">Perbarui ikon</string>
+    <string name="tool_name_update_project_icon_custom">Perbarui ikon kustom</string>
+    <string name="tool_name_launch_app">Jalankan aplikasi</string>
+    <string name="tool_name_close_app">Tutup aplikasi</string>
     <string name="tool_name_read_runtime_log">Baca log aplikasi</string>
     <string name="tool_name_fix_crash_guide">Diagnosis error</string>
     <string name="crash_detected_title">Aplikasi error</string>

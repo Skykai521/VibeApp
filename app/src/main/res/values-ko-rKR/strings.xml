@@ -98,6 +98,9 @@
     <string name="tool_name_run_build_pipeline">빌드 실행</string>
     <string name="tool_name_rename_project">프로젝트 이름 변경</string>
     <string name="tool_name_update_project_icon">아이콘 업데이트</string>
+    <string name="tool_name_update_project_icon_custom">맞춤 아이콘 업데이트</string>
+    <string name="tool_name_launch_app">앱 실행</string>
+    <string name="tool_name_close_app">앱 닫기</string>
     <string name="tool_name_read_runtime_log">앱 로그 읽기</string>
     <string name="tool_name_fix_crash_guide">충돌 진단</string>
     <string name="crash_detected_title">앱 충돌 발생</string>
