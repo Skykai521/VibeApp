@@ -216,9 +216,15 @@ class ChatViewModel @Inject constructor(
 
     // The most-recent TURN-type snapshot for the current project, exposed so the UI
     // can render the TurnUndoBar. Only non-null when there are at least 2 TURN snapshots
-    // (i.e. there is a prior state to roll back to).
+    // AND the just-completed turn actually committed a new one (see turnSnapshotBaselineId).
     private val _lastTurnSnapshot = MutableStateFlow<Snapshot?>(null)
     val lastTurnSnapshot: StateFlow<Snapshot?> = _lastTurnSnapshot.asStateFlow()
+
+    // Top TURN snapshot id captured at the moment the current (in-flight or most recently
+    // completed) turn started. After the turn ends we compare this to the new top: if they
+    // match, the turn made no file changes and the undo bar stays hidden. Edit-free turns
+    // don't call commit(), so finalize() is a no-op and the top snapshot id doesn't move.
+    private var turnSnapshotBaselineId: String? = null
 
     // --- Snapshot History (Task 7.2) ---
     private val _snapshotHistory = MutableStateFlow<List<Snapshot>>(emptyList())
@@ -678,6 +684,13 @@ class ChatViewModel @Inject constructor(
         _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Loading } }
         responseJobs.clear()
 
+        // Capture the top TURN snapshot id BEFORE this turn starts, so when the turn
+        // finishes we can tell whether it committed a new snapshot (files changed) or
+        // not. Also hide the undo bar immediately — it belonged to a previous turn.
+        _lastTurnSnapshot.value = null
+        val baselineProjectId = _currentProjectId.value
+        viewModelScope.launch { captureTurnSnapshotBaseline(baselineProjectId) }
+
         // Send chat completion requests
         _enabledPlatformsInChat.value.forEachIndexed { idx, platformUid ->
             val platform = _enabledPlatformsInApp.value.firstOrNull { it.uid == platformUid }
@@ -1089,8 +1102,11 @@ class ChatViewModel @Inject constructor(
 
     /**
      * Refreshes [lastTurnSnapshot] by listing all TURN-type snapshots for the current
-     * project. Only exposes the latest snapshot when there are at least 2 TURN snapshots
-     * so the undo button always has a prior state to roll back to.
+     * project. Exposes the latest snapshot only when (a) at least 2 TURN snapshots exist
+     * so the undo button has a prior state to roll back to, AND (b) the latest snapshot
+     * id differs from [turnSnapshotBaselineId] — meaning the just-completed turn actually
+     * committed new file changes. Edit-free turns don't commit, so the latest id stays
+     * equal to the baseline and the bar remains hidden.
      */
     private suspend fun refreshLastTurnSnapshot(projectId: String?) {
         if (projectId.isNullOrBlank()) {
@@ -1103,10 +1119,36 @@ class ChatViewModel @Inject constructor(
             val turns = snapshotManager.list(projectId, vibeDirs)
                 .filter { it.type == SnapshotType.TURN }
                 .sortedBy { it.createdAtEpochMs }
-            // Only expose the latest turn if there's at least one earlier state to roll back to.
-            _lastTurnSnapshot.value = if (turns.size >= 2) turns.last() else null
+            val latest = turns.lastOrNull()
+            _lastTurnSnapshot.value = if (
+                turns.size >= 2 &&
+                latest != null &&
+                latest.id != turnSnapshotBaselineId
+            ) latest else null
         }.onFailure {
             _lastTurnSnapshot.value = null
+        }
+    }
+
+    /**
+     * Captures the current top TURN snapshot id as the baseline for the next turn.
+     * Called right before a turn starts and after restore/undo so that subsequent
+     * refreshes correctly detect whether the turn committed a new snapshot.
+     */
+    private suspend fun captureTurnSnapshotBaseline(projectId: String?) {
+        if (projectId.isNullOrBlank()) {
+            turnSnapshotBaselineId = null
+            return
+        }
+        runCatching {
+            val workspace = projectManager.openWorkspace(projectId)
+            val vibeDirs = VibeProjectDirs.fromWorkspaceRoot(workspace.rootDir)
+            val turns = snapshotManager.list(projectId, vibeDirs)
+                .filter { it.type == SnapshotType.TURN }
+                .sortedBy { it.createdAtEpochMs }
+            turnSnapshotBaselineId = turns.lastOrNull()?.id
+        }.onFailure {
+            turnSnapshotBaselineId = null
         }
     }
 
@@ -1147,6 +1189,9 @@ class ChatViewModel @Inject constructor(
                 // auto-chain to the previous turn's undo. The bar will re-populate the
                 // next time a turn writes, via the regular turn-completion refresh path.
                 _lastTurnSnapshot.value = null
+                // Move the baseline to the new top so an edit-free turn afterwards
+                // doesn't resurrect the bar.
+                captureTurnSnapshotBaseline(projectId)
                 _undoEvent.emit(UndoEvent.Success)
             } else {
                 Log.e("ChatViewModel", "undoLastTurn failed", result.exceptionOrNull())
@@ -1186,6 +1231,9 @@ class ChatViewModel @Inject constructor(
                 val refreshed = snapshotManager.list(projectId, vibeDirs)
                     .sortedByDescending { it.createdAtEpochMs }
                 _snapshotHistory.value = refreshed
+                // Reset the baseline to the new top so the bar only reappears when a
+                // subsequent turn commits a genuinely new snapshot.
+                captureTurnSnapshotBaseline(projectId)
                 refreshLastTurnSnapshot(projectId)
             }
             _showSnapshotHistory.value = false
