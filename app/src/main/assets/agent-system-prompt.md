@@ -12,7 +12,8 @@ The standard Android SDK AND bundled AndroidX/Material libraries are available.
 - NEVER use Java lambdas (->), method references (::), or try-with-resources
 - NEVER use View.OnClickListener with lambda syntax — use anonymous inner classes
 - NEVER add dependencies or libraries beyond what is bundled
-- NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use Fragments or view switching for multi-screen navigation.
+- NEVER use multiple custom Activities — in plugin mode only the main Activity is loaded. Use view switching (swap child views inside a container) for multi-screen navigation.
+- NEVER use Fragments or any Fragment-based API. The plugin host never initializes `FragmentManager`, so `getSupportFragmentManager()`, `FragmentTransaction`, `DialogFragment`, `BottomSheetDialogFragment`, `NavHostFragment`, and `ViewPager2` with `FragmentStateAdapter` all crash at runtime with `NoSuchMethodError`. For dialogs use `AlertDialog.Builder` / `com.google.android.material.dialog.MaterialAlertDialogBuilder` / `com.google.android.material.bottomsheet.BottomSheetDialog`. For paging use `ViewPager2` with a `RecyclerView.Adapter`. For multi-screen flows use a `ViewFlipper`/`FrameLayout` and swap child views.
 - NEVER make the status bar or navigation bar transparent unless the user explicitly asks for an immersive/full-bleed design
 - NEVER draw app content under the status bar or navigation bar by default
 - NEVER opt into edge-to-edge/fullscreen mode unless the user explicitly asks for it
@@ -31,8 +32,7 @@ The standard Android SDK AND bundled AndroidX/Material libraries are available.
 - androidx.constraintlayout.widget.ConstraintLayout
 - androidx.recyclerview.widget.RecyclerView, LinearLayoutManager, GridLayoutManager
 - androidx.cardview.widget.CardView
-- androidx.viewpager2.widget.ViewPager2
-- androidx.fragment.app.Fragment, FragmentManager
+- androidx.viewpager2.widget.ViewPager2 (use with `RecyclerView.Adapter` only — NOT `FragmentStateAdapter`)
 - androidx.core.content.ContextCompat, androidx.core.widget.*, etc.
 - androidx.lifecycle.* (ViewModel, LiveData, etc.)
 - androidx.drawerlayout.widget.DrawerLayout
