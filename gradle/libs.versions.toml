@@ -32,6 +32,8 @@ eddsa = "0.3.0"
 mockwebserver = "4.12.0"
 kotlinxCoroutinesTest = "1.10.2"
 commonsCompress = "1.26.2"
+gradleToolingApi = "8.10.2"
+shadowPlugin = "9.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -81,6 +83,8 @@ eddsa = { group = "net.i2p.crypto", name = "eddsa", version.ref = "eddsa" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockwebserver" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
+gradle-tooling-api = { group = "org.gradle", name = "gradle-tooling-api", version.ref = "gradleToolingApi" }
+slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version = "2.0.16" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -92,3 +96,5 @@ kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadowPlugin" }

@@ -17,6 +17,8 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
+        // Gradle Tooling API artifacts (used by :gradle-host)
+        maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
     }
 }
 
@@ -40,4 +42,4 @@ include(":shadow-runtime")
 include(":build-runtime")
 include(":build-gradle")
 include(":plugin-host")
-
+include(":gradle-host")
