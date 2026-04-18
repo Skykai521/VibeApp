@@ -13,7 +13,7 @@ import java.io.PrintStream
  * structured HostEvent instances.
  *
  * Caller supplies the path to the bootstrapped Gradle distribution
- * (typically `$PREFIX/opt/gradle-8.10.2`). This class does not manage
+ * (typically `$PREFIX/opt/gradle-9.3.1`). This class does not manage
  * daemon lifecycle explicitly — Tooling API handles that.
  */
 internal class ToolingApiDriver(

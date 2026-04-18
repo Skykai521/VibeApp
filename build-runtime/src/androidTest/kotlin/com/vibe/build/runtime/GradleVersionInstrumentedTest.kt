@@ -39,7 +39,7 @@ import java.io.File
  * Phase 2b acceptance. Opt-in via
  * `-Pandroid.testInstrumentationRunnerArguments.vibeapp.phase2b.dev_server_url=http://localhost:8000`.
  * Requires the dev server to be serving a manifest that lists BOTH
- * the `jdk-17.0.13` AND `gradle-8.10.2` components (produce via
+ * the `jdk-17.0.13` AND `gradle-9.3.1` components (produce via
  * `scripts/bootstrap/build-{jdk,gradle}.sh` + `build-manifest.sh`).
  *
  * Skipped when the runner argument is absent — CI stays green.
@@ -116,8 +116,8 @@ class GradleVersionInstrumentedTest {
 
         val javaBinary = File(fs.componentInstallDir("jdk-17.0.13"), "bin/java")
         val launcherJar = File(
-            fs.componentInstallDir("gradle-8.10.2"),
-            "lib/gradle-launcher-8.10.2.jar",
+            fs.componentInstallDir("gradle-9.3.1"),
+            "lib/gradle-launcher-9.3.1.jar",
         )
         assertTrue("java missing: $javaBinary", javaBinary.isFile)
         assertTrue("gradle launcher missing: $launcherJar", launcherJar.isFile)
@@ -152,8 +152,8 @@ class GradleVersionInstrumentedTest {
             0, exit.code,
         )
         assertTrue(
-            "expected 'Gradle 8.10.2' in output:\n$combined",
-            combined.contains("Gradle 8.10.2"),
+            "expected 'Gradle 9.3.1' in output:\n$combined",
+            combined.contains("Gradle 9.3.1"),
         )
     }
 }

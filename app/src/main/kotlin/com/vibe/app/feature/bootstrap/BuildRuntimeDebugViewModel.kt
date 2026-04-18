@@ -130,8 +130,8 @@ class BuildRuntimeDebugViewModel @Inject constructor(
             _uiState.update { it.copy(launchRunning = true, launchLog = "") }
             val javaBinary = File(fs.componentInstallDir("jdk-17.0.13"), "bin/java")
             val launcherJar = File(
-                fs.componentInstallDir("gradle-8.10.2"),
-                "lib/gradle-launcher-8.10.2.jar",
+                fs.componentInstallDir("gradle-9.3.1"),
+                "lib/gradle-launcher-9.3.1.jar",
             )
             val log = StringBuilder()
             if (!javaBinary.isFile) {

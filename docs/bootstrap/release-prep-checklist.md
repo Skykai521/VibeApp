@@ -25,8 +25,8 @@ For each of the three ABIs (arm64-v8a, armeabi-v7a, x86_64):
    tar -cf - . | zstd -19 -o /tmp/jdk-17.0.13-${ABI}.tar.zst
    ```
 
-For **Gradle 8.10.2**:
-1. Download `gradle-8.10.2-bin.zip` from https://gradle.org/releases/
+For **Gradle 9.3.1**:
+1. Download `gradle-9.3.1-bin.zip` from https://gradle.org/releases/
 2. Unpack, then repack as tar.zst.
 
 For the **minimal Android SDK**:
@@ -125,11 +125,11 @@ from Step 1. Schema (matches `build-runtime/src/test/resources/manifest/valid.js
       }
     },
     {
-      "id": "gradle-8.10.2",
-      "version": "8.10.2",
+      "id": "gradle-9.3.1",
+      "version": "9.3.1",
       "artifacts": {
         "common": {
-          "fileName": "gradle-8.10.2-noarch.tar.zst",
+          "fileName": "gradle-9.3.1-noarch.tar.zst",
           "sizeBytes": 68000000,
           "sha256": "<hex>"
         }
@@ -161,7 +161,7 @@ Sign with the production private key. The signature must match
    - `manifest.json`
    - `manifest.json.sig`
    - `jdk-17.0.13-{arm64-v8a,armeabi-v7a,x86_64}.tar.zst`
-   - `gradle-8.10.2-noarch.tar.zst`
+   - `gradle-9.3.1-noarch.tar.zst`
    - `android-sdk-34-minimal.tar.zst`
 3. Write release notes describing v2.0 user-facing features.
 

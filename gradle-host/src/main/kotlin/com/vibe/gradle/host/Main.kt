@@ -91,7 +91,7 @@ private fun toolingApiVersion(): String {
     // strip Package-level manifest entries, so fall back to the value
     // pinned in :gradle-host/build.gradle.kts.
     return org.gradle.tooling.GradleConnector::class.java.`package`?.implementationVersion
-        ?: "8.10.2"
+        ?: "9.3.1"
 }
 
 private fun die(message: String): Nothing {

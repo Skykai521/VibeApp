@@ -23,7 +23,7 @@ data class BootstrapManifest(
 ) {
     /**
      * Look up the artifact for a given component id + ABI.
-     * For ABI-independent components (e.g. `gradle-8.10.2`), artifacts is
+     * For ABI-independent components (e.g. `gradle-9.3.1`), artifacts is
      * expected to contain a single key `"common"`; that entry is returned
      * regardless of the requested [abi].
      */

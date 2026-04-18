@@ -51,7 +51,7 @@ class IpcProtocolTest {
     @Test
     fun `all event subtypes roundtrip`() {
         val events = listOf<HostEvent>(
-            HostEvent.Ready("r1", "1.0.0", "8.10.2"),
+            HostEvent.Ready("r1", "1.0.0", "9.3.1"),
             HostEvent.Pong("r1"),
             HostEvent.BuildStart("r1", 1_700_000_000L),
             HostEvent.BuildProgress("r1", "> Task :help"),

@@ -27,7 +27,7 @@ class ManifestParserTest {
         assertNotNull(jdk.artifacts["arm64-v8a"])
         assertEquals(83000000L, jdk.artifacts.getValue("arm64-v8a").sizeBytes)
 
-        val gradle = manifest.components.first { it.id == "gradle-8.10.2" }
+        val gradle = manifest.components.first { it.id == "gradle-9.3.1" }
         assertEquals(1, gradle.artifacts.size)
         assertNotNull(gradle.artifacts["common"])
     }
@@ -71,11 +71,11 @@ class ManifestParserTest {
     fun `findArtifact returns common artifact for gradle component`() {
         val manifest = parser.parse(fixture("valid.json"))
         val artifact = manifest.findArtifact(
-            componentId = "gradle-8.10.2",
+            componentId = "gradle-9.3.1",
             abi = Abi.ARM64,   // gradle has only "common", should still return it
         )
         assertNotNull(artifact)
-        assertEquals("gradle-8.10.2-noarch.tar.zst", artifact!!.fileName)
+        assertEquals("gradle-9.3.1-noarch.tar.zst", artifact!!.fileName)
     }
 
     @Test

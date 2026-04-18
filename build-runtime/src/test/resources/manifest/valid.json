@@ -24,11 +24,11 @@
       }
     },
     {
-      "id": "gradle-8.10.2",
-      "version": "8.10.2",
+      "id": "gradle-9.3.1",
+      "version": "9.3.1",
       "artifacts": {
         "common": {
-          "fileName": "gradle-8.10.2-noarch.tar.zst",
+          "fileName": "gradle-9.3.1-noarch.tar.zst",
           "sizeBytes": 68000000,
           "sha256": "0000000000000000000000000000000000000000000000000000000000000004"
         }

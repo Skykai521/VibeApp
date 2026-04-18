@@ -138,11 +138,11 @@ class GradleHostInstrumentedTest {
             fs = fs,
         )
 
-        val gradleDist = fs.componentInstallDir("gradle-8.10.2")
+        val gradleDist = fs.componentInstallDir("gradle-9.3.1")
         val toolingApiVersion = withTimeout(60_000) { service.start(gradleDist) }
         assertTrue(
-            "expected Tooling API 8.10.2, got '$toolingApiVersion'",
-            toolingApiVersion.contains("8.10"),
+            "expected Tooling API 9.3.1, got '$toolingApiVersion'",
+            toolingApiVersion.contains("9.3"),
         )
 
         val events = withTimeout(120_000) {

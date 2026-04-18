@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Downloads Gradle's official -bin distribution and repacks as
-# gradle-8.10.2-common.tar.gz for VibeApp's bootstrap. ABI-independent:
+# gradle-9.3.1-common.tar.gz for VibeApp's bootstrap. ABI-independent:
 # one artifact covers all devices.
 
 set -euo pipefail
@@ -9,8 +9,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 artifacts_dir="$script_dir/artifacts"
 
-gradle_version="${GRADLE_VERSION:-8.10.2}"
-gradle_dist_url="${GRADLE_DIST_URL:-https://services.gradle.org/distributions/gradle-${gradle_version}-bin.zip}"
+gradle_version="${GRADLE_VERSION:-9.3.1}"
+gradle_dist_url="${GRADLE_DIST_URL:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -36,6 +36,11 @@ mkdir -p "$artifacts_dir"
 staging="$(mktemp -d -t vibeapp-gradle.XXXXXXXX)"
 trap 'rm -rf "$staging"' EXIT
 
+# Resolve dist URL after arg parsing so --gradle-version takes effect.
+if [[ -z "$gradle_dist_url" ]]; then
+    gradle_dist_url="https://services.gradle.org/distributions/gradle-${gradle_version}-bin.zip"
+fi
+
 echo "Downloading $gradle_dist_url ..."
 curl -fSL --retry 3 -o "$staging/gradle.zip" "$gradle_dist_url"
 
@@ -58,7 +63,7 @@ rm -rf "$gradle_src/bin"
 
 out="$artifacts_dir/gradle-${gradle_version}-common.tar.gz"
 # Tar the CONTENTS at root (not wrapped in gradle-<version>/) so
-# post-extraction layout is $PREFIX/opt/gradle-8.10.2/lib/... directly.
+# post-extraction layout is $PREFIX/opt/gradle-9.3.1/lib/... directly.
 (cd "$gradle_src" && tar -cf - .) | gzip -9 -c > "$out"
 sha=$(shasum -a 256 "$out" | awk '{print $1}')
 size=$(stat -f %z "$out" 2>/dev/null || stat -c %s "$out")
