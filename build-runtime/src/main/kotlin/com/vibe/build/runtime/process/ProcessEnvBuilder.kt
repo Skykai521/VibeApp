@@ -14,7 +14,7 @@ import javax.inject.Singleton
  *   LD_PRELOAD          <nativeLibraryDir>/libtermux-exec.so  (shebang correction)
  *   VIBEAPP_USR_PREFIX  usr                                   (read by libtermux-exec.so)
  *   JAVA_HOME           usr/opt/jdk-17.0.13
- *   ANDROID_HOME        usr/opt/android-sdk
+ *   ANDROID_HOME        usr/opt/android-sdk-36.0.0
  *   GRADLE_USER_HOME    filesDir/.gradle
  *   HOME                cwd
  *   TMPDIR              usr/tmp
@@ -65,7 +65,7 @@ class ProcessEnvBuilder @Inject constructor(
 
     companion object {
         const val JDK_DIR_NAME = "jdk-17.0.13"
-        const val ANDROID_SDK_DIR_NAME = "android-sdk"
+        const val ANDROID_SDK_DIR_NAME = "android-sdk-36.0.0"
         const val GRADLE_USER_HOME_DIR_NAME = ".gradle"
     }
 }

@@ -56,7 +56,7 @@ class ProcessEnvBuilderTest {
         val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
 
         assertEquals(File(fs.optRoot, "jdk-17.0.13").absolutePath, env["JAVA_HOME"])
-        assertEquals(File(fs.optRoot, "android-sdk").absolutePath, env["ANDROID_HOME"])
+        assertEquals(File(fs.optRoot, "android-sdk-36.0.0").absolutePath, env["ANDROID_HOME"])
     }
 
     @Test
@@ -121,5 +121,13 @@ class ProcessEnvBuilderTest {
         val fs = newFs()
         val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
         assertEquals(fs.usrRoot.absolutePath, env["VIBEAPP_USR_PREFIX"])
+    }
+
+    @Test
+    fun ANDROID_HOME_points_to_android_sdk_36_0_0() {
+        val fs = newFs()
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
+        val expected = File(fs.optRoot, "android-sdk-36.0.0").absolutePath
+        assertEquals(expected, env["ANDROID_HOME"])
     }
 }
