@@ -30,6 +30,7 @@ upload, Aliyun mirror sync) is in
 ./build-hello.sh --abi armeabi-v7a
 ./build-hello.sh --abi x86_64
 ./build-jdk.sh   --abi arm64-v8a
+./build-gradle.sh       # gradle-8.10.2-common.tar.gz, ~100MB
 # (optionally build other ABIs if testing on those devices)
 
 # 2. Assemble + sign the manifest. Produces manifest.json + manifest.json.sig.
@@ -53,7 +54,8 @@ scripts/bootstrap/artifacts/
 ├── hello-armeabi-v7a.tar.zst
 ├── hello-x86_64.tar.zst
 ├── jdk-17.0.13-arm64-v8a.tar.zst
-└── jdk-17.0.13-armeabi-v7a.tar.zst   (optional)
+├── jdk-17.0.13-armeabi-v7a.tar.zst   (optional)
+└── gradle-8.10.2-common.tar.gz
 ```
 
 Artifacts are consumed by:
