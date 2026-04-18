@@ -40,3 +40,6 @@ app/build/**
 
 # Phase 2a dev bootstrap artifact staging (large, never committed)
 /scripts/bootstrap/artifacts
+
+# GradleHost shaded JAR, copied from gradle-host/build/libs at build time.
+/app/src/main/assets/vibeapp-gradle-host.jar

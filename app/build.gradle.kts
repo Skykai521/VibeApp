@@ -106,6 +106,18 @@ android {
     }
 }
 
+val copyGradleHostJar by tasks.registering(Copy::class) {
+    dependsOn(":gradle-host:shadowJar")
+    from(project(":gradle-host").layout.buildDirectory.file("libs"))
+    into(layout.projectDirectory.dir("src/main/assets"))
+    include("vibeapp-gradle-host-*-all.jar")
+    rename { "vibeapp-gradle-host.jar" }
+}
+
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn(copyGradleHostJar)
+}
+
 configurations.all {
     exclude(group = "com.intellij", module = "annotations")
     // bundletool JAR contains both DEX and Java bytecode, which breaks R8
