@@ -193,15 +193,12 @@ lic_dst="$out_root/licenses"
 
 mkdir -p "$plat_dst" "$bt_dst" "$lic_dst"
 
-# 4a. Platform: android.jar + data/ subtree.
-cp -a "$platform_src/android.jar" "$plat_dst/"
-if [[ -d "$platform_src/data" ]]; then
-    cp -a "$platform_src/data" "$plat_dst/"
-fi
-# Bonus carry-overs that don't bloat much and AGP/lint occasionally references.
-for f in core-for-system-modules.jar framework.aidl optional uiautomator.jar; do
-    [[ -e "$platform_src/$f" ]] && cp -a "$platform_src/$f" "$plat_dst/" || true
-done
+# 4a. Platform: copy everything from Google's platform-<rev> zip directly.
+# AGP 9.1.0 requires build.prop + sdk.properties + source.properties at the
+# platform root for its version discovery ("Build properties not found"
+# errors). Earlier we tried an allowlist and missed several files. Copy the
+# whole tree — Google's zip is already minimal, ~70MB.
+cp -a "$platform_src"/. "$plat_dst/"
 
 # 4b. Build-tools.
 # d8.jar lives under build-tools/<API>/lib/d8.jar in Google's zip.
@@ -230,7 +227,7 @@ chmod 0755 "$bt_dst/aapt2"
 # The install-side wiring (LD_LIBRARY_PATH pointing at this dir) lands in
 # Phase 2d Task 3.
 fetch_termux_lib() {
-    local pkg_path="$1" deb_name="$2"
+    local pkg_path="$1" deb_name="$2" bin_name="${3:-}"
     # URL-encode '+' and ':' in case the deb name contains them (libc++,
     # epoch-prefixed packages like libprotobuf 2:33.1-1).
     local enc_path enc_name
@@ -247,18 +244,40 @@ fetch_termux_lib() {
     elif [[ -f "$dep_stage/data.tar.zst" ]]; then tar -xf "$dep_stage/data.tar.zst" -C "$dep_stage"
     else tar -xf "$dep_stage/data.tar"     -C "$dep_stage"; fi
     # Termux installs libs under $PREFIX/lib. Copy every libX.so* from there
-    # into $bt_dst alongside aapt2.
-    find "$dep_stage/data/data/com.termux/files/usr/lib" -maxdepth 1 -name "lib*.so*" 2>/dev/null \
-        | while read -r lib; do
-            cp -a "$lib" "$bt_dst/"
-        done
+    # into $bt_dst alongside aapt2. Skip silently if this package has no
+    # lib/ subtree (e.g. `aidl` is a pure binary, no .so). Using `[[ -d ]]`
+    # guard avoids set -e tripping on find's non-zero exit for a missing path.
+    local lib_src="$dep_stage/data/data/com.termux/files/usr/lib"
+    if [[ -d "$lib_src" ]]; then
+        find "$lib_src" -maxdepth 1 -name "lib*.so*" \
+            | while read -r lib; do
+                cp -a "$lib" "$bt_dst/"
+            done
+    fi
+    # Optionally also copy a named executable from $PREFIX/bin into $bt_dst.
+    # Used for the legacy `aapt` binary: AGP 9.1.0's BuildTools checker refuses
+    # to initialize without aapt1 present even when only aapt2 is actually
+    # invoked during modern resource processing.
+    if [[ -n "$bin_name" ]]; then
+        local bin_src="$dep_stage/data/data/com.termux/files/usr/bin/$bin_name"
+        if [[ -f "$bin_src" ]]; then
+            cp -a "$bin_src" "$bt_dst/$bin_name"
+            chmod 0755 "$bt_dst/$bin_name"
+        else
+            echo "WARN: $bin_name binary not found in $deb_name" >&2
+        fi
+    fi
 }
 
 # Versions defaulted at top of script; override via env if upstream moves.
 fetch_termux_lib "libc/libc++"      "libc++_${libcxx_version}_${termux_arch}.deb"
 fetch_termux_lib "a/abseil-cpp"     "abseil-cpp_${abseil_version}_${termux_arch}.deb"
 fetch_termux_lib "libp/libprotobuf" "libprotobuf_${protobuf_version}_${termux_arch}.deb"
-fetch_termux_lib "a/aapt"           "aapt_${aapt_version}_${termux_arch}.deb"
+fetch_termux_lib "a/aapt"           "aapt_${aapt_version}_${termux_arch}.deb" "aapt"
+# AIDL — AGP 9.x BuildToolsLayout probes for this binary even though our
+# probe-app doesn't declare any .aidl sources. Termux ships aarch64 aidl
+# under the same `aidl` package name and version as aapt.
+fetch_termux_lib "a/aidl"           "aidl_${aapt_version}_${termux_arch}.deb" "aidl"
 fetch_termux_lib "libe/libexpat"    "libexpat_${libexpat_version}_${termux_arch}.deb"
 fetch_termux_lib "libp/libpng"      "libpng_${libpng_version}_${termux_arch}.deb"
 fetch_termux_lib "f/fmt"            "fmt_${fmt_version}_${termux_arch}.deb"
@@ -321,40 +340,59 @@ exec java -jar "$here/apksigner.jar" "$@"
 WRAP
 chmod 0755 "$bt_dst/apksigner"
 
+# Zipalign stub — Termux doesn't ship an arm64 build, and AGP 9.x's v2+
+# debug signing performs 4-byte alignment internally via apksigner's
+# --alignment-preserved flow. But BuildToolsLayout refuses to init
+# without the binary existing. Ship a no-op shell script with exec bit;
+# if AGP actually invokes it for release-style alignment later, we'll
+# know and swap in a real binary. For probe :app:assembleDebug (debug
+# variant), it should never be called.
+cat > "$bt_dst/zipalign" <<'WRAP'
+#!/usr/bin/env bash
+# If you hit this, AGP tried to actually invoke zipalign — we need a real
+# arm64 binary. See scripts/bootstrap/build-androidsdk.sh TODO.
+echo "vibeapp: zipalign stub invoked with: $*" >&2
+exit 0
+WRAP
+chmod 0755 "$bt_dst/zipalign"
+
+# AGP 9.1.0's BuildToolsLayout validates existence of a handful of legacy
+# build-tool binaries (dexdump, lld, renderscript, bcc_compat, llvm-rs-cc)
+# at configuration time, even though none are invoked for a modern Kotlin/
+# Java AGP build. Missing ANY of them → "Build Tools revision is corrupted"
+# and the whole build aborts. Stub them out; if AGP ever actually invokes
+# one, the stderr message flags it immediately.
+for stub in \
+    dexdump lld renderscript bcc_compat llvm-rs-cc split-select \
+    aarch64-linux-android-ld arm-linux-androideabi-ld \
+    i686-linux-android-ld mipsel-linux-android-ld x86_64-linux-android-ld \
+; do
+    cat > "$bt_dst/$stub" <<WRAP
+#!/usr/bin/env bash
+echo "vibeapp: $stub stub invoked with: \$*" >&2
+exit 0
+WRAP
+    chmod 0755 "$bt_dst/$stub"
+done
+
 # source.properties (exactly per spec).
 cat > "$bt_dst/source.properties" <<'EOF'
 Pkg.Revision=36.0.0
 #Pkg.License=android-sdk-license
 EOF
 
-# 4c. package.xml descriptors (AGP-accepted schema).
-cat > "$plat_dst/package.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ns2:sdk-repository xmlns:ns2="http://schemas.android.com/sdk/android/repo/repository2/03">
-  <localPackage path="platforms;android-36">
-    <type-details xsi:type="ns3:platformDetailsType"
-                  xmlns:ns3="http://schemas.android.com/sdk/android/repo/repository2/03"
-                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-      <api-level>36</api-level>
-    </type-details>
-    <revision><major>1</major></revision>
-    <display-name>Android SDK Platform 36</display-name>
-  </localPackage>
-</ns2:sdk-repository>
-EOF
+# 4c. package.xml descriptors.
+#
+# AGP 9.1.0 validates these against a strict schema: the root element must be
+# <ns2:repository> (not <ns2:sdk-repository>) and must declare every namespace
+# AGP may dispatch on (repository/common/0{1,2}, generic/0{1,2},
+# addon2/0{1,2,3}, repository2/0{1,2,3}, sys-img2/0{1..4}). We ship fixed
+# canonical copies in scripts/bootstrap/android-sdk-descriptors/ rather than
+# hand-roll XML here — they were lifted verbatim from a working Android
+# Studio install and carry the accepted SDK license text inline.
+cp "$script_dir/android-sdk-descriptors/platform-36-package.xml" "$plat_dst/package.xml"
 
-cat > "$bt_dst/package.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ns2:sdk-repository xmlns:ns2="http://schemas.android.com/sdk/android/repo/repository2/03">
-  <localPackage path="build-tools;36.0.0">
-    <type-details xsi:type="ns3:genericDetailsType"
-                  xmlns:ns3="http://schemas.android.com/sdk/android/repo/repository2/03"
-                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
-    <revision><major>36</major><minor>0</minor><micro>0</micro></revision>
-    <display-name>Android SDK Build-Tools 36.0.0</display-name>
-  </localPackage>
-</ns2:sdk-repository>
-EOF
+cp "$script_dir/android-sdk-descriptors/build-tools-36.0.0-package.xml" "$bt_dst/package.xml"
 
 # 4d. Licenses.
 cp "$license_src" "$lic_dst/android-sdk-license"
