@@ -9,6 +9,7 @@ import com.vibe.build.runtime.bootstrap.BootstrapFileSystem
 import com.vibe.build.runtime.bootstrap.BootstrapStateStore
 import com.vibe.build.runtime.bootstrap.ManifestParser
 import com.vibe.build.runtime.bootstrap.ManifestSignature
+import com.vibe.build.runtime.bootstrap.ManifestFetcher
 import com.vibe.build.runtime.bootstrap.MirrorSelector
 import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import com.vibe.build.runtime.bootstrap.ZstdExtractor
@@ -58,13 +59,19 @@ object BuildRuntimeModule {
         fallbackBase = "https://vibeapp-cdn.oss-cn-hangzhou.aliyuncs.com/releases/v2.0.0",
     )
 
+    /**
+     * Dev-cycle Ed25519 public key for bootstrap manifest verification.
+     * Matches the private seed in ~/.vibeapp/dev-bootstrap-privseed.hex on
+     * the developer's workstation. See docs/bootstrap/dev-keypair-setup.md.
+     *
+     * Production ceremony (Phase 1d) will replace this with a CI-injected value.
+     */
+    const val BOOTSTRAP_PUBKEY_HEX: String = "5ce0c624f59a72ee8eb6f72c25ad905a27afcd0392998f353ef86f3247725f40"
+
     @Provides
     @Singleton
-    fun provideManifestSignature(): ManifestSignature {
-        // Phase 1a placeholder pubkey (all zeros). Replaced with real
-        // pubkey via BuildConfig in Phase 1c.
-        return ManifestSignature(publicKeyHex = "00".repeat(32))
-    }
+    fun provideManifestSignature(): ManifestSignature =
+        ManifestSignature(publicKeyHex = BOOTSTRAP_PUBKEY_HEX)
 
     @Provides
     @Singleton
@@ -77,6 +84,7 @@ object BuildRuntimeModule {
         downloader: BootstrapDownloader,
         extractor: ZstdExtractor,
         abi: Abi,
+        fetcher: ManifestFetcher,
     ): RuntimeBootstrapper = RuntimeBootstrapper(
         fs = fs,
         store = store,
@@ -86,6 +94,7 @@ object BuildRuntimeModule {
         downloader = downloader,
         extractor = extractor,
         abi = abi,
+        fetcher = fetcher,
     )
 
     @Provides
