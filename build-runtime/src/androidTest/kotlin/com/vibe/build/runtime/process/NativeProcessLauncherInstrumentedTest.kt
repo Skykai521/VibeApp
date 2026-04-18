@@ -44,7 +44,10 @@ class NativeProcessLauncherInstrumentedTest {
         val fs = BootstrapFileSystem(filesDir = scratchDir)
         fs.ensureDirectories()
 
-        launcher = NativeProcessLauncher(ProcessEnvBuilder(fs))
+        val preloadLib = PreloadLibLocator(
+            nativeLibraryDir = java.io.File(ctx.applicationInfo.nativeLibraryDir),
+        )
+        launcher = NativeProcessLauncher(ProcessEnvBuilder(fs, preloadLib))
     }
 
     @After

@@ -109,4 +109,11 @@ class ProcessEnvBuilderTest {
         )
         assertEquals("", env["LD_PRELOAD"])
     }
+
+    @Test
+    fun `build sets VIBEAPP_USR_PREFIX to usr root for libtermux-exec`() {
+        val fs = newFs()
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
+        assertEquals(fs.usrRoot.absolutePath, env["VIBEAPP_USR_PREFIX"])
+    }
 }

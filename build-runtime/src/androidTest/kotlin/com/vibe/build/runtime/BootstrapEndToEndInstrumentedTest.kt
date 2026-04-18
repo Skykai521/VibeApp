@@ -18,6 +18,7 @@ import com.vibe.build.runtime.bootstrap.MirrorSelector
 import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import com.vibe.build.runtime.bootstrap.ZstdExtractor
 import com.vibe.build.runtime.process.NativeProcessLauncher
+import com.vibe.build.runtime.process.PreloadLibLocator
 import com.vibe.build.runtime.process.ProcessEnvBuilder
 import com.vibe.build.runtime.process.ProcessEvent
 import kotlinx.coroutines.flow.filterIsInstance
@@ -207,7 +208,11 @@ class BootstrapEndToEndInstrumentedTest {
         assertTrue("expected Ready, got $terminal", terminal is BootstrapState.Ready)
 
         // 8. Prove exec works against a path inside the extracted tree
-        val launcher = NativeProcessLauncher(ProcessEnvBuilder(fs))
+        val testCtx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preloadLib = PreloadLibLocator(
+            nativeLibraryDir = java.io.File(testCtx.applicationInfo.nativeLibraryDir),
+        )
+        val launcher = NativeProcessLauncher(ProcessEnvBuilder(fs, preloadLib))
         val extractedFile = File(fs.componentInstallDir("hello"), "hello/world.txt")
         assertTrue("expected file at $extractedFile", extractedFile.isFile)
 

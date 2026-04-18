@@ -29,6 +29,25 @@ static execve_t real_execve(void) {
 }
 
 /*
+ * Resolve the effective $PREFIX at runtime.
+ *
+ * Priority:
+ *   1. VIBEAPP_USR_PREFIX env var (set by ProcessEnvBuilder on every launch).
+ *   2. VIBEAPP_PREFIX compile-time fallback.
+ *
+ * A runtime env var is necessary because the instrumented test harness
+ * runs under a different uid/package than the main VibeApp, and its
+ * filesDir therefore differs from the compile-time default.
+ */
+static const char* effective_prefix(void) {
+    const char* env = getenv("VIBEAPP_USR_PREFIX");
+    if (env != NULL && env[0] != '\0') {
+        return env;
+    }
+    return VIBEAPP_PREFIX;
+}
+
+/*
  * Read the first line of `path` into `buf` (up to `buf_size - 1` bytes,
  * including newline). On success, returns the number of bytes read and
  * null-terminates `buf`. On failure, returns -1 and errno.
@@ -182,7 +201,7 @@ int execve(const char* path, char* const argv[], char* const envp[]) {
     char interp_bin_path[1024];
     int n = snprintf(
         interp_bin_path, sizeof(interp_bin_path),
-        "%s/bin/%s", VIBEAPP_PREFIX, interp
+        "%s/bin/%s", effective_prefix(), interp
     );
     if (n < 0 || (size_t)n >= sizeof(interp_bin_path)) {
         /* path too long; fall back to original exec */

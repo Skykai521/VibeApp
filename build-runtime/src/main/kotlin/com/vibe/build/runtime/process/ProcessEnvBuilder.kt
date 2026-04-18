@@ -9,14 +9,15 @@ import javax.inject.Singleton
  * Composes the environment variable map passed to every native process.
  *
  * Variables set:
- *   PATH             usr/bin:/system/bin:/system/xbin
- *   LD_LIBRARY_PATH  usr/lib
- *   LD_PRELOAD       <nativeLibraryDir>/libtermux-exec.so  (shebang correction)
- *   JAVA_HOME        usr/opt/jdk-17.0.13
- *   ANDROID_HOME     usr/opt/android-sdk
- *   GRADLE_USER_HOME filesDir/.gradle
- *   HOME             cwd
- *   TMPDIR           usr/tmp
+ *   PATH                usr/bin:/system/bin:/system/xbin
+ *   LD_LIBRARY_PATH     usr/lib
+ *   LD_PRELOAD          <nativeLibraryDir>/libtermux-exec.so  (shebang correction)
+ *   VIBEAPP_USR_PREFIX  usr                                   (read by libtermux-exec.so)
+ *   JAVA_HOME           usr/opt/jdk-17.0.13
+ *   ANDROID_HOME        usr/opt/android-sdk
+ *   GRADLE_USER_HOME    filesDir/.gradle
+ *   HOME                cwd
+ *   TMPDIR              usr/tmp
  *
  * [extra] overrides any of the above.
  */
@@ -34,6 +35,7 @@ class ProcessEnvBuilder @Inject constructor(
             "PATH" to buildPath(),
             "LD_LIBRARY_PATH" to File(fs.usrRoot, "lib").absolutePath,
             "LD_PRELOAD" to preloadLib.termuxExecLibPath(),
+            "VIBEAPP_USR_PREFIX" to fs.usrRoot.absolutePath,
             "JAVA_HOME" to File(fs.optRoot, JDK_DIR_NAME).absolutePath,
             "ANDROID_HOME" to File(fs.optRoot, ANDROID_SDK_DIR_NAME).absolutePath,
             "GRADLE_USER_HOME" to File(filesDir, GRADLE_USER_HOME_DIR_NAME).absolutePath,
