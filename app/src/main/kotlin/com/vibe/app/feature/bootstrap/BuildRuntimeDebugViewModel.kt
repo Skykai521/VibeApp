@@ -1,14 +1,20 @@
 package com.vibe.app.feature.bootstrap
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vibe.app.data.datastore.SettingDataSource
+import com.vibe.build.gradle.GradleBuildService
+import com.vibe.build.gradle.HostEvent
+import com.vibe.build.gradle.ProjectStager
+import com.vibe.build.gradle.ProjectTemplate
 import com.vibe.build.runtime.bootstrap.BootstrapFileSystem
 import com.vibe.build.runtime.bootstrap.BootstrapStateStore
 import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import com.vibe.build.runtime.process.ProcessEvent
 import com.vibe.build.runtime.process.ProcessLauncher
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,11 +27,14 @@ import javax.inject.Named
 
 @HiltViewModel
 class BuildRuntimeDebugViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val bootstrapper: RuntimeBootstrapper,
     private val store: BootstrapStateStore,
     private val launcher: ProcessLauncher,
     private val fs: BootstrapFileSystem,
     private val settingDataSource: SettingDataSource,
+    private val gradleBuildService: GradleBuildService,
+    private val projectStager: ProjectStager,
     @Named("bootstrapManifestUrl") private val manifestUrl: String,
     @Named("appCacheDir") private val cacheDir: File,
 ) : ViewModel() {
@@ -168,6 +177,71 @@ class BuildRuntimeDebugViewModel @Inject constructor(
             is ProcessEvent.Stdout -> log.append(String(ev.bytes, Charsets.UTF_8))
             is ProcessEvent.Stderr -> log.append("[stderr] ").append(String(ev.bytes, Charsets.UTF_8))
             is ProcessEvent.Exited -> log.append("\n[exit ${ev.code}]")
+        }
+    }
+
+    fun runProbeAssembleDebug() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(launchRunning = true, launchLog = "") }
+            val log = StringBuilder()
+            try {
+                val sdkDir = fs.componentInstallDir("android-sdk-36.0.0")
+                val gradleDist = fs.componentInstallDir("gradle-9.3.1")
+                val gradleUserHome = File(fs.usrRoot.parentFile, ".gradle").also { it.mkdirs() }
+                val projectDir = File(fs.usrRoot.parentFile, "projects/probe")
+                projectDir.parentFile?.mkdirs()
+
+                val templateSrc = File(cacheDir, "probe-src-${System.nanoTime()}")
+                copyAssetDir("probe-app", templateSrc)
+                projectStager.stage(
+                    template = ProjectTemplate.FromDirectory(templateSrc),
+                    destinationDir = projectDir,
+                    variables = mapOf(
+                        "SDK_DIR" to sdkDir.absolutePath,
+                        "GRADLE_USER_HOME" to gradleUserHome.absolutePath,
+                    ),
+                )
+
+                gradleBuildService.start(gradleDist)
+                gradleBuildService.runBuild(
+                    projectDirectory = projectDir,
+                    tasks = listOf(":app:assembleDebug"),
+                    args = emptyList(),
+                ).collect { event ->
+                    when (event) {
+                        is HostEvent.BuildProgress -> log.append("[progress] ${event.message}\n")
+                        is HostEvent.Log -> log.append("[${event.level}] ${event.text}\n")
+                        is HostEvent.BuildFinish -> {
+                            log.append("\n[finish] success=${event.success} durationMs=${event.durationMs}")
+                            event.failureSummary?.let { log.append("\n[failureSummary] $it") }
+                        }
+                        is HostEvent.Error -> log.append("\n[error] ${event.exceptionClass}: ${event.message}")
+                        else -> {}
+                    }
+                }
+                val apk = File(projectDir, "app/build/outputs/apk/debug/app-debug.apk")
+                log.append("\n[apk] ${apk.absolutePath} exists=${apk.exists()} size=${apk.length()}")
+            } catch (t: Throwable) {
+                log.append("\n[throw] ${t.javaClass.simpleName}: ${t.message}")
+            } finally {
+                _uiState.update { it.copy(launchRunning = false, launchLog = log.toString()) }
+            }
+        }
+    }
+
+    private fun copyAssetDir(assetPath: String, destDir: File) {
+        destDir.mkdirs()
+        val entries = appContext.assets.list(assetPath) ?: emptyArray()
+        entries.forEach { entry ->
+            val child = "$assetPath/$entry"
+            val childEntries = appContext.assets.list(child) ?: emptyArray()
+            if (childEntries.isEmpty()) {
+                appContext.assets.open(child).use { input ->
+                    File(destDir, entry).outputStream().use { out -> input.copyTo(out) }
+                }
+            } else {
+                copyAssetDir(child, File(destDir, entry))
+            }
         }
     }
 }

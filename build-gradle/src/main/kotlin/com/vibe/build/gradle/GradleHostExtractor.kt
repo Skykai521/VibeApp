@@ -2,6 +2,7 @@ package com.vibe.build.gradle
 
 import android.content.Context
 import com.vibe.build.runtime.bootstrap.BootstrapFileSystem
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -22,7 +23,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class GradleHostExtractor @Inject constructor(
-    private val context: Context,
+    @ApplicationContext private val context: Context,
     private val fs: BootstrapFileSystem,
 ) {
 

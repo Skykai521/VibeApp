@@ -122,6 +122,13 @@ fun BuildRuntimeDebugScreen(
             ) {
                 Text("Run gradle --version")
             }
+            Button(
+                onClick = viewModel::runProbeAssembleDebug,
+                enabled = !ui.launchRunning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Run probe :app:assembleDebug (5-10 min)")
+            }
 
             if (ui.launchLog.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
