@@ -36,6 +36,12 @@ android {
             isReturnDefaultValues = true
         }
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -53,4 +59,7 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
 
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.okhttp.mockwebserver)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
