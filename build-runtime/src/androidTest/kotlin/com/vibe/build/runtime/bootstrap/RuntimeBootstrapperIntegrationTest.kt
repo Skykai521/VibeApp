@@ -171,6 +171,7 @@ class RuntimeBootstrapperIntegrationTest {
             downloader = downloader,
             extractor = extractor,
             abi = Abi.pickPreferred(android.os.Build.SUPPORTED_ABIS) ?: Abi.ARM64,
+            fetcher = ManifestFetcher(mirrors),
             parsedManifestOverride = manifest,
         )
 
