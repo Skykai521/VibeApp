@@ -17,7 +17,16 @@ android {
     defaultConfig {
         applicationId = "com.vibe.app"
         minSdk = 29
-        targetSdk = 36
+        // targetSdk = 28 is load-bearing. It places VibeApp in the
+        // untrusted_app_28 SELinux domain, which permits
+        // execute_no_trans on app_data_file — the kernel precondition
+        // for exec'ing downloaded binaries (java, gradle, aapt2) out
+        // of filesDir/usr/opt/. Higher targetSdk values land in
+        // untrusted_app_29+ where that is denied, breaking the whole
+        // on-device build pipeline. See design doc §2.3 and
+        // docs/superpowers/plans/2026-04-18-v2-phase-1d-termux-exec.md
+        // (Phase 1d post-mortem) for the full context.
+        targetSdk = 28
         versionCode = 15
         versionName = "1.9.0"
 

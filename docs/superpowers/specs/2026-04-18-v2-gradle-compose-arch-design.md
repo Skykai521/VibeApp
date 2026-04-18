@@ -133,7 +133,9 @@ VibeApp v2.0 发版时冻结：
 | Android minSdk（生成的 app） | 24 | — |
 | Shadow Gradle Plugin | 官方最新稳定（Phase 5 锁定具体版本） | Maven 镜像解析 |
 
-> 注：**VibeApp 自身**的 `compileSdk=36`、`targetSdk=36`（见 `app/build.gradle.kts`）与生成应用的 SDK 约束解耦。生成应用对 SDK 的约束更保守，以最大化兼容性。
+> 注：**VibeApp 自身**的 `compileSdk=36`、`targetSdk=28`（见 `app/build.gradle.kts`）与生成应用的 SDK 约束解耦。生成应用对 SDK 的约束更保守，以最大化兼容性。
+
+**关于 `targetSdk=28`（Termux 模式，承重决策）**：VibeApp 自身的 `targetSdk` 固定在 28，**不能升级**。原因在 Phase 1d 的实测中暴露：Android 从 API 29 起把应用放进 `untrusted_app_29+` SELinux 域，拒绝 `execute_no_trans` on `app_data_file`——即内核拒绝 exec 任何解析到 `filesDir`/`cacheDir` 的路径（包括指向 `/system/bin/` 的符号链接）。这直接击穿"下载 JDK/Gradle 到 `filesDir/usr/opt/` 然后 exec"的核心前提。`proot`、`memfd_create`、`ptrace` 路径改写都无法绕过（SELinux 检查在 syscall 早期发生，早于这些机制）。唯一干净的工程解是落入 `untrusted_app_27/_28` 域，即 `targetSdk ≤ 28`。Termux / CodeAssist / Pydroid 等同类应用都做了同样的选择。代价：Android 10+ 安装时会弹一次"旧版本应用"警告；永久无法上架 Google Play——但发行渠道本就仅限 GitHub Release，这不是约束。**`compileSdk` 保持 36**，所以代码里依然可以使用任何现代 API。`:build-runtime` 模块的 instrumented-test APK 通过 `android.testOptions.targetSdk = 28` 继承同一个 SELinux 域，保证测试环境与生产一致。
 
 Kotlin / Compose Compiler / AGP / Gradle 的版本兼容矩阵由 JetBrains / AGP release note 约束，未来升级必须整组同步。
 
@@ -336,9 +338,13 @@ class ProcessLauncher @Inject constructor(
 
 **实现状态（截至 Phase 1d）**：`libtermux-exec.so` 为 ~170 LoC 的 clean-room C 实现，位于 `build-runtime/src/main/cpp/termux_exec/`。范围保守：只重写 `execve()`，且只处理 `#!/usr/bin/env <interp>` 这一种 shebang 形式。解释器路径解析优先读取 `VIBEAPP_USR_PREFIX` 环境变量（由 `ProcessEnvBuilder` 注入 `fs.usrRoot.absolutePath`），缺省才回退到编译期 `VIBEAPP_PREFIX` 宏 `/data/user/0/com.vibe.app/files/usr`。运行时 prefix 解析确保在不同 app 包名下（包括 instrumented test 的 `.test` APK）都能正确工作。`LD_PRELOAD` 由 `ProcessEnvBuilder` 在每次 `launch()` 时注入到子进程。
 
-**已知验证局限**：端到端的 shebang 重写测试无法从标准 Android API 29+ 应用沙箱验证——SELinux 的 `app_data_file` 域会拒绝任何对 `filesDir`/`cacheDir` 下路径的 `execute_no_trans`（包括指向 `/system/bin/` 的符号链接，以及脚本本身）。这个限制独立于 libtermux-exec.so 的重写逻辑——内核在我们的 override 加载之前就已经做了 SELinux 检查。完整的 shebang 端到端验证在 Phase 2 和 `proot`（或等效的 pivot_root 层）一起落地，proot 本身独立于 shebang 重写——它是在 filesDir 下运行 `java` / `gradle` 二进制的前置条件。
+**作用域（重要）**：`libtermux-exec.so` 只能拦截**来自后代进程的 execve**——即那些通过 LD_PRELOAD 在进程启动时加载了它的进程的 children。典型场景：我们启动 `java` 进程，java 的 envp 里带 LD_PRELOAD，java 的 dynamic linker 在启动时加载 libtermux-exec.so，随后 java/gradle 执行的任何 `execve`（worker JVM、kotlinc、R8、shell 脚本等）都被拦截。这刚好覆盖了 Phase 2+ 的实际调用模式。
 
-**覆盖测试**：`:build-runtime` 的 `ShebangInstrumentedTest` 有 2 个 on-device 测试——`direct_binary_exec_unaffected_by_preload`（保证 LD_PRELOAD 对直接二进制 exec 透明）和 `toybox_env_shows_LD_PRELOAD_and_VIBEAPP_USR_PREFIX`（证明环境变量正确注入到子进程）。
+**不能做的事**：`libtermux-exec.so` 无法拦截 VibeApp 自己 `ProcessLauncher.launch` 那层的首次 execve——我们的 `process_launcher.c` 在 libc 链接期就把 `execve` 符号绑到了 libc，Android 的 `System.loadLibrary` 使用 `RTLD_LOCAL` 加载 JNI 库，符号不会 interpose 到 libbuildruntime.so 的查找作用域。实践中这不是问题：Phase 2 启动 Gradle 的方式是 `ProcessLauncher.launch("$PREFIX/opt/jdk/bin/java", ...)`——exec 一个真二进制，不存在 shebang；`java` 的后代进程才会有 shebang 需求，而那时 LD_PRELOAD 正常工作。
+
+**已知验证局限**：`ShebangInstrumentedTest` 故意不测试"用 `ProcessLauncher.launch` 直接 exec 一个 `#!/usr/bin/env sh` 脚本"的场景——这个场景不代表真实调用链路，且受限于上述 `RTLD_LOCAL` 特性。后代 shebang 重写的覆盖测试在 Phase 2 的 Gradle 测试中自然发生（gradle daemon 跑 kotlinc/R8 时如遇 `#!/usr/bin/env sh` 脚本会验证到）。
+
+**覆盖测试**：`:build-runtime` 的 `ShebangInstrumentedTest` 有 2 个 on-device 测试——`direct_binary_exec_unaffected_by_preload`（保证 LD_PRELOAD 对直接二进制 exec 透明）和 `toybox_env_shows_LD_PRELOAD_and_VIBEAPP_USR_PREFIX`（证明环境变量正确注入到子进程）。Phase 1d 后又加入 `targetSdk=28` 这一承重决策，SELinux 的 exec-from-filesDir 限制解除——这是 Phase 2 能真正 exec downloaded JDK 的前置条件。
 
 ### 3.8 进程生命周期与 Daemon 管理
 

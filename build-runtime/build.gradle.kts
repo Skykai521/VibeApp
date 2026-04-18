@@ -42,6 +42,12 @@ android {
     }
 
     testOptions {
+        // Instrumented-test APK targetSdk. Matches the main app's
+        // targetSdk so tests run under the same untrusted_app_28
+        // SELinux domain — without this, exec-from-filesDir tests
+        // in Phase 1d hit execute_no_trans denials.
+        // See app/build.gradle.kts for context.
+        targetSdk = 28
         unitTests {
             isIncludeAndroidResources = false
             isReturnDefaultValues = true

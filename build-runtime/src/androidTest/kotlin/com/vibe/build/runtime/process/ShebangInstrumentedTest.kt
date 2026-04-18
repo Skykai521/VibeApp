@@ -19,30 +19,33 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Tests for the `libtermux-exec.so` LD_PRELOAD plumbing.
+ * On-device tests for the `libtermux-exec.so` LD_PRELOAD plumbing.
  *
  * Scope note:
- *   Full end-to-end validation of shebang rewriting (running a script
- *   with `#!/usr/bin/env sh` and observing the override rewrite it
- *   to `$PREFIX/bin/sh`) is NOT possible from inside the stock
- *   Android API 29+ app sandbox: SELinux's `app_data_file` domain
- *   denies `execute_no_trans` on any path resolving into `filesDir` /
- *   `cacheDir`, whether the target is a real script or a symlink
- *   into `/system/bin/`. That restriction applies to ANY exec — the
- *   libtermux-exec.so rewrite doesn't bypass it; kernel SELinux runs
- *   before the override even loads.
+ *   `libtermux-exec.so`'s `execve()` override only intercepts execs
+ *   made by DESCENDANTS of a process that loads it via LD_PRELOAD at
+ *   startup — e.g. the Gradle daemon's own children (worker JVMs,
+ *   kotlinc, R8, etc.) inherit the preload through the daemon's
+ *   envp. Our own `process_launcher.c` links against libc directly
+ *   and can't be intercepted by `System.loadLibrary`-loaded overrides
+ *   (Android uses `RTLD_LOCAL` for JNI libs, preventing symbol
+ *   interposition into libbuildruntime.so's namespace).
  *
- *   The code path WILL work once Phase 2 introduces `proot` (or an
- *   equivalent chroot/pivot_root layer), which is required
- *   independently for running `java` / `gradle` binaries out of the
- *   downloaded JDK. A full shebang acceptance test will land there.
+ *   In practice this is fine: Phase 2's call pattern is
+ *   `ProcessLauncher.launch("/data/.../usr/opt/jdk/bin/java", ...)`,
+ *   which execs a REAL BINARY (no shebang involved), and `java`'s
+ *   descendants benefit from `LD_PRELOAD` normally. We never need to
+ *   `exec` a script at the first level.
  *
- *   What this test does validate:
- *     - LD_PRELOAD is wired into the child environment (via ProcessEnvBuilder).
+ *   What this test class validates:
+ *     - LD_PRELOAD is wired into the child environment.
  *     - VIBEAPP_USR_PREFIX is wired into the child environment.
  *     - libtermux-exec.so is transparent for direct binary execs
- *       (proven in isolation here; also covered by every other
- *       Phase 1a/1b/1c instrumented test).
+ *       (regression guard for every other place that execs a real binary).
+ *
+ *   Shebang-rewrite validation for descendant processes will land in
+ *   Phase 2's Gradle tests, where we have a real parent process
+ *   (the gradle daemon JVM) exec'ing script children.
  */
 @RunWith(AndroidJUnit4::class)
 class ShebangInstrumentedTest {
@@ -76,8 +79,8 @@ class ShebangInstrumentedTest {
     @Test
     fun direct_binary_exec_unaffected_by_preload() = runBlocking {
         // Proves LD_PRELOAD=libtermux-exec.so is transparent for non-script
-        // binary execs. This is the regression-guard for Phase 1d against
-        // the dozens of places in the codebase that exec direct binaries.
+        // binary execs. Regression guard for every other place in the
+        // codebase that execs /system/bin/* directly.
         val process = launcher.launch(
             executable = "/system/bin/toybox",
             args = listOf("echo", "direct-ok"),
@@ -96,8 +99,7 @@ class ShebangInstrumentedTest {
     @Test
     fun toybox_env_shows_LD_PRELOAD_and_VIBEAPP_USR_PREFIX() = runBlocking {
         // Launches /system/bin/toybox env and inspects stdout for our
-        // two key env vars. Proves ProcessEnvBuilder is wiring them
-        // into child processes end-to-end.
+        // two key env vars. Proves ProcessEnvBuilder wires them end-to-end.
         val process = launcher.launch(
             executable = "/system/bin/toybox",
             args = listOf("env"),
