@@ -167,6 +167,9 @@ dependencies {
 
     implementation(project(":build-engine"))
     implementation(project(":shadow-runtime"))
+    implementation(project(":build-runtime"))
+    implementation(project(":build-gradle"))
+    implementation(project(":plugin-host"))
 
     // Test
     testImplementation(libs.junit)
