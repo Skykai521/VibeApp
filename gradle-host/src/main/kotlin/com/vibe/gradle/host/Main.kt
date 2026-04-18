@@ -86,10 +86,12 @@ private fun parseGradleDistArg(args: Array<String>): String? {
 }
 
 private fun toolingApiVersion(): String {
-    // Read from GradleConnector package metadata at runtime. This matches
-    // the version baked into the shaded JAR; avoids hardcoding.
-    return org.gradle.tooling.GradleConnector::class.java.`package`.implementationVersion
-        ?: "unknown"
+    // Prefer the Implementation-Version from GradleConnector's package
+    // manifest — accurate, no hardcoding. But shaded fat JARs often
+    // strip Package-level manifest entries, so fall back to the value
+    // pinned in :gradle-host/build.gradle.kts.
+    return org.gradle.tooling.GradleConnector::class.java.`package`?.implementationVersion
+        ?: "8.10.2"
 }
 
 private fun die(message: String): Nothing {

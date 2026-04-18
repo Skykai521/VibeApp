@@ -70,15 +70,26 @@ class GradleHostInstrumentedTest {
 
         fs = BootstrapFileSystem(filesDir = scratchDir)
         fs.ensureDirectories()
-        val preloadLib = PreloadLibLocator(File(ctx.applicationInfo.nativeLibraryDir))
+        // :build-gradle's instrumented-test APK does NOT package
+        // libtermux-exec.so from :build-runtime's native libs
+        // (transitive JNI propagation doesn't happen for library test
+        // APKs). We don't actually need the preload for this test —
+        // we exec java directly (a real binary, not a script), so
+        // shebang rewriting is irrelevant. Return empty path → LD_PRELOAD
+        // gets set to "" which the linker treats as "no preload".
+        val preloadLib = object : PreloadLibLocator(File(ctx.applicationInfo.nativeLibraryDir)) {
+            override fun termuxExecLibPath(): String = ""
+        }
         val envBuilder = ProcessEnvBuilder(fs, preloadLib)
         launcher = NativeProcessLauncher(envBuilder)
     }
 
     @After
-    fun tearDown() = runBlocking {
-        if (::service.isInitialized) {
-            try { service.shutdown() } catch (_: Throwable) {}
+    fun tearDown() {
+        runBlocking {
+            if (::service.isInitialized) {
+                try { service.shutdown() } catch (_: Throwable) {}
+            }
         }
         scratchDir.deleteRecursively()
     }

@@ -43,9 +43,19 @@ internal class ToolingApiDriver(
 
         try {
             connector.connect().use { connection ->
+                // Gradle Daemon JVM inherits hardcoded Termux paths
+                // (java.io.tmpdir = /data/data/com.termux/files/usr/tmp,
+                // user.home = /data/data/com.termux/files/home) that don't
+                // exist on our device. Propagate valid values from this JVM,
+                // which Main.kt already sets before spawning.
+                val daemonJvmArgs = buildList {
+                    System.getProperty("java.io.tmpdir")?.let { add("-Djava.io.tmpdir=$it") }
+                    System.getProperty("user.home")?.let { add("-Duser.home=$it") }
+                }
                 val launcher = connection.newBuild()
                     .forTasks(*request.tasks.toTypedArray())
                     .withArguments(request.args)
+                    .setJvmArguments(daemonJvmArgs)
                     .setStandardOutput(PrintStream(stdout))
                     .setStandardError(PrintStream(stderr))
 
@@ -73,7 +83,7 @@ internal class ToolingApiDriver(
                     requestId = request.requestId,
                     success = false,
                     durationMs = durationMs,
-                    failureSummary = t.message ?: t.javaClass.name,
+                    failureSummary = buildCauseChain(t),
                 ),
             )
         } catch (t: Throwable) {
@@ -81,10 +91,23 @@ internal class ToolingApiDriver(
                 HostEvent.Error(
                     requestId = request.requestId,
                     exceptionClass = t.javaClass.name,
-                    message = t.message ?: "(no message)",
+                    message = buildCauseChain(t),
                 ),
             )
         }
+    }
+
+    private fun buildCauseChain(t: Throwable): String {
+        val sb = StringBuilder()
+        var current: Throwable? = t
+        var depth = 0
+        while (current != null && depth < 10) {
+            if (sb.isNotEmpty()) sb.append(" | caused by ")
+            sb.append(current.javaClass.name).append(": ").append(current.message ?: "(no message)")
+            current = current.cause
+            depth++
+        }
+        return sb.toString()
     }
 
     private fun emitCapturedStream(

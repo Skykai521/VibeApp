@@ -44,9 +44,19 @@ internal class GradleHostProcess(
         val cwd = fs.componentInstallDir("vibeapp-gradle-host")
         cwd.mkdirs()
 
+        // Termux JDK was built with compile-time defaults for java.io.tmpdir
+        // and user.home pointing at /data/data/com.termux/...; those paths
+        // don't exist on-device, so Gradle's VFS setup blows up. Override
+        // them here (the host JVM then propagates them to the Daemon via
+        // ToolingApiDriver.setJvmArguments).
+        val tmpDir = File(fs.usrRoot, "tmp").also { it.mkdirs() }
+        val homeDir = cwd
+
         process = launcher.launch(
             executable = javaBinary.absolutePath,
             args = listOf(
+                "-Djava.io.tmpdir=${tmpDir.absolutePath}",
+                "-Duser.home=${homeDir.absolutePath}",
                 "-jar", hostJar.absolutePath,
                 "--gradle-distribution", gradleDistribution.absolutePath,
             ),
@@ -55,6 +65,7 @@ internal class GradleHostProcess(
 
         val readyDeferred = CompletableDeferred<String>()
         val lineBuffer = StringBuilder()
+        val stderrBuffer = StringBuilder()
 
         readerJob = scope.launch {
             process.events.collect { ev ->
@@ -82,13 +93,20 @@ internal class GradleHostProcess(
                         }
                     }
                     is ProcessEvent.Stderr -> {
-                        // stderr is informational; surface via Log events if
-                        // multiple lines. For now we silently ignore.
+                        // Accumulate stderr so we can surface it if the host
+                        // dies before emitting Ready. Once Ready arrives, this
+                        // buffer is still appended to — callers can inspect it
+                        // via logcat / future diagnostic plumbing.
+                        stderrBuffer.append(String(ev.bytes, Charsets.UTF_8))
                     }
                     is ProcessEvent.Exited -> {
                         if (!readyDeferred.isCompleted) {
                             readyDeferred.completeExceptionally(
-                                IllegalStateException("GradleHost exited before Ready (code=${ev.code})"),
+                                IllegalStateException(
+                                    "GradleHost exited before Ready (code=${ev.code})\n" +
+                                        "--- stderr ---\n${stderrBuffer}\n" +
+                                        "--- end stderr ---",
+                                ),
                             )
                         }
                     }

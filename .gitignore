@@ -43,3 +43,5 @@ app/build/**
 
 # GradleHost shaded JAR, copied from gradle-host/build/libs at build time.
 /app/src/main/assets/vibeapp-gradle-host.jar
+# GradleHost JAR copied into build-gradle's androidTest assets
+/build-gradle/src/androidTest/assets/vibeapp-gradle-host.jar
