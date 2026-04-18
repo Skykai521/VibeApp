@@ -13,7 +13,7 @@ import javax.inject.Inject
  * In production this is injected from `BuildConfig.BOOTSTRAP_PUBKEY_HEX`
  * (set by the VibeApp Gradle build). Tests pass their own key.
  */
-class ManifestSignature @Inject constructor(
+open class ManifestSignature @Inject constructor(
     private val publicKeyHex: String,
 ) {
     private val publicKey: EdDSAPublicKey
@@ -35,7 +35,7 @@ class ManifestSignature @Inject constructor(
      * including malformed signatures — callers should not leak signature
      * failure details.
      */
-    fun verify(manifestBytes: ByteArray, signature: ByteArray): Boolean {
+    open fun verify(manifestBytes: ByteArray, signature: ByteArray): Boolean {
         return try {
             val engine = EdDSAEngine().apply { initVerify(publicKey) }
             engine.update(manifestBytes, 0, manifestBytes.size)

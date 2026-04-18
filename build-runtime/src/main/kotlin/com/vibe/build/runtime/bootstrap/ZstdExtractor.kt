@@ -20,9 +20,9 @@ import javax.inject.Singleton
  * directory (zip-slip defense).
  */
 @Singleton
-class ZstdExtractor @Inject constructor() {
+open class ZstdExtractor @Inject constructor() {
 
-    fun extract(source: File, destinationDir: File) {
+    open fun extract(source: File, destinationDir: File) {
         require(destinationDir.isDirectory) {
             "destinationDir must exist: $destinationDir"
         }

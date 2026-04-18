@@ -10,7 +10,7 @@ import javax.inject.Singleton
  * Throws [ManifestException] for any malformed or version-incompatible input.
  */
 @Singleton
-class ManifestParser @Inject constructor() {
+open class ManifestParser @Inject constructor() {
 
     private val json = Json {
         ignoreUnknownKeys = false     // strict: reject unknown top-level fields
@@ -18,7 +18,7 @@ class ManifestParser @Inject constructor() {
         prettyPrint = false
     }
 
-    fun parse(bytes: ByteArray): BootstrapManifest {
+    open fun parse(bytes: ByteArray): BootstrapManifest {
         val manifest = try {
             json.decodeFromString(BootstrapManifest.serializer(), String(bytes, Charsets.UTF_8))
         } catch (e: SerializationException) {

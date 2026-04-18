@@ -35,9 +35,9 @@ sealed interface DownloadEvent {
  *   user-driven retry.
  */
 @Singleton
-class BootstrapDownloader @Inject constructor() {
+open class BootstrapDownloader @Inject constructor() {
 
-    fun download(
+    open fun download(
         url: String,
         destination: File,
         expectedSha256: String,
