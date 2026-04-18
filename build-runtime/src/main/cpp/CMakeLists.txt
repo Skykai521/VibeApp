@@ -6,9 +6,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_library(
     buildruntime SHARED
-    placeholder.c
+    process_launcher.c
+    jni_process_launcher.c
 )
 
-# Android's built-in liblog for future logcat tracing (unused in Phase 1b).
 find_library(log-lib log)
 target_link_libraries(buildruntime ${log-lib})
