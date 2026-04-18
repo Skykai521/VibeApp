@@ -11,20 +11,19 @@ import javax.inject.Singleton
  * Variables set:
  *   PATH             usr/bin:/system/bin:/system/xbin
  *   LD_LIBRARY_PATH  usr/lib
- *   JAVA_HOME        usr/opt/jdk-17.0.13      (Phase 1c: populated by bootstrap)
- *   ANDROID_HOME     usr/opt/android-sdk      (Phase 1c: populated by bootstrap)
- *   GRADLE_USER_HOME filesDir/.gradle         (shared across projects)
+ *   LD_PRELOAD       <nativeLibraryDir>/libtermux-exec.so  (shebang correction)
+ *   JAVA_HOME        usr/opt/jdk-17.0.13
+ *   ANDROID_HOME     usr/opt/android-sdk
+ *   GRADLE_USER_HOME filesDir/.gradle
  *   HOME             cwd
  *   TMPDIR           usr/tmp
  *
  * [extra] overrides any of the above.
- *
- * NOTE: `LD_PRELOAD` for libtermux-exec.so will be added in Phase 1c when
- * downloaded binaries with shebangs need correction.
  */
 @Singleton
 class ProcessEnvBuilder @Inject constructor(
     private val fs: BootstrapFileSystem,
+    private val preloadLib: PreloadLibLocator,
 ) {
 
     fun build(cwd: File, extra: Map<String, String> = emptyMap()): Map<String, String> {
@@ -34,6 +33,7 @@ class ProcessEnvBuilder @Inject constructor(
         val base = mapOf(
             "PATH" to buildPath(),
             "LD_LIBRARY_PATH" to File(fs.usrRoot, "lib").absolutePath,
+            "LD_PRELOAD" to preloadLib.termuxExecLibPath(),
             "JAVA_HOME" to File(fs.optRoot, JDK_DIR_NAME).absolutePath,
             "ANDROID_HOME" to File(fs.optRoot, ANDROID_SDK_DIR_NAME).absolutePath,
             "GRADLE_USER_HOME" to File(filesDir, GRADLE_USER_HOME_DIR_NAME).absolutePath,
@@ -51,7 +51,6 @@ class ProcessEnvBuilder @Inject constructor(
     ).joinToString(separator = ":")
 
     companion object {
-        /** Component install directory names. Must match bootstrap manifest IDs in Phase 1c. */
         const val JDK_DIR_NAME = "jdk-17.0.13"
         const val ANDROID_SDK_DIR_NAME = "android-sdk"
         const val GRADLE_USER_HOME_DIR_NAME = ".gradle"

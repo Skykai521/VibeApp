@@ -13,6 +13,7 @@ import com.vibe.build.runtime.bootstrap.ManifestFetcher
 import com.vibe.build.runtime.bootstrap.MirrorSelector
 import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import com.vibe.build.runtime.bootstrap.ZstdExtractor
+import com.vibe.build.runtime.process.PreloadLibLocator
 import com.vibe.build.runtime.process.ProcessEnvBuilder
 import dagger.Module
 import dagger.Provides
@@ -100,9 +101,19 @@ object BuildRuntimeModule {
 
     @Provides
     @Singleton
+    fun providePreloadLibLocator(
+        @ApplicationContext context: Context,
+    ): PreloadLibLocator =
+        PreloadLibLocator(
+            nativeLibraryDir = java.io.File(context.applicationInfo.nativeLibraryDir),
+        )
+
+    @Provides
+    @Singleton
     fun provideProcessEnvBuilder(
         fs: BootstrapFileSystem,
-    ): ProcessEnvBuilder = ProcessEnvBuilder(fs)
+        preloadLib: PreloadLibLocator,
+    ): ProcessEnvBuilder = ProcessEnvBuilder(fs, preloadLib)
 
     @Provides
     @Singleton

@@ -16,10 +16,15 @@ class ProcessEnvBuilderTest {
 
     private fun newFs(): BootstrapFileSystem = BootstrapFileSystem(filesDir = temp.root)
 
+    private fun fakePreload(libPath: String = "/fake/native-lib-dir/libtermux-exec.so"): PreloadLibLocator =
+        object : PreloadLibLocator(File("/fake/native-lib-dir")) {
+            override fun termuxExecLibPath(): String = libPath
+        }
+
     @Test
     fun `build produces PATH rooted at usr bin plus Android system paths`() {
         val fs = newFs()
-        val env = ProcessEnvBuilder(fs).build(cwd = temp.root, extra = emptyMap())
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
 
         val path = env["PATH"]!!
         assertTrue("PATH should start with usr/bin: $path",
@@ -32,7 +37,7 @@ class ProcessEnvBuilderTest {
         val fs = newFs()
         val home = File(temp.root, "projects/p1")
         home.mkdirs()
-        val env = ProcessEnvBuilder(fs).build(cwd = home, extra = emptyMap())
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = home, extra = emptyMap())
 
         assertEquals(home.absolutePath, env["HOME"])
     }
@@ -40,7 +45,7 @@ class ProcessEnvBuilderTest {
     @Test
     fun `build sets TMPDIR under usr tmp`() {
         val fs = newFs()
-        val env = ProcessEnvBuilder(fs).build(cwd = temp.root, extra = emptyMap())
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
 
         assertEquals(File(fs.usrRoot, "tmp").absolutePath, env["TMPDIR"])
     }
@@ -48,7 +53,7 @@ class ProcessEnvBuilderTest {
     @Test
     fun `build sets JAVA_HOME and ANDROID_HOME under usr opt`() {
         val fs = newFs()
-        val env = ProcessEnvBuilder(fs).build(cwd = temp.root, extra = emptyMap())
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
 
         assertEquals(File(fs.optRoot, "jdk-17.0.13").absolutePath, env["JAVA_HOME"])
         assertEquals(File(fs.optRoot, "android-sdk").absolutePath, env["ANDROID_HOME"])
@@ -57,7 +62,7 @@ class ProcessEnvBuilderTest {
     @Test
     fun `extra env entries override base entries`() {
         val fs = newFs()
-        val env = ProcessEnvBuilder(fs).build(
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(
             cwd = temp.root,
             extra = mapOf(
                 "PATH" to "/custom/path",
@@ -74,16 +79,34 @@ class ProcessEnvBuilderTest {
     @Test
     fun `build sets LD_LIBRARY_PATH under usr lib`() {
         val fs = newFs()
-        val env = ProcessEnvBuilder(fs).build(cwd = temp.root, extra = emptyMap())
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
         assertEquals(File(fs.usrRoot, "lib").absolutePath, env["LD_LIBRARY_PATH"])
     }
 
     @Test
     fun `build sets GRADLE_USER_HOME under filesDir gradle`() {
         val fs = newFs()
-        val env = ProcessEnvBuilder(fs).build(cwd = temp.root, extra = emptyMap())
+        val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
         // filesDir/.gradle — one level up from usr/
         val expected = File(temp.root, ".gradle").absolutePath
         assertEquals(expected, env["GRADLE_USER_HOME"])
+    }
+
+    @Test
+    fun `build sets LD_PRELOAD to the preload lib path`() {
+        val fs = newFs()
+        val env = ProcessEnvBuilder(fs, fakePreload("/custom/libtermux-exec.so"))
+            .build(cwd = temp.root, extra = emptyMap())
+        assertEquals("/custom/libtermux-exec.so", env["LD_PRELOAD"])
+    }
+
+    @Test
+    fun `extra map can override LD_PRELOAD`() {
+        val fs = newFs()
+        val env = ProcessEnvBuilder(fs, fakePreload("/base/libtermux-exec.so")).build(
+            cwd = temp.root,
+            extra = mapOf("LD_PRELOAD" to ""),   // consumer disables preload
+        )
+        assertEquals("", env["LD_PRELOAD"])
     }
 }
