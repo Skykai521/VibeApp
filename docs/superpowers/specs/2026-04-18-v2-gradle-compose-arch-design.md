@@ -334,6 +334,12 @@ class ProcessLauncher @Inject constructor(
 - **信号传递**：子进程间的 `SIGTERM` 能正确回传到 VibeApp 应用层（否则 Gradle 取消构建时 Worker 进程会变僵尸）。
 - **子进程继承**：`LD_PRELOAD` 通过 env 继承，Java → Gradle launcher → Worker 链条自动覆盖。
 
+**实现状态（截至 Phase 1d）**：`libtermux-exec.so` 为 ~170 LoC 的 clean-room C 实现，位于 `build-runtime/src/main/cpp/termux_exec/`。范围保守：只重写 `execve()`，且只处理 `#!/usr/bin/env <interp>` 这一种 shebang 形式。解释器路径解析优先读取 `VIBEAPP_USR_PREFIX` 环境变量（由 `ProcessEnvBuilder` 注入 `fs.usrRoot.absolutePath`），缺省才回退到编译期 `VIBEAPP_PREFIX` 宏 `/data/user/0/com.vibe.app/files/usr`。运行时 prefix 解析确保在不同 app 包名下（包括 instrumented test 的 `.test` APK）都能正确工作。`LD_PRELOAD` 由 `ProcessEnvBuilder` 在每次 `launch()` 时注入到子进程。
+
+**已知验证局限**：端到端的 shebang 重写测试无法从标准 Android API 29+ 应用沙箱验证——SELinux 的 `app_data_file` 域会拒绝任何对 `filesDir`/`cacheDir` 下路径的 `execute_no_trans`（包括指向 `/system/bin/` 的符号链接，以及脚本本身）。这个限制独立于 libtermux-exec.so 的重写逻辑——内核在我们的 override 加载之前就已经做了 SELinux 检查。完整的 shebang 端到端验证在 Phase 2 和 `proot`（或等效的 pivot_root 层）一起落地，proot 本身独立于 shebang 重写——它是在 filesDir 下运行 `java` / `gradle` 二进制的前置条件。
+
+**覆盖测试**：`:build-runtime` 的 `ShebangInstrumentedTest` 有 2 个 on-device 测试——`direct_binary_exec_unaffected_by_preload`（保证 LD_PRELOAD 对直接二进制 exec 透明）和 `toybox_env_shows_LD_PRELOAD_and_VIBEAPP_USR_PREFIX`（证明环境变量正确注入到子进程）。
+
 ### 3.8 进程生命周期与 Daemon 管理
 
 | 事件 | 行为 |
