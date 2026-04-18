@@ -10,7 +10,7 @@ import javax.inject.Singleton
  *
  * Variables set:
  *   PATH                usr/bin:/system/bin:/system/xbin
- *   LD_LIBRARY_PATH     usr/lib
+ *   LD_LIBRARY_PATH     <JAVA_HOME>/lib/server:<JAVA_HOME>/lib:usr/lib:<ANDROID_HOME>/build-tools/36.0.0
  *   LD_PRELOAD          <nativeLibraryDir>/libtermux-exec.so  (shebang correction)
  *   VIBEAPP_USR_PREFIX  usr                                   (read by libtermux-exec.so)
  *   JAVA_HOME           usr/opt/jdk-17.0.13
@@ -31,14 +31,15 @@ class ProcessEnvBuilder @Inject constructor(
         val filesDir = fs.usrRoot.parentFile
             ?: error("BootstrapFileSystem.usrRoot has no parent; expected filesDir/usr")
         val javaHome = File(fs.optRoot, JDK_DIR_NAME)
+        val androidHome = File(fs.optRoot, ANDROID_SDK_DIR_NAME)
 
         val base = mapOf(
             "PATH" to buildPath(),
-            "LD_LIBRARY_PATH" to buildLdLibraryPath(javaHome),
+            "LD_LIBRARY_PATH" to buildLdLibraryPath(javaHome, androidHome),
             "LD_PRELOAD" to preloadLib.termuxExecLibPath(),
             "VIBEAPP_USR_PREFIX" to fs.usrRoot.absolutePath,
             "JAVA_HOME" to javaHome.absolutePath,
-            "ANDROID_HOME" to File(fs.optRoot, ANDROID_SDK_DIR_NAME).absolutePath,
+            "ANDROID_HOME" to androidHome.absolutePath,
             "GRADLE_USER_HOME" to File(filesDir, GRADLE_USER_HOME_DIR_NAME).absolutePath,
             "HOME" to cwd.absolutePath,
             "TMPDIR" to File(fs.usrRoot, "tmp").absolutePath,
@@ -47,7 +48,7 @@ class ProcessEnvBuilder @Inject constructor(
         return base + extra
     }
 
-    private fun buildLdLibraryPath(javaHome: File): String = listOf(
+    private fun buildLdLibraryPath(javaHome: File, androidHome: File): String = listOf(
         // JDK's own lib dirs first so libjvm.so (no $ORIGIN in its
         // RUNPATH) can still find co-bundled runtime deps
         // (libandroid-shmem.so, libz.so, etc.).
@@ -55,6 +56,11 @@ class ProcessEnvBuilder @Inject constructor(
         File(javaHome, "lib").absolutePath,
         // Shared usr/lib for any future cross-component libs.
         File(fs.usrRoot, "lib").absolutePath,
+        // aapt2's runtime dep closure (libabsl_*.so, libprotobuf.so, libc++_shared.so,
+        // libandroid-*, libexpat, libpng16, etc.) ships in the SDK tarball next to the
+        // aapt2 binary. aapt2's DT_RUNPATH points at a Termux-internal path that
+        // doesn't exist on our device, so the linker needs this entry to resolve them.
+        File(androidHome, "build-tools/36.0.0").absolutePath,
     ).joinToString(separator = ":")
 
     private fun buildPath(): String = listOf(

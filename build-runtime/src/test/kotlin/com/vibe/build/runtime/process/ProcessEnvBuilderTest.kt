@@ -81,12 +81,31 @@ class ProcessEnvBuilderTest {
         val fs = newFs()
         val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
         val javaHome = File(fs.optRoot, "jdk-17.0.13")
+        val androidHome = File(fs.optRoot, "android-sdk-36.0.0")
         val expected = listOf(
             File(javaHome, "lib/server").absolutePath,
             File(javaHome, "lib").absolutePath,
             File(fs.usrRoot, "lib").absolutePath,
+            File(androidHome, "build-tools/36.0.0").absolutePath,
         ).joinToString(separator = ":")
         assertEquals(expected, env["LD_LIBRARY_PATH"])
+    }
+
+    @Test
+    fun LD_LIBRARY_PATH_includes_aapt2_runtime_dir() {
+        val filesDir = temp.newFolder("filesDir")
+        val fs = BootstrapFileSystem(filesDir = filesDir)
+        fs.ensureDirectories()
+        val preload = object : PreloadLibLocator(File("/nowhere")) {
+            override fun termuxExecLibPath() = ""
+        }
+        val env = ProcessEnvBuilder(fs, preload).build(cwd = filesDir)
+        val expectedEntry = File(fs.optRoot, "android-sdk-36.0.0/build-tools/36.0.0").absolutePath
+        val libPath = env["LD_LIBRARY_PATH"] ?: error("LD_LIBRARY_PATH not set")
+        assertTrue(
+            "expected LD_LIBRARY_PATH to contain $expectedEntry; was: $libPath",
+            libPath.contains(expectedEntry),
+        )
     }
 
     @Test
