@@ -37,4 +37,7 @@ include(":build-tools:snapshots")
 include(":build-tools:jaxp:jaxp-internal")
 include(":build-tools:jaxp:xml")
 include(":shadow-runtime")
+include(":build-runtime")
+include(":build-gradle")
+include(":plugin-host")
 
