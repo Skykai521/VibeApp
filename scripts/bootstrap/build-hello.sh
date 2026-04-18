@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Cross-compiles hello.c for a target Android ABI, packages the
-# resulting binary as hello-<abi>.tar.zst under scripts/bootstrap/artifacts/.
+# resulting binary as hello-<abi>.tar.gz under scripts/bootstrap/artifacts/.
 
 set -euo pipefail
 
@@ -23,7 +23,7 @@ while [[ $# -gt 0 ]]; do
 Usage: $0 --abi <arm64-v8a|armeabi-v7a|x86_64> [--ndk-path PATH] [--min-api N]
 
 Cross-compiles scripts/bootstrap/hello/hello.c for the given Android ABI
-and writes scripts/bootstrap/artifacts/hello-<abi>.tar.zst.
+and writes scripts/bootstrap/artifacts/hello-<abi>.tar.gz.
 EOF
             exit 0;;
         *) echo "Unknown arg: $1" >&2; exit 2;;
@@ -62,13 +62,13 @@ trap 'rm -rf "$staging"' EXIT
 mkdir -p "$staging/bin"
 "$clang" --target="$clang_target" \
          -Wall -Wextra -Werror \
-         -O2 -static-libstdc++ \
+         -O2 \
          -o "$staging/bin/hello" \
          "$hello_dir/hello.c"
 chmod +x "$staging/bin/hello"
 
-out="$artifacts_dir/hello-$abi.tar.zst"
-(cd "$staging" && tar -cf - .) | zstd -19 -q -o "$out"
+out="$artifacts_dir/hello-$abi.tar.gz"
+(cd "$staging" && tar -cf - .) | gzip -9 -c > "$out"
 sha256=$(shasum -a 256 "$out" | awk '{print $1}')
 size=$(stat -f %z "$out" 2>/dev/null || stat -c %s "$out")
 echo "$out"

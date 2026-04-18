@@ -77,10 +77,16 @@ class ProcessEnvBuilderTest {
     }
 
     @Test
-    fun `build sets LD_LIBRARY_PATH under usr lib`() {
+    fun `build sets LD_LIBRARY_PATH to JDK lib dirs then usr lib`() {
         val fs = newFs()
         val env = ProcessEnvBuilder(fs, fakePreload()).build(cwd = temp.root, extra = emptyMap())
-        assertEquals(File(fs.usrRoot, "lib").absolutePath, env["LD_LIBRARY_PATH"])
+        val javaHome = File(fs.optRoot, "jdk-17.0.13")
+        val expected = listOf(
+            File(javaHome, "lib/server").absolutePath,
+            File(javaHome, "lib").absolutePath,
+            File(fs.usrRoot, "lib").absolutePath,
+        ).joinToString(separator = ":")
+        assertEquals(expected, env["LD_LIBRARY_PATH"])
     }
 
     @Test

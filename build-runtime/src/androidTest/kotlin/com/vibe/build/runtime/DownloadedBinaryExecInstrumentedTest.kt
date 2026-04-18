@@ -19,7 +19,6 @@ import com.vibe.build.runtime.process.NativeProcessLauncher
 import com.vibe.build.runtime.process.PreloadLibLocator
 import com.vibe.build.runtime.process.ProcessEnvBuilder
 import com.vibe.build.runtime.process.ProcessEvent
-import com.vibe.app.di.BuildRuntimeModule
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.fold
@@ -48,10 +47,10 @@ import java.io.File
  * dev server is accessible there.
  *
  * Signature key: the dev server's manifest must be signed with the
- * same Ed25519 seed as BuildRuntimeModule.BOOTSTRAP_PUBKEY_HEX —
+ * same Ed25519 seed as the committed dev pubkey (inlined below) —
  * i.e. ~/.vibeapp/dev-bootstrap-privseed.hex (see
  * docs/bootstrap/dev-keypair-setup.md). The `scripts/bootstrap/
- * sign-manifest.kts` tool guarantees this.
+ * SignManifest.java` tool guarantees this.
  */
 @RunWith(AndroidJUnit4::class)
 class DownloadedBinaryExecInstrumentedTest {
@@ -98,9 +97,14 @@ class DownloadedBinaryExecInstrumentedTest {
             primaryBase = devBaseUrl,
             fallbackBase = "https://unused.test",
         )
-        val signature = ManifestSignature(
-            publicKeyHex = BuildRuntimeModule.BOOTSTRAP_PUBKEY_HEX,
-        )
+        // Must match the committed dev pubkey in app/.../BuildRuntimeModule.kt
+        // (which in turn matches ~/.vibeapp/dev-bootstrap-privseed.hex's
+        // derived public half). See docs/bootstrap/dev-keypair-setup.md.
+        // Inlined here — not injected via app module — so the test APK
+        // doesn't pull in the full app Hilt graph (which crashes
+        // androidx.startup's InitializationProvider at test-APK startup).
+        val devPubkeyHex = "5ce0c624f59a72ee8eb6f72c25ad905a27afcd0392998f353ef86f3247725f40"
+        val signature = ManifestSignature(publicKeyHex = devPubkeyHex)
         return RuntimeBootstrapper(
             fs = fs,
             store = store,

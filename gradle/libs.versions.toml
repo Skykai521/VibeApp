@@ -24,7 +24,10 @@ coil = "2.7.0"
 chucker = "4.1.0"
 jsoup = "1.18.3"
 readability4j = "1.0.8"
-zstdJni = "1.5.6-6"
+# Phase 2a finding: both zstd-jni (native .so only for Linux/glibc) and
+# io.airlift:aircompressor (depends on sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET,
+# absent from ART) fail on Android. Bootstrap artifacts are now tar+gzip
+# so stdlib java.util.zip.GZIPInputStream handles them. No zstd dep.
 eddsa = "0.3.0"
 mockwebserver = "4.12.0"
 kotlinxCoroutinesTest = "1.10.2"
@@ -73,7 +76,7 @@ chucker-debug = { group = "com.github.chuckerteam.chucker", name = "library", ve
 chucker-release = { group = "com.github.chuckerteam.chucker", name = "library-no-op", version.ref = "chucker" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 readability4j = { group = "net.dankito.readability4j", name = "readability4j", version.ref = "readability4j" }
-zstd-jni = { group = "com.github.luben", name = "zstd-jni", version.ref = "zstdJni" }
+# (zstd deps removed; see [versions] comment)
 eddsa = { group = "net.i2p.crypto", name = "eddsa", version.ref = "eddsa" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockwebserver" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }

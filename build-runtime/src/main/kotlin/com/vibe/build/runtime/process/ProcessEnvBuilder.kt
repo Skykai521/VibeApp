@@ -30,13 +30,14 @@ class ProcessEnvBuilder @Inject constructor(
     fun build(cwd: File, extra: Map<String, String> = emptyMap()): Map<String, String> {
         val filesDir = fs.usrRoot.parentFile
             ?: error("BootstrapFileSystem.usrRoot has no parent; expected filesDir/usr")
+        val javaHome = File(fs.optRoot, JDK_DIR_NAME)
 
         val base = mapOf(
             "PATH" to buildPath(),
-            "LD_LIBRARY_PATH" to File(fs.usrRoot, "lib").absolutePath,
+            "LD_LIBRARY_PATH" to buildLdLibraryPath(javaHome),
             "LD_PRELOAD" to preloadLib.termuxExecLibPath(),
             "VIBEAPP_USR_PREFIX" to fs.usrRoot.absolutePath,
-            "JAVA_HOME" to File(fs.optRoot, JDK_DIR_NAME).absolutePath,
+            "JAVA_HOME" to javaHome.absolutePath,
             "ANDROID_HOME" to File(fs.optRoot, ANDROID_SDK_DIR_NAME).absolutePath,
             "GRADLE_USER_HOME" to File(filesDir, GRADLE_USER_HOME_DIR_NAME).absolutePath,
             "HOME" to cwd.absolutePath,
@@ -45,6 +46,16 @@ class ProcessEnvBuilder @Inject constructor(
 
         return base + extra
     }
+
+    private fun buildLdLibraryPath(javaHome: File): String = listOf(
+        // JDK's own lib dirs first so libjvm.so (no $ORIGIN in its
+        // RUNPATH) can still find co-bundled runtime deps
+        // (libandroid-shmem.so, libz.so, etc.).
+        File(javaHome, "lib/server").absolutePath,
+        File(javaHome, "lib").absolutePath,
+        // Shared usr/lib for any future cross-component libs.
+        File(fs.usrRoot, "lib").absolutePath,
+    ).joinToString(separator = ":")
 
     private fun buildPath(): String = listOf(
         File(fs.usrRoot, "bin").absolutePath,

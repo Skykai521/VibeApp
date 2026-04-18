@@ -1,16 +1,16 @@
 package com.vibe.build.runtime.bootstrap
 
-import com.github.luben.zstd.ZstdInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Decompresses a `.tar.zst` into a target directory. Preserves the owner
+ * Decompresses a `.tar.gz` into a target directory. Preserves the owner
  * `executable` bit (mode 0100 in the tar header) by calling
  * `File.setExecutable(true, ownerOnly=true)` — the rest of the POSIX
  * permission set is ignored, since Android's app-private filesystem is
@@ -18,6 +18,13 @@ import javax.inject.Singleton
  *
  * Rejects any tar entry whose resolved target escapes the destination
  * directory (zip-slip defense).
+ *
+ * Format is tar + gzip (stdlib `java.util.zip.GZIPInputStream`). The class
+ * name (ZstdExtractor) is a vestige from an earlier zstd attempt; kept
+ * for now to minimise blast radius. See Phase 2a log for why zstd was
+ * abandoned on Android (zstd-jni only ships Linux/glibc `.so`;
+ * io.airlift:aircompressor relies on `sun.misc.Unsafe` fields absent
+ * from ART).
  */
 @Singleton
 open class ZstdExtractor @Inject constructor() {
@@ -30,8 +37,8 @@ open class ZstdExtractor @Inject constructor() {
 
         try {
             source.inputStream().use { fileIn ->
-                ZstdInputStream(fileIn).use { zstdIn ->
-                    TarArchiveInputStream(zstdIn).use { tarIn ->
+                GZIPInputStream(fileIn).use { gzipIn ->
+                    TarArchiveInputStream(gzipIn).use { tarIn ->
                         while (true) {
                             val entry: TarArchiveEntry = tarIn.nextEntry ?: break
                             val target = File(destinationDir, entry.name).canonicalFile
@@ -45,6 +52,23 @@ open class ZstdExtractor @Inject constructor() {
 
                             if (entry.isDirectory) {
                                 target.mkdirs()
+                                continue
+                            }
+
+                            if (entry.isSymbolicLink) {
+                                // Tar symlink entry: size is 0; the link target is
+                                // in entry.linkName (may be relative, e.g. "libz.so.1.3.2").
+                                // Creating the symlink exactly preserves the archive's
+                                // intent. If the file already exists (e.g. re-extract),
+                                // delete it first to avoid NIO's FileAlreadyExistsException.
+                                target.parentFile?.mkdirs()
+                                if (target.exists() || java.nio.file.Files.isSymbolicLink(target.toPath())) {
+                                    java.nio.file.Files.delete(target.toPath())
+                                }
+                                java.nio.file.Files.createSymbolicLink(
+                                    target.toPath(),
+                                    java.nio.file.Paths.get(entry.linkName),
+                                )
                                 continue
                             }
 
@@ -62,10 +86,10 @@ open class ZstdExtractor @Inject constructor() {
         } catch (e: ExtractionFailedException) {
             throw e
         } catch (e: IOException) {
-            throw ExtractionFailedException("tar.zst extraction failed: ${e.message}", e)
+            throw ExtractionFailedException("tar.gz extraction failed: ${e.message}", e)
         } catch (e: RuntimeException) {
-            // zstd-jni wraps errors in RuntimeException
-            throw ExtractionFailedException("tar.zst extraction failed: ${e.message}", e)
+            // tar parsers may surface corrupt-stream errors as RuntimeException — wrap uniformly.
+            throw ExtractionFailedException("tar.gz extraction failed: ${e.message}", e)
         }
     }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Composes scripts/bootstrap/artifacts/manifest.json from the
-# .tar.zst artifacts in that directory, then signs it into manifest.json.sig
+# .tar.gz artifacts in that directory, then signs it into manifest.json.sig
 # using the dev keypair.
 
 set -euo pipefail
@@ -27,10 +27,10 @@ first=1
 for id in "hello" "jdk-17.0.13"; do
     # Collect matching artifacts
     entries=""
-    for artifact in "$artifacts_dir/${id}-"*.tar.zst; do
+    for artifact in "$artifacts_dir/${id}-"*.tar.gz; do
         [[ -f "$artifact" ]] || continue
         fname=$(basename "$artifact")
-        abi=$(echo "$fname" | sed -E "s/^${id}-([^.]+)\.tar\.zst$/\1/")
+        abi=$(echo "$fname" | sed -E "s/^${id}-([^.]+)\.tar\.gz$/\1/")
         size=$(stat -f %z "$artifact" 2>/dev/null || stat -c %s "$artifact")
         sha=$(shasum -a 256 "$artifact" | awk '{print $1}')
         entries="$entries        \"$abi\": { \"fileName\": \"$fname\", \"sizeBytes\": $size, \"sha256\": \"$sha\" },"$'\n'
@@ -63,5 +63,6 @@ done
 
 echo "wrote $manifest"
 
-# Sign
-kotlin "$script_dir/sign-manifest.kts" "$manifest"
+# Sign with JDK's built-in Ed25519 (JEP 330 single-file java). Requires
+# JDK 15+ on PATH. No external dependencies, no kotlin CLI needed.
+java "$script_dir/SignManifest.java" "$manifest"

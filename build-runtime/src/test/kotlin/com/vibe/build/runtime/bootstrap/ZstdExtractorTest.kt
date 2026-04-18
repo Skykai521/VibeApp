@@ -1,8 +1,8 @@
 package com.vibe.build.runtime.bootstrap
 
-import com.github.luben.zstd.ZstdOutputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
+import java.util.zip.GZIPOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -20,8 +20,8 @@ class ZstdExtractorTest {
 
     private fun makeTarZst(entries: List<TarEntry>): ByteArray {
         val raw = ByteArrayOutputStream()
-        ZstdOutputStream(raw).use { zstd ->
-            TarArchiveOutputStream(zstd).use { tar ->
+        GZIPOutputStream(raw).use { gz ->
+            TarArchiveOutputStream(gz).use { tar ->
                 tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
                 for (entry in entries) {
                     val tarEntry = TarArchiveEntry(entry.name)

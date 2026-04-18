@@ -72,7 +72,7 @@ dependencies {
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)
 
-    implementation(libs.zstd.jni)
+    // tar+gzip bootstrap format (Phase 2a): stdlib java.util.zip covers gzip
     implementation(libs.eddsa)
     implementation(libs.commons.compress)
     implementation(libs.kotlinx.serialization.json)
@@ -86,5 +86,4 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(project(":app"))
 }

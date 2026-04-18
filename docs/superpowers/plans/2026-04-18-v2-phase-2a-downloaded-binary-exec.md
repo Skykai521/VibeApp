@@ -1302,3 +1302,42 @@ When these boxes are checked, Phase 2a is done. Phase 2b (embed `gradle` + run `
 - `@Named("bootstrapManifestUrl")` identifier identical across `BuildRuntimeModule`, `BuildRuntimeDebugViewModel`.
 
 No "TBD", "TODO", "similar to Task N", or "add error handling" placeholders.
+
+---
+
+## Phase 2a Exit Log
+
+**Completed:** 2026-04-18
+
+**Test device:** Pixel_7_Pro_API_31 AVD (Android 12, arm64-v8a)
+
+**Instrumented tests:** PASS — 2 of 2, 5.9s total runtime
+- `hello_binary_exec_after_bootstrap`: 2.62s — NDK-compiled `hello` binary downloaded, exec'd, stdout `"hello from bootstrap\n"` + exit 0.
+- `jdk_java_version_after_bootstrap`: 2.81s — real Termux-sourced OpenJDK 17.0.18 downloaded (112 MB .tar.gz, ~280 MB installed), `$PREFIX/opt/jdk-17.0.13/bin/java -version` returned:
+  ```
+  openjdk version "17.0.18" 2025-01-21
+  OpenJDK Runtime Environment (build 17.0.18+8)
+  OpenJDK 64-Bit Server VM (build 17.0.18+8, mixed mode)
+  ```
+
+**Unit tests:** 60 tests, 0 failures (same as pre-Phase-2a).
+**Full instrumented suite:** 10 tests, 0 failures (2 new Phase 2a + 8 from Phase 1a-1d).
+**`:app:assembleDebug`:** PASS.
+
+**Deviations from the plan (plan bugs caught during execution):**
+
+1. `build-hello.sh` had `-static-libstdc++` left over from a C++ context; triggers `-Werror` for pure C. Removed.
+2. Termux's upstream moved `openjdk-17_17.0.13_p11-0_aarch64.deb` → `openjdk-17_17.0.18_aarch64.deb`. Default `--jdk-version` bumped to 17.0.18.
+3. `build-jdk.sh` originally tar'd with `java-17-openjdk/` wrapper at the root, so extraction produced `$PREFIX/opt/jdk-17.0.13/java-17-openjdk/bin/java` instead of `$PREFIX/opt/jdk-17.0.13/bin/java`. Fixed to tar contents directly.
+4. **`sign-manifest.kts` replaced with `SignManifest.java`** — `@file:DependsOn` isn't resolved by the plain `kotlin` CLI. Single-file JEP 330 Java using stdlib `java.security` Ed25519 (JDK 15+) removes the dependency on Kotlin + eddsa on the dev machine.
+5. **zstd → gzip bootstrap format**. `com.github.luben:zstd-jni` only ships Linux/glibc `.so`; `io.airlift:aircompressor` relies on `sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET` absent from ART. Neither works on Android. Switched artifact format to `.tar.gz` with stdlib `java.util.zip.GZIPInputStream`. Size penalty: ~15% (95 MB → 112 MB for the JDK). Component `id`s unchanged.
+6. **`ZstdExtractor` now handles tar symlink entries** (was writing 0-byte regular files instead of creating symlinks) — surfaced by Termux's `libz.so.1` → `libz.so.1.3.2` symlink chain.
+7. **`ProcessEnvBuilder.LD_LIBRARY_PATH` extended to include `$JAVA_HOME/lib/server:$JAVA_HOME/lib:$PREFIX/lib`**. Termux's `libjvm.so` has a hard-coded `DT_RUNPATH` pointing at `/data/data/com.termux/...` paths that don't exist in our install — `LD_LIBRARY_PATH` overrides, avoiding any need to patch ELF RUNPATH. Unit test updated to match.
+8. **`build-jdk.sh` now bundles 5 Termux runtime lib dependencies + NDK's `libc++_shared.so`** into the JDK tree: `zlib`, `libandroid-shmem`, `libandroid-spawn`, `libiconv`, `libjpeg-turbo`, and NDK `libc++_shared.so`. Discovered iteratively by running `java -version` and resolving each missing-library error from the Android linker.
+9. **`DownloadedBinaryExecInstrumentedTest` no longer depends on `:app`** (commit 4621520 added `androidTestImplementation(project(":app"))` to access `BOOTSTRAP_PUBKEY_HEX`; this dragged in androidx.startup InitializationProvider which crashed the test APK). Pubkey inlined in the test — documented with reference to `docs/bootstrap/dev-keypair-setup.md`.
+
+**Operational prerequisites learned:**
+- `kotlin` CLI NOT required for signing manifests. JDK 15+ in PATH suffices (`brew install openjdk` on macOS, `apt install default-jdk` on Linux).
+- `adb reverse tcp:8000 tcp:8000` is the development reach-through. `curl http://localhost:8000` from the host may be intercepted by a corporate proxy (returns 502); use `curl --noproxy '*'` or just rely on the device side which doesn't use `HTTP_PROXY`.
+
+Phase 2a complete. Phase 2b (`gradle --version` on device) is unblocked: Gradle itself is a shell-wrapper + JAR invocation, so it runs in the *descendants* of the launched java process where `libtermux-exec.so`'s shebang-rewrite takes effect.
