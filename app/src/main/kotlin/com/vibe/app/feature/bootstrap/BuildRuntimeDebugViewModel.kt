@@ -125,6 +125,44 @@ class BuildRuntimeDebugViewModel @Inject constructor(
         }
     }
 
+    fun runGradleVersion() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(launchRunning = true, launchLog = "") }
+            val javaBinary = File(fs.componentInstallDir("jdk-17.0.13"), "bin/java")
+            val launcherJar = File(
+                fs.componentInstallDir("gradle-8.10.2"),
+                "lib/gradle-launcher-8.10.2.jar",
+            )
+            val log = StringBuilder()
+            if (!javaBinary.isFile) {
+                log.append("[error] $javaBinary not found — run Trigger bootstrap first")
+            } else if (!launcherJar.isFile) {
+                log.append("[error] $launcherJar not found — run Trigger bootstrap first")
+            } else {
+                // Gradle wants GRADLE_USER_HOME to exist.
+                val gradleUserHome = File(fs.usrRoot.parentFile, ".gradle")
+                gradleUserHome.mkdirs()
+                try {
+                    val proc = launcher.launch(
+                        executable = javaBinary.absolutePath,
+                        args = listOf(
+                            "-cp",
+                            launcherJar.absolutePath,
+                            "org.gradle.launcher.GradleMain",
+                            "--version",
+                            "--no-daemon",
+                        ),
+                        cwd = cacheDir,
+                    )
+                    proc.events.collect { appendEvent(log, it) }
+                } catch (t: Throwable) {
+                    log.append("[error] ${t.message}")
+                }
+            }
+            _uiState.update { it.copy(launchRunning = false, launchLog = log.toString()) }
+        }
+    }
+
     private fun appendEvent(log: StringBuilder, ev: ProcessEvent) {
         when (ev) {
             is ProcessEvent.Stdout -> log.append(String(ev.bytes, Charsets.UTF_8))

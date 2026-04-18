@@ -115,6 +115,13 @@ fun BuildRuntimeDebugScreen(
             ) {
                 Text("Run java -version")
             }
+            Button(
+                onClick = viewModel::runGradleVersion,
+                enabled = !ui.launchRunning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Run gradle --version")
+            }
 
             if (ui.launchLog.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
