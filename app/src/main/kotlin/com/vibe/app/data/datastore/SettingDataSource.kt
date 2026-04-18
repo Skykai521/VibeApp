@@ -10,4 +10,6 @@ interface SettingDataSource {
     suspend fun getThemeMode(): ThemeMode?
     suspend fun updateDebugMode(enabled: Boolean)
     suspend fun getDebugMode(): Boolean
+    suspend fun getDevBootstrapManifestUrl(): String?
+    suspend fun updateDevBootstrapManifestUrl(url: String?)
 }

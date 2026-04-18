@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -80,6 +81,39 @@ fun BuildRuntimeDebugScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Launch toybox echo")
+            }
+
+            // Dev manifest URL override
+            OutlinedTextField(
+                value = ui.devOverrideUrl,
+                onValueChange = viewModel::setDevOverrideUrl,
+                label = { Text("Dev manifest URL override (empty → production)") },
+                placeholder = { Text("http://localhost:8000/manifest.json") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Text(
+                "Active manifest URL: ${ui.manifestUrl}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            HorizontalDivider()
+
+            Text("Downloaded-binary exec", style = MaterialTheme.typography.labelMedium)
+            Button(
+                onClick = viewModel::runHello,
+                enabled = !ui.launchRunning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Run hello (from bootstrap)")
+            }
+            Button(
+                onClick = viewModel::runJavaVersion,
+                enabled = !ui.launchRunning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Run java -version")
             }
 
             if (ui.launchLog.isNotEmpty()) {

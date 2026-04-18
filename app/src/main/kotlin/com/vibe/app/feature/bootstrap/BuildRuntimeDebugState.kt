@@ -12,6 +12,7 @@ import com.vibe.build.runtime.bootstrap.BootstrapState
 data class BuildRuntimeDebugState(
     val bootstrap: BootstrapState = BootstrapState.NotInstalled,
     val manifestUrl: String = "",
+    val devOverrideUrl: String = "",
     val launchLog: String = "",
     val launchRunning: Boolean = false,
 )

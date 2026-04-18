@@ -118,8 +118,15 @@ object BuildRuntimeModule {
     @Provides
     @Singleton
     @Named("bootstrapManifestUrl")
-    fun provideBootstrapManifestUrl(): String =
-        "https://github.com/Skykai521/VibeApp/releases/download/v2.0.0/manifest.json"
+    fun provideBootstrapManifestUrl(
+        settingDataSource: com.vibe.app.data.datastore.SettingDataSource,
+    ): String {
+        val override = kotlinx.coroutines.runBlocking {
+            settingDataSource.getDevBootstrapManifestUrl()
+        }
+        return override
+            ?: "https://github.com/Skykai521/VibeApp/releases/download/v2.0.0/manifest.json"
+    }
 
     @Provides
     @Singleton
