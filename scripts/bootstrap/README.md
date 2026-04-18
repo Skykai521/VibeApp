@@ -31,6 +31,7 @@ upload, Aliyun mirror sync) is in
 ./build-hello.sh --abi x86_64
 ./build-jdk.sh   --abi arm64-v8a
 ./build-gradle.sh       # gradle-8.10.2-common.tar.gz, ~100MB
+./build-androidsdk.sh --abi arm64-v8a
 # (optionally build other ABIs if testing on those devices)
 
 # 2. Assemble + sign the manifest. Produces manifest.json + manifest.json.sig.

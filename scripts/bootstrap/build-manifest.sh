@@ -24,7 +24,7 @@ version="v2.0.0-dev"
 # Enumerate components (grouped by prefix in the filename).
 # Supported prefixes: "hello-" -> id "hello"; "jdk-17.0.13-" -> id "jdk-17.0.13".
 first=1
-for id in "hello" "jdk-17.0.13" "gradle-8.10.2"; do
+for id in "hello" "jdk-17.0.13" "gradle-8.10.2" "android-sdk-36.0.0"; do
     # Collect matching artifacts
     entries=""
     for artifact in "$artifacts_dir/${id}-"*.tar.gz; do
@@ -43,6 +43,7 @@ for id in "hello" "jdk-17.0.13" "gradle-8.10.2"; do
     if [[ "$id" == "jdk-17.0.13"    ]]; then version_field="17.0.13"; fi
     if [[ "$id" == "hello"          ]]; then version_field="1.0"; fi
     if [[ "$id" == "gradle-8.10.2"  ]]; then version_field="8.10.2"; fi
+    if [[ "$id" == "android-sdk-36.0.0" ]]; then version_field="36.0.0"; fi
 
     [[ $first -eq 1 ]] || echo "    ," >> "$manifest"
     {
