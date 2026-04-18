@@ -34,3 +34,6 @@ app/build/**
 .idea/copilot.data.migration.ask2agent.xml
 /.kotlin
 /tmp_log
+
+# Git worktrees (subagent-driven-development)
+/.worktrees
