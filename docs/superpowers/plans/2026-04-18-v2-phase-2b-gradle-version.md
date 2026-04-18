@@ -687,3 +687,37 @@ When all checks are true, Phase 2b is complete. Phase 2c (GradleHost + IPC + Too
 - Dev pubkey hex identical to Phase 2a's inline value.
 
 No "TBD", "TODO", "similar to Task N", or "add error handling" placeholders.
+
+---
+
+## Phase 2b Exit Log
+
+**Completed:** 2026-04-18
+
+**Test device:** Pixel_7_Pro_API_31 AVD (Android 12, arm64-v8a)
+
+**Artifacts produced:**
+- `gradle-8.10.2-common.tar.gz` — 136.7 MB (compressed from ~195 MB unpacked distribution minus `bin/`)
+- Manifest signed with same dev Ed25519 key as Phase 2a (`~/.vibeapp/dev-bootstrap-privseed.hex`).
+
+**Instrumented test result:** PASS — 1 test, 6.27 s — `gradle_version_after_bootstrap`.
+
+Full instrumented suite: 11 tests, 0 failures (10 prior + 1 new). Unit suite: 60 tests, 0 failures. `:app:assembleDebug` green.
+
+**Exec pattern that worked:**
+```
+$PREFIX/opt/jdk-17.0.13/bin/java \
+    -cp $PREFIX/opt/gradle-8.10.2/lib/gradle-launcher-8.10.2.jar \
+    org.gradle.launcher.GradleMain \
+    --version --no-daemon
+```
+Exit 0. Combined stdout+stderr contained `Gradle 8.10.2` (test assertion passed).
+
+**Deviations from the plan:** None. The plan's exact commands, env setup, and assertions all worked on first attempt — Phase 2a's substrate (targetSdk 28, bundled Termux runtime libs, LD_LIBRARY_PATH spanning JDK lib dirs, symlink-aware extractor) carried Gradle through without new workarounds.
+
+**Follow-ups (for Phase 2c):**
+- Gradle daemon lifecycle: `--no-daemon` bypassed the daemon fork in 2b; 2c should exercise a proper `--daemon` flow with idle timeout.
+- Warnings/diagnostics: Gradle prints some lifecycle messages to stderr on startup. None errored; 2c's diagnostic pipeline should sort/filter these by severity.
+- Build classpath: `--version` only loads `gradle-launcher-*.jar`. Real build invocation loads the full Gradle runtime plus project-specific plugins; Tooling API is the idiomatic way to drive this and will be embedded in GradleHost.
+
+Phase 2b complete. Phase 2c (`GradleHost` + Tooling API + structured build events) is unblocked.
