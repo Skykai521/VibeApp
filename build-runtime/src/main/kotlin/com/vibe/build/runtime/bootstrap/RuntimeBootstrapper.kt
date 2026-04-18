@@ -21,10 +21,6 @@ import javax.inject.Singleton
  * - The `store` sees the coarse state machine (Downloading, Verifying, ...)
  * - The `onState` callback receives every state including intra-component
  *   progress, for UI that wants finer granularity.
- *
- * NOTE: Fetching manifest bytes is still a TODO for Phase 1c integration
- * (it needs a simple HTTP GET with mirror fallback, but Phase 1a tests
- * pass the parsed manifest directly via [parsedManifestOverride]).
  */
 @Singleton
 class RuntimeBootstrapper @Inject constructor(
@@ -36,7 +32,8 @@ class RuntimeBootstrapper @Inject constructor(
     private val downloader: BootstrapDownloader,
     private val extractor: ZstdExtractor,
     private val abi: Abi,
-    /** Phase 1a test hook — bypasses real manifest fetch. */
+    private val fetcher: ManifestFetcher,
+    /** Phase 1a test hook — bypasses real manifest fetch + verify + parse. */
     private val parsedManifestOverride: BootstrapManifest? = null,
 ) {
     suspend fun bootstrap(
@@ -46,18 +43,17 @@ class RuntimeBootstrapper @Inject constructor(
         try {
             fs.ensureDirectories()
 
-            // Phase 1c will fetch manifest bytes via HTTP and populate these.
-            // Phase 1a: empty bytes are passed to signature.verify(); test fakes
-            // ignore the actual bytes and return successfulFakeVerify directly.
-            val manifestBytes = ByteArray(0)
-            val signatureBytes = ByteArray(0)
-
-            if (!signature.verify(manifestBytes, signatureBytes)) {
-                throw SignatureMismatchException("manifest signature verification failed")
+            val manifest = if (parsedManifestOverride != null) {
+                parsedManifestOverride
+            } else {
+                val fetched = fetcher.fetch(manifestFileName = manifestUrl.substringAfterLast('/'))
+                if (!signature.verify(fetched.manifestBytes, fetched.signatureBytes)) {
+                    throw SignatureMismatchException(
+                        "manifest signature failed verification",
+                    )
+                }
+                parser.parse(fetched.manifestBytes)
             }
-
-            val manifest = parsedManifestOverride
-                ?: error("manifest fetch not implemented in Phase 1a; set parsedManifestOverride")
 
             for (component in manifest.components) {
                 val artifact = manifest.findArtifact(component.id, abi)

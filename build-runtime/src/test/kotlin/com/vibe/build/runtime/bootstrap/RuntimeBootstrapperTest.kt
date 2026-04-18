@@ -55,6 +55,7 @@ class RuntimeBootstrapperTest {
             downloader = collaborators.downloader,
             extractor = collaborators.extractor,
             abi = Abi.ARM64,
+            fetcher = collaborators.fetcher,
             parsedManifestOverride = validManifest,   // skip real parse
         )
 
@@ -89,6 +90,11 @@ class RuntimeBootstrapperTest {
             successfulFakeVerify = false,   // signature returns false
             successfulFakeExtract = true,
         )
+        // Use a fetcher that returns bytes so the real verify path runs.
+        val fakeFetcher = object : ManifestFetcher(collaborators.mirrors) {
+            override suspend fun fetch(manifestFileName: String): ManifestFetcher.Fetched =
+                ManifestFetcher.Fetched(manifestBytes = "fake".toByteArray(), signatureBytes = ByteArray(64))
+        }
 
         val bootstrapper = RuntimeBootstrapper(
             fs = fs,
@@ -99,7 +105,8 @@ class RuntimeBootstrapperTest {
             downloader = collaborators.downloader,
             extractor = collaborators.extractor,
             abi = Abi.ARM64,
-            parsedManifestOverride = validManifest,
+            fetcher = fakeFetcher,
+            parsedManifestOverride = null,   // drive real fetch→verify path
         )
 
         val seenStates = mutableListOf<BootstrapState>()
@@ -134,6 +141,7 @@ class RuntimeBootstrapperTest {
             downloader = collaborators.downloader,
             extractor = collaborators.extractor,
             abi = Abi.ARM64,
+            fetcher = collaborators.fetcher,
             parsedManifestOverride = validManifest,
         )
 
@@ -179,6 +187,7 @@ class RuntimeBootstrapperTest {
             downloader = collaborators.downloader,
             extractor = collaborators.extractor,
             abi = Abi.ARM64,
+            fetcher = collaborators.fetcher,
             parsedManifestOverride = manifestNoMatch,
         )
 
@@ -188,6 +197,46 @@ class RuntimeBootstrapperTest {
         val terminal = seenStates.last()
         assertTrue(terminal is BootstrapState.Failed)
         assertTrue((terminal as BootstrapState.Failed).reason.contains("ABI"))
+    }
+
+    @Test
+    fun `signature verify failure on real fetch path transitions to Failed`() = runTest {
+        val store = InMemoryBootstrapStateStore()
+        val fs = BootstrapFileSystem(filesDir = temp.root)
+        val collaborators = FakeCollaborators(
+            manifestBytes = ByteArray(0),
+            manifestSignature = ByteArray(0),
+            abi = Abi.ARM64,
+            successfulFakeDownload = true,
+            successfulFakeVerify = false,   // cause SignatureMismatchException on real path
+            successfulFakeExtract = true,
+        )
+        val fakeFetcher = object : ManifestFetcher(collaborators.mirrors) {
+            override suspend fun fetch(manifestFileName: String): ManifestFetcher.Fetched =
+                ManifestFetcher.Fetched(manifestBytes = "fake".toByteArray(), signatureBytes = ByteArray(64))
+        }
+
+        val bootstrapper = RuntimeBootstrapper(
+            fs = fs,
+            store = store,
+            parser = collaborators.parser,
+            signature = collaborators.signature,
+            mirrors = collaborators.mirrors,
+            downloader = collaborators.downloader,
+            extractor = collaborators.extractor,
+            abi = Abi.ARM64,
+            fetcher = fakeFetcher,
+            parsedManifestOverride = null,   // forces real fetch path
+        )
+
+        val seen = mutableListOf<BootstrapState>()
+        bootstrapper.bootstrap(manifestUrl = "https://example.test/manifest.json") { seen += it }
+
+        val terminal = seen.last()
+        assertTrue("expected Failed, got $terminal", terminal is BootstrapState.Failed)
+        assertTrue(
+            (terminal as BootstrapState.Failed).reason.contains("signature", ignoreCase = true),
+        )
     }
 }
 
@@ -241,6 +290,14 @@ private class FakeCollaborators(
     }
 
     val downloader = FakeDownloader()
+
+    val fetcher = object : ManifestFetcher(mirrors) {
+        override suspend fun fetch(manifestFileName: String): ManifestFetcher.Fetched {
+            // Phase 1a tests use parsedManifestOverride, so fetch() should never be called.
+            // If it is, something leaked the fake and the test is wrong.
+            throw AssertionError("ManifestFetcher.fetch() was called unexpectedly in Phase 1a test fake")
+        }
+    }
 
     val extractor = object : ZstdExtractor() {
         override fun extract(source: File, destinationDir: File) {
