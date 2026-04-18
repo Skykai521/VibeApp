@@ -37,3 +37,6 @@ app/build/**
 
 # Git worktrees (subagent-driven-development)
 /.worktrees
+
+# Phase 2a dev bootstrap artifact staging (large, never committed)
+/scripts/bootstrap/artifacts
