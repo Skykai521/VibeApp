@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.vibe.probe"
-    compileSdk = 36
+    compileSdk = 33
 
     defaultConfig {
         applicationId = "com.vibe.probe"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 33
         versionCode = 1
         versionName = "1.0"
     }

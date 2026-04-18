@@ -132,6 +132,35 @@ class EmptyApkBuildInstrumentedTest {
         val javaBinary = File(fs.componentInstallDir("jdk-17.0.13"), "bin/java")
         assertTrue("java binary missing at $javaBinary", javaBinary.canExecute())
         assertTrue("aapt2 missing", File(sdkDir, "build-tools/36.0.0/aapt2").canExecute())
+        val androidJar = File(sdkDir, "platforms/android-33/android.jar")
+        assertTrue("android.jar missing at $androidJar", androidJar.isFile)
+        assertTrue("android.jar unreadable: size=${androidJar.length()}, canRead=${androidJar.canRead()}", androidJar.canRead() && androidJar.length() > 1_000_000)
+
+        // Diagnostic: invoke aapt2 directly via NativeProcessLauncher to confirm
+        // it can at least print its version. If this fails, we know the issue
+        // is linker / LD_LIBRARY_PATH, not AGP integration.
+        run {
+            val aapt2Path = File(sdkDir, "build-tools/36.0.0/aapt2").absolutePath
+            val proc = launcher.launch(
+                executable = aapt2Path,
+                args = listOf("version"),
+                cwd = scratchDir,
+            )
+            val out = StringBuilder()
+            val err = StringBuilder()
+            kotlinx.coroutines.withTimeoutOrNull(15_000) {
+                proc.events.collect { ev ->
+                    when (ev) {
+                        is com.vibe.build.runtime.process.ProcessEvent.Stdout -> out.append(String(ev.bytes))
+                        is com.vibe.build.runtime.process.ProcessEvent.Stderr -> err.append(String(ev.bytes))
+                        is com.vibe.build.runtime.process.ProcessEvent.Exited -> {
+                            android.util.Log.i("Phase2d", "aapt2 version exit=${ev.code} stdout=$out stderr=$err")
+                            return@collect
+                        }
+                    }
+                }
+            }
+        }
 
         service = GradleBuildServiceImpl(
             launcher = launcher,

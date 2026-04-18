@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Composes a per-ABI Android SDK 36.0.0 tarball for on-device use:
-#   - platforms/android-36/        from Google's platform-${rev}.zip
+#   - platforms/android-$platform_api/        from Google's platform-${rev}.zip
 #   - build-tools/36.0.0/d8.jar    from Google's build-tools_r36.0.0-linux.zip
 #   - build-tools/36.0.0/aapt2     from Termux's aapt2 .deb (real Android-native binary)
 #   - licenses/, package.xml, source.properties (locally-generated; AGP-accepted)
@@ -22,7 +22,11 @@ mirror="${TERMUX_MIRROR:-https://packages.termux.dev/apt/termux-main}"
 # 2026-04-18. Bump if upstream moves; verify HEAD before changing the default.
 aapt2_version="${AAPT2_VERSION:-13.0.0.6-23}"
 sdk_version="${ANDROID_SDK_VERSION:-36.0.0}"
-platform_rev="${ANDROID_PLATFORM_REV:-36_r01}"
+platform_rev="${ANDROID_PLATFORM_REV:-33_r02}"
+# Termux's aapt2 13.0.0.6-23 (AOSP 13) can't parse API 36's resource
+# tables. API 35 still works; we bundle that even though the on-device
+# build-tools are labelled 36.0.0 for AGP compatibility.
+platform_api="${ANDROID_PLATFORM_API:-33}"
 
 # Termux runtime-dep version pins for aapt2's transitive .so deps.
 # Override via env if upstream moves. Verified HEAD 200 on 2026-04-18.
@@ -60,7 +64,7 @@ while [[ $# -gt 0 ]]; do
         --mirror) mirror="$2"; shift 2;;
         --aapt2-version) aapt2_version="$2"; shift 2;;
         --sdk-version) sdk_version="$2"; shift 2;;
-        --platform-rev) platform_rev="$2"; shift 2;;
+        --platform-rev) platform_rev="${ANDROID_PLATFORM_REV:-33_r02}"; shift 2;;
         -h|--help)
             cat <<EOF
 Usage: $0 --abi <arm64-v8a|armeabi-v7a|x86_64>
@@ -187,7 +191,7 @@ aapt2_bin="$staging/deb/unpack/data/data/com.termux/files/usr/bin/aapt2"
 
 # --- 4. Compose target tree -------------------------------------------------
 out_root="$staging/out"
-plat_dst="$out_root/platforms/android-36"
+plat_dst="$out_root/platforms/android-$platform_api"
 bt_dst="$out_root/build-tools/${sdk_version}"
 lic_dst="$out_root/licenses"
 
@@ -390,7 +394,7 @@ EOF
 # canonical copies in scripts/bootstrap/android-sdk-descriptors/ rather than
 # hand-roll XML here — they were lifted verbatim from a working Android
 # Studio install and carry the accepted SDK license text inline.
-cp "$script_dir/android-sdk-descriptors/platform-36-package.xml" "$plat_dst/package.xml"
+cp "$script_dir/android-sdk-descriptors/platform-$platform_api-package.xml" "$plat_dst/package.xml"
 
 cp "$script_dir/android-sdk-descriptors/build-tools-36.0.0-package.xml" "$bt_dst/package.xml"
 
