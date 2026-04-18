@@ -19,6 +19,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -102,4 +103,16 @@ object BuildRuntimeModule {
     fun provideProcessEnvBuilder(
         fs: BootstrapFileSystem,
     ): ProcessEnvBuilder = ProcessEnvBuilder(fs)
+
+    @Provides
+    @Singleton
+    @Named("bootstrapManifestUrl")
+    fun provideBootstrapManifestUrl(): String =
+        "https://github.com/Skykai521/VibeApp/releases/download/v2.0.0/manifest.json"
+
+    @Provides
+    @Singleton
+    @Named("appCacheDir")
+    fun provideAppCacheDir(@ApplicationContext context: Context): java.io.File =
+        context.cacheDir
 }
