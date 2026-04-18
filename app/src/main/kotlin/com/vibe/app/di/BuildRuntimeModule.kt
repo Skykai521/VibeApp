@@ -12,6 +12,7 @@ import com.vibe.build.runtime.bootstrap.ManifestSignature
 import com.vibe.build.runtime.bootstrap.MirrorSelector
 import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import com.vibe.build.runtime.bootstrap.ZstdExtractor
+import com.vibe.build.runtime.process.ProcessEnvBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,12 +21,12 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Provides the `:build-runtime` service to the application graph.
+ * Provides the `:build-runtime` services to the application graph.
  *
- * Real providers (ProcessLauncher lands in Phase 1b). In Phase 1a we
- * added the bootstrap subsystem: BootstrapFileSystem, MirrorSelector,
- * ManifestSignature (with placeholder pubkey — real pubkey injected
- * via BuildConfig in Phase 1c), ABI detection, and RuntimeBootstrapper.
+ * Phase 0: BuildRuntime placeholder.
+ * Phase 1a: bootstrap subsystem (downloader, extractor, state machine).
+ * Phase 1b: ProcessEnvBuilder (binding for ProcessLauncher comes from
+ *   BuildRuntimeProcessModule in the :build-runtime module).
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -86,4 +87,10 @@ object BuildRuntimeModule {
         extractor = extractor,
         abi = abi,
     )
+
+    @Provides
+    @Singleton
+    fun provideProcessEnvBuilder(
+        fs: BootstrapFileSystem,
+    ): ProcessEnvBuilder = ProcessEnvBuilder(fs)
 }
