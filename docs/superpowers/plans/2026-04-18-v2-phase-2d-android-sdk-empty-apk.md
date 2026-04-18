@@ -1401,14 +1401,14 @@ git push origin v2-arch
 
 ## Phase 2d Exit Criteria
 
-- [ ] `scripts/bootstrap/build-androidsdk.sh --abi arm64-v8a` produces a `android-sdk-36.0.0-arm64-v8a.tar.gz` of sane size (~70-90MB) containing `platforms/android-36/android.jar`, `build-tools/36.0.0/aapt2` (arm64 executable), `build-tools/36.0.0/d8.jar`, `build-tools/36.0.0/apksigner.jar`, and `licenses/android-sdk-license`.
-- [ ] `manifest.json` emitted by `build-manifest.sh` lists four components; signature verifies.
-- [ ] `ProcessEnvBuilder.ANDROID_SDK_DIR_NAME == "android-sdk-36.0.0"` and the new unit test passes.
-- [ ] `ProjectStager` unit tests pass (template copy + `.tmpl` substitution + idempotent re-stage).
-- [ ] `EmptyApkBuildInstrumentedTest.probe_app_assembleDebug_produces_installable_apk` passes: `:app:assembleDebug` on the staged probe project returns `BuildFinish(success=true)`, and the produced `app-debug.apk` is a valid zip containing `AndroidManifest.xml` + `classes.dex`.
-- [ ] Phase 1 (unit + instrumented) + Phase 2a + Phase 2b + Phase 2c tests still pass with the enlarged 4-component manifest.
-- [ ] `:app:assembleDebug` and `:app:kspDebugKotlin` still green.
-- [ ] Exit log filled in at the bottom of this plan.
+- [x] `scripts/bootstrap/build-androidsdk.sh --abi arm64-v8a` produces `android-sdk-36.0.0-arm64-v8a.tar.gz` (~94MB) containing `platforms/android-33/android.jar`, `build-tools/36.0.0/aapt2` (arm64 executable), `build-tools/36.0.0/d8.jar`, `build-tools/36.0.0/apksigner.jar`, and `licenses/android-sdk-license`.
+- [x] `manifest.json` emitted by `build-manifest.sh` lists four components; signature verifies.
+- [x] `ProcessEnvBuilder.ANDROID_SDK_DIR_NAME == "android-sdk-36.0.0"` and the new unit test passes. LD_LIBRARY_PATH also extended to include `$ANDROID_HOME/build-tools/36.0.0/` so aapt2's bundled `.so` closure resolves.
+- [x] `ProjectStager` unit tests pass (template copy + `.tmpl` substitution + idempotent re-stage).
+- [x] `EmptyApkBuildInstrumentedTest.probe_app_assembleDebug_produces_installable_apk` passes: `:app:assembleDebug` on the staged probe project returns `BuildFinish(success=true)` in ~254s, and the produced `app-debug.apk` is a valid zip containing `AndroidManifest.xml` + `classes.dex`.
+- [x] Phase 1 (unit + instrumented) + Phase 2a + Phase 2b + Phase 2c tests still pass with the enlarged 4-component manifest (11/11 + 1/1 green).
+- [x] `:app:assembleDebug` and `:app:kspDebugKotlin` still green.
+- [x] Exit log filled in at the bottom of this plan.
 
 When all boxes check, Phase 2d is done. Phase 2e (Compose compiler plugin + Compose BOM from Maven + Compose probe) is unblocked.
 
@@ -1444,3 +1444,53 @@ When all boxes check, Phase 2d is done. Phase 2e (Compose compiler plugin + Comp
 - Exit log section in Task 8 has a template to fill in, NOT skipped — the template is explicit about what to capture.
 
 No placeholders remain.
+
+---
+
+## Exit Log (2026-04-18)
+
+**Validated on:** Pixel 7 Pro emulator (AVD, API 31, arm64-v8a) with 6GB RAM; dev server at `http://localhost:8000`.
+
+**Command:**
+```
+./gradlew :build-gradle:connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.vibeapp.phase2c.dev_server_url=http://10.0.2.2:8000 \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.vibe.build.gradle.EmptyApkBuildInstrumentedTest
+```
+
+**Result:** `BUILD SUCCESSFUL`. `EmptyApkBuildInstrumentedTest.probe_app_assembleDebug_produces_installable_apk` passes in ~254s (4m 14s cold cache). The bootstrap extracts JDK 17 + Gradle 9.3.1 + Android SDK; GradleHost spawns the Termux JVM; Tooling API drives the Gradle Daemon; AGP 9.1.0 resolves the AndroidX/Gradle plugin closure over the network; aapt2 (arm64, Termux-sourced) compiles the probe's two resource files; javac compiles `MainActivity.java`; d8 dexes the class; apksigner signs with the debug key; `app-debug.apk` lands at `filesDir/projects/probe/app/build/outputs/apk/debug/` as a valid PK-zip containing `AndroidManifest.xml` + `classes.dex`.
+
+**Regression:**
+- `:gradle-host:test`, `:build-runtime:testDebugUnitTest`, `:build-gradle:testDebugUnitTest`, `:app:kspDebugKotlin`, `:app:assembleDebug` — all green.
+- `:build-runtime:connectedDebugAndroidTest` — 11/11 pass (Phase 1 + 2a + 2b instrumented).
+- `:build-gradle:connectedDebugAndroidTest` (`GradleHostInstrumentedTest`) — Phase 2c acceptance still green against the new Gradle 9.3.1 + Android SDK stack.
+
+**Detour: on-device Gradle bump 8.10.2 → 9.3.1** (commit `59ed004`). AGP 9.1.0 in probe-app requires Gradle 9.x+, but Phase 2b pinned the bootstrapped distribution at 8.10.2. Raised it to 9.3.1 (matching the host build) and bumped `gradle-tooling-api` to 9.3.1 too. Touched 15 files: `build-gradle.sh`, `build-manifest.sh`, `libs.versions.toml`, `Main.toolingApiVersion`, 4 test call sites, `BootstrapManifest` doc + fixture, the debug UI VM, the release-prep doc. Historical plans and specs left unedited.
+
+**Issues discovered and resolved during Task 6 manual iteration:**
+
+1. *Tooling API rejected `--no-daemon`.* AGP build args list that Tooling API accepts is a subset of `gradle` CLI — `--no-daemon` is invalid (daemon lifecycle is Tooling API's job). Changed `runBuild(args = emptyList())`, set `org.gradle.configuration-cache=false` in probe's `gradle.properties` instead.
+
+2. *Emulator lowmemorykiller.* Original AVD had `hw.ramSize=2048` + `vm.heapSize=384`. Gradle Daemon + Maven resolution + Kotlin daemon + AGP blew past that. Bumped AVD to 6 GB / 768 MB heap. On real phones with 3-4 GB RAM, tightened probe `gradle.properties` (`-Xmx640m`, `kotlin.daemon.jvm.options=-Xmx384m`, `org.gradle.parallel=false`, `org.gradle.caching=false`) stays well inside the working set.
+
+3. *Maven aapt2 artifact is x86_64 linux ELF.* AGP's default aapt2 is a jar-of-binary (`aapt2:jar:linux`), not usable on arm64 Android. Override in probe's `gradle.properties.tmpl`: `android.aapt2FromMavenOverride={{SDK_DIR}}/build-tools/36.0.0/aapt2`. `ProjectStager` substitutes `{{SDK_DIR}}` on stage.
+
+4. *AGP's `BuildToolsLayout` validates existence of ~15 tool binaries at configure time.* Termux ships real arm64 `aapt`, `aapt2`, `aidl`; the rest (`dexdump`, `lld`, `llvm-rs-cc`, `renderscript`, `bcc_compat`, `split-select`, `zipalign`, five cross-target `-ld` binaries) are shell-script stubs that `exit 0` and log any invocation to stderr. For Phase 2d's probe debug build, none are actually called — AGP 9.1.0's pipeline for a no-Compose Java project uses only aapt2 + d8 + apksigner. If a later phase trips a stub invocation, we'll see it immediately in stderr.
+
+5. *Canonical `package.xml` schema.* AGP schema-validates `$ANDROID_HOME/**/package.xml`. Our hand-rolled minimal XML used the wrong root element (`ns2:sdk-repository` vs the required `ns2:repository`) and was missing the 15 namespace declarations AGP may dispatch on. Swapped to canonical fixtures lifted from a working Android Studio install, saved under `scripts/bootstrap/android-sdk-descriptors/`.
+
+6. *Platform zip must land in full.* Initially the script allowlisted `android.jar` + `data/` + four sibling jars. AGP then complained "Build properties not found" because `build.prop`, `sdk.properties`, and `source.properties` weren't copied. Switched to `cp -a "$platform_src"/. "$plat_dst/"` — copies the full ~70MB tree.
+
+7. *Termux aapt2 version mismatch with platform-36.* Termux's only published aapt2 (`13.0.0.6-23`, AOSP 13 vintage, self-reports as "aapt 2.19") cannot parse the resource tables Google ships for API 36. `aapt2 link` failed with the generic "failed to load include path" once it reached android-36/android.jar. Downgraded the bundled platform to **android-33** (matching aapt2's era) and set `compileSdk = 33` in the probe. `platform_api` and `platform_rev` are env-overridable so later phases can roll forward once Termux publishes a newer aapt2.
+
+8. *Hilt graph completeness.* `GradleHostExtractor` had `@Inject constructor(private val context: Context, ...)` without `@ApplicationContext`. Hilt never built that piece of the graph until Task 7 made `GradleBuildService` reachable from `ViewModelC`, then complained with `android.content.Context cannot be provided without an @Provides-annotated method`. Added the qualifier.
+
+9. *`fetch_termux_lib` silently skipped binary-carrying .debs.* The helper's `find $PREFIX/lib` branch errored out via `set -e` when a deb had no `lib/` tree (aidl, split-select, etc.), short-circuiting the binary-copy step that follows. Guarded the find with an explicit `[[ -d "$lib_src" ]]` check.
+
+**Byproducts kept for later phases:**
+- `platform-35-package.xml` descriptor is shipped alongside `platform-33-package.xml`; when Termux eventually publishes a newer aapt2, bumping `ANDROID_PLATFORM_API=35` (or 36) is a one-line env override.
+- `scripts/bootstrap/android-sdk-descriptors/` now hosts canonical AGP-accepted package.xml fixtures; future components can mirror the pattern.
+- Stub binaries in `build-tools/36.0.0/` are harmless and small; when a concrete need for one arises (e.g. Phase 7 `zipalign` for aligned release APKs), the stub pattern provides a clear upgrade seam.
+- LD_LIBRARY_PATH now includes `$ANDROID_HOME/build-tools/36.0.0/`, preserving aapt2's .so closure resolution across future SDK updates.
+
+**Phase 2d is complete.** Phase 2e (Compose compiler + Compose BOM from Maven → first Compose APK) is unblocked.
