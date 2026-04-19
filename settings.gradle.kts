@@ -50,3 +50,23 @@ include(":gradle-host")
 include(":shadow-common")
 project(":shadow-common").projectDir =
     file("third_party/shadow/upstream/core/common")
+
+// One-shot driver to (re-)produce Shadow's `Generated*.java` source files
+// from the vendored ActivityCodeGenerator. Output is committed back into
+// the consumer modules; this module is only used when refreshing.
+include(":shadow-codegen-runner")
+project(":shadow-codegen-runner").projectDir =
+    file("third_party/shadow/codegen-runner")
+
+include(":shadow-activity-container")
+project(":shadow-activity-container").projectDir =
+    file("third_party/shadow/upstream/core/activity-container")
+
+// Real Shadow runtime — separate module from the legacy v1 stub
+// :shadow-runtime, which stays around until 5b-4 deletes the v1
+// plugin path entirely. Same `com.tencent.shadow.core.runtime` package
+// is used in both — at the time of v1 deletion we'll repoint the
+// :shadow-runtime name to this directory or just rename consumers.
+include(":shadow-core-runtime")
+project(":shadow-core-runtime").projectDir =
+    file("third_party/shadow/upstream/core/runtime")
