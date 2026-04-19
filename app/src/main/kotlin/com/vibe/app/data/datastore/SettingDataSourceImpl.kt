@@ -19,6 +19,7 @@ class SettingDataSourceImpl @Inject constructor(
     private val themeModeKey = intPreferencesKey("theme_mode")
     private val debugModeKey = booleanPreferencesKey("debug_mode")
     private val devBootstrapManifestUrlKey = stringPreferencesKey("dev_bootstrap_manifest_url")
+    private val v2UpgradeSeenKey = booleanPreferencesKey("v2_upgrade_seen")
 
     override suspend fun updateDynamicTheme(theme: DynamicTheme) {
         dataStore.edit { pref ->
@@ -68,5 +69,12 @@ class SettingDataSourceImpl @Inject constructor(
             if (url.isNullOrBlank()) prefs.remove(devBootstrapManifestUrlKey)
             else prefs[devBootstrapManifestUrlKey] = url
         }
+    }
+
+    override suspend fun getV2UpgradeSeen(): Boolean =
+        dataStore.data.map { it[v2UpgradeSeenKey] }.first() ?: false
+
+    override suspend fun setV2UpgradeSeen(seen: Boolean) {
+        dataStore.edit { prefs -> prefs[v2UpgradeSeenKey] = seen }
     }
 }

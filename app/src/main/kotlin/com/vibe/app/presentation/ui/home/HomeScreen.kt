@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -76,6 +78,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibe.app.R
 import com.vibe.app.data.database.entity.ProjectBuildStatus
+import com.vibe.app.data.database.entity.ProjectEngine
 import com.vibe.app.data.database.entity.ProjectWithChat
 import com.vibe.app.feature.projecticon.ProjectIconRenderer
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -93,6 +96,7 @@ fun HomeScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val projectListState by homeViewModel.projectListState.collectAsStateWithLifecycle()
     val showDeleteWarningDialog by homeViewModel.showDeleteWarningDialog.collectAsStateWithLifecycle()
+    val showV2UpgradeNotice by homeViewModel.showV2UpgradeNotice.collectAsStateWithLifecycle()
     val searchQuery by homeViewModel.searchQuery.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
@@ -232,7 +236,32 @@ fun HomeScreen(
                 },
             )
         }
+
+        if (showV2UpgradeNotice) {
+            V2UpgradeNoticeDialog(onDismiss = homeViewModel::dismissV2UpgradeNotice)
+        }
     }
+}
+
+/**
+ * One-time dialog informing the user that projects created in older
+ * VibeApp versions are flagged LEGACY, and new projects default to
+ * the v2 Gradle + Compose stack. Shown the first time the home list
+ * loads with any LEGACY project; dismissal is persisted via
+ * `SettingDataSource.setV2UpgradeSeen(true)`.
+ */
+@Composable
+private fun V2UpgradeNoticeDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.v2_upgrade_title)) },
+        text = { Text(stringResource(R.string.v2_upgrade_body)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.v2_upgrade_ack))
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -251,12 +280,31 @@ private fun ProjectListItem(
             .combinedClickable(onLongClick = onLongClick, onClick = onClick)
             .padding(start = 8.dp, end = 8.dp),
         headlineContent = {
-            Text(
-                text = pwc.project.name,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleMedium,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = pwc.project.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (pwc.project.engine == ProjectEngine.LEGACY) {
+                    Spacer(Modifier.width(6.dp))
+                    // v1 project — marked for clarity since v2 is the
+                    // forward path. v1 still builds + runs today; the
+                    // badge is informational only.
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_legacy_badge),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                    }
+                }
+            }
         },
         leadingContent = {
             if (isSelectionMode) {
