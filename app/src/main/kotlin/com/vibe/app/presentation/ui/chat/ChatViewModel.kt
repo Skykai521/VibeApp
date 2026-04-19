@@ -946,8 +946,13 @@ class ChatViewModel @Inject constructor(
                     }
                     // Session finished — set loading to idle so observeStateChanges() can trigger sync
                     _loadingStates.update { List(_enabledPlatformsInChat.value.size) { LoadingState.Idle } }
-                    // Refresh project name in case the agent called rename_project
-                    _projectName.update { projectRepository.fetchProjectByChatId(chatRoomId)?.name }
+                    // Refresh project metadata in case the agent called rename_project
+                    // OR create_compose_project (v2). The latter inserts a new row;
+                    // ProjectDao.getProjectByChatId now prefers GRADLE_COMPOSE so the
+                    // refreshed _currentProjectId points at the v2 project on the next turn.
+                    val refreshed = projectRepository.fetchProjectByChatId(chatRoomId)
+                    _projectName.update { refreshed?.name }
+                    _currentProjectId.update { refreshed?.projectId }
                     // Refresh the undo bar state now that the turn is complete.
                     refreshLastTurnSnapshot(_currentProjectId.value)
                     sessionFinished = true

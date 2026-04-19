@@ -17,7 +17,20 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE project_id = :projectId")
     suspend fun getProject(projectId: String): Project?
 
-    @Query("SELECT * FROM projects WHERE chat_id = :chatId")
+    /**
+     * One chat can now host both a v1 LEGACY init project and a v2
+     * GRADLE_COMPOSE project (added later by `create_compose_project`).
+     * Pick the v2 one if it exists, otherwise the most recent — that
+     * matches the user's intent: once they've upgraded the chat to a
+     * Compose flow, agent + UI should treat the v2 project as active.
+     *
+     * Sort order:
+     *   1. engine = GRADLE_COMPOSE first (alphabetically G < L)
+     *   2. then created_at DESC (newest within the same engine class)
+     */
+    @Query(
+        "SELECT * FROM projects WHERE chat_id = :chatId ORDER BY engine ASC, created_at DESC LIMIT 1"
+    )
     suspend fun getProjectByChatId(chatId: Int): Project?
 
     @Query("SELECT EXISTS(SELECT 1 FROM projects WHERE project_id = :projectId)")
