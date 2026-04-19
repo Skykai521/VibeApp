@@ -14,15 +14,15 @@ shadow {
     // `transformConfig: TransformConfig` property via an Action). Do NOT
     // write `transformConfig { }` directly — that's Groovy DSL sugar
     // Kotlin DSL doesn't resolve.
-    transform {
-        // Classes that should keep resolving to the host's copies rather
-        // than the plugin's — Shadow won't rewrite references to these.
-        // Extend if the user's plugin needs to pass specific types across
-        // the host/plugin boundary (e.g., shared AIDL interfaces).
-        useHostContext = arrayOf(
-            "com.vibe.app.plugin.IPluginInspector",
-        )
-    }
+    //
+    // `useHostContext` rules (intentionally left empty) take the form
+    // "<class>.<method>(<paramTypes>)$<argIndex>" — Shadow wraps the
+    // listed argument with `((ShadowContext)$N).getBaseContext()` so the
+    // call receives the host's Context instead of the plugin's. Most
+    // Compose-only plugins don't need any rewrites; add one here only if
+    // the plugin calls into a host API that genuinely requires the host
+    // Context (rare).
+    transform { }
 }
 
 android {
@@ -31,7 +31,11 @@ android {
 
     defaultConfig {
         applicationId = "{{PACKAGE_NAME}}"
-        minSdk = 24
+        // minSdk must be > 26 (Android O) so Shadow's checkAaptPackageIdConfig
+        // accepts the --package-id 0x80 we use for plugin resources. The
+        // host app itself is minSdk=29, so plugins never run on lower
+        // versions — keeping this >26 has no real coverage cost.
+        minSdk = 27
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -69,4 +73,9 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.material3)
+    // Shadow runtime stub — required so the plugin variant compiles
+    // (Shadow generates a PluginManifest.java implementing
+    // com.tencent.shadow.core.runtime.PluginManifest). compileOnly so
+    // the runtime APK loaded by the host wins at runtime.
+    compileOnly(libs.shadow.runtime)
 }
