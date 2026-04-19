@@ -25,6 +25,10 @@ import com.vibe.app.feature.project.memo.IntentStore
 import com.vibe.app.feature.project.snapshot.Snapshot
 import com.vibe.app.feature.project.snapshot.SnapshotManager
 import com.vibe.app.feature.project.snapshot.SnapshotType
+import com.vibe.app.plugin.v2.ShadowPluginHost
+import com.vibe.app.data.database.entity.ProjectEngine
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.FileUtils
 import java.io.File
@@ -58,6 +62,7 @@ class ChatViewModel @Inject constructor(
     private val snapshotManager: SnapshotManager,
     private val projectManager: ProjectManager,
     private val intentStore: IntentStore,
+    private val shadowPluginHost: ShadowPluginHost,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -106,6 +111,24 @@ class ChatViewModel @Inject constructor(
     sealed class UndoEvent {
         data object Success : UndoEvent()
         data object Failure : UndoEvent()
+    }
+
+    // ── Standalone "Run" button state (top bar) ──
+    // Reflects whether a v2 (Shadow-loaded) plugin APK exists on disk for
+    // the current project, so the button can disable itself when there's
+    // nothing to run. Updated whenever the project id changes and on
+    // each ON_RESUME (re-syncs after the agent assembles a new APK).
+    private val _isRunnable = MutableStateFlow(false)
+    val isRunnable: StateFlow<Boolean> = _isRunnable.asStateFlow()
+
+    private val _isLaunchingPlugin = MutableStateFlow(false)
+    val isLaunchingPlugin: StateFlow<Boolean> = _isLaunchingPlugin.asStateFlow()
+
+    private val _runEvent = MutableSharedFlow<RunEvent>()
+    val runEvent: SharedFlow<RunEvent> = _runEvent.asSharedFlow()
+
+    sealed class RunEvent {
+        data class Failure(val reason: String) : RunEvent()
     }
 
     private val currentTimeStamp: Long
@@ -237,6 +260,7 @@ class ChatViewModel @Inject constructor(
                         lastKnownCrashLogSize = if (crashFile.exists()) crashFile.length() else 0L
                     }
                 }
+                refreshRunnableState()
             }
         }
     }
@@ -1136,5 +1160,118 @@ class ChatViewModel @Inject constructor(
                 _projectMemoMarkdown.value = markdown
             }
         }
+    }
+
+    // --- Standalone "Run" button ---
+
+    /**
+     * Re-check whether the current project has a built plugin APK on disk.
+     * Called from the chat screen on ON_RESUME and after the agent completes
+     * its turn, so the Run button enables itself once a fresh APK appears.
+     */
+    fun refreshRunnableState() {
+        val projectId = _currentProjectId.value
+        if (projectId == null) {
+            _isRunnable.value = false
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val project = runCatching { projectRepository.fetchProject(projectId)?.project }.getOrNull()
+            val runnable = project?.engine == ProjectEngine.GRADLE_COMPOSE &&
+                pluginApkFor(project.workspacePath).isFile
+            _isRunnable.value = runnable
+        }
+    }
+
+    /**
+     * Launch the current project's built plugin APK in-process via
+     * [ShadowPluginHost], same code path as `RunInProcessV2Tool` but
+     * without the inspector wait — the user just wants to see their UI.
+     * Errors emit to [runEvent] for the screen to surface as a toast.
+     */
+    fun runProjectStandalone() {
+        if (_isLaunchingPlugin.value) return
+        val projectId = _currentProjectId.value
+        if (projectId == null) {
+            viewModelScope.launch { _runEvent.emit(RunEvent.Failure("No project selected")) }
+            return
+        }
+        viewModelScope.launch {
+            _isLaunchingPlugin.value = true
+            try {
+                val project = withContext(Dispatchers.IO) {
+                    projectRepository.fetchProject(projectId)?.project
+                } ?: run {
+                    _runEvent.emit(RunEvent.Failure("Project not found: $projectId"))
+                    return@launch
+                }
+                if (project.engine != ProjectEngine.GRADLE_COMPOSE) {
+                    _runEvent.emit(RunEvent.Failure(
+                        "Project engine is ${project.engine}, not GRADLE_COMPOSE; cannot run.",
+                    ))
+                    return@launch
+                }
+                val apk = pluginApkFor(project.workspacePath)
+                if (!apk.isFile) {
+                    _runEvent.emit(RunEvent.Failure(
+                        "No built APK at ${apk.absolutePath} — ask the agent to assemble first.",
+                    ))
+                    return@launch
+                }
+                if (!isVibeAppInForeground()) {
+                    _runEvent.emit(RunEvent.Failure(
+                        "VibeApp must be in the foreground to launch the plugin.",
+                    ))
+                    return@launch
+                }
+                val packageName = readApplicationId(File(project.workspacePath))
+                if (packageName == null) {
+                    _runEvent.emit(RunEvent.Failure(
+                        "Could not read applicationId from app/build.gradle.kts.",
+                    ))
+                    return@launch
+                }
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        shadowPluginHost.launchPlugin(
+                            apkPath = apk.absolutePath,
+                            packageName = packageName,
+                            projectId = projectId,
+                            projectName = project.name,
+                        )
+                    }
+                }.onFailure { t ->
+                    Log.w(TAG, "runProjectStandalone failed", t)
+                    _runEvent.emit(RunEvent.Failure(
+                        buildString {
+                            append(t.javaClass.simpleName)
+                            t.message?.let { append(": ").append(it) }
+                        },
+                    ))
+                }
+            } finally {
+                _isLaunchingPlugin.value = false
+            }
+        }
+    }
+
+    private fun pluginApkFor(workspacePath: String): File =
+        File(workspacePath, "app/build/outputs/apk/plugin/debug/app-plugin-debug.apk")
+
+    private fun readApplicationId(rootDir: File): String? {
+        val buildGradle = File(rootDir, "app/build.gradle.kts")
+        if (!buildGradle.isFile) return null
+        return Regex("""applicationId\s*=\s*"([^"]+)"""")
+            .find(buildGradle.readText())
+            ?.groupValues
+            ?.getOrNull(1)
+    }
+
+    private suspend fun isVibeAppInForeground(): Boolean = withContext(Dispatchers.Main) {
+        ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+    }
+
+    private companion object {
+        const val TAG = "ChatViewModel"
     }
 }

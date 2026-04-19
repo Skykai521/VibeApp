@@ -85,6 +85,7 @@
     <string name="bug_report_icon">Bug Report Icon</string>
     <string name="scroll_to_bottom_icon">Scroll to bottom icon</string>
     <string name="options">Options</string>
+    <string name="chat_run_app">Run app</string>
     <string name="chat_models">Chat Models</string>
     <string name="chat_models_description">Set model identifiers for each provider in this chat only.</string>
     <string name="chat_model_for_platform">Model for %1$s</string>

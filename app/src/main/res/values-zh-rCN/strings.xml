@@ -78,6 +78,7 @@
     <string name="scroll_to_bottom_icon">滚动到底部的图标</string>
     <string name="edit">编辑</string>
     <string name="options">选择</string>
+    <string name="chat_run_app">运行应用</string>
     <string name="update_project_name">修改项目名称</string>
     <string name="project_name">项目名称</string>
     <string name="project_name_length_limit">项目名称长度限制：%1$s/50</string>

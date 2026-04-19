@@ -44,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.Android
 import androidx.compose.material.icons.outlined.BugReport
@@ -161,6 +162,8 @@ fun ChatScreen(
     val isEditQuestionDialogOpen by chatViewModel.isEditQuestionDialogOpen.collectAsStateWithLifecycle()
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
     val projectName by chatViewModel.projectName.collectAsStateWithLifecycle()
+    val isRunnable by chatViewModel.isRunnable.collectAsStateWithLifecycle()
+    val isLaunchingPlugin by chatViewModel.isLaunchingPlugin.collectAsStateWithLifecycle()
     val isSelectTextSheetOpen by chatViewModel.isSelectTextSheetOpen.collectAsStateWithLifecycle()
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
     val question by chatViewModel.question.collectAsStateWithLifecycle()
@@ -289,6 +292,16 @@ fun ChatScreen(
         }
     }
 
+    // Standalone Run-button result toast.
+    LaunchedEffect(Unit) {
+        chatViewModel.runEvent.collect { event ->
+            when (event) {
+                is ChatViewModel.RunEvent.Failure ->
+                    Toast.makeText(context, event.reason, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     // Re-sync platforms, messages, and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -298,6 +311,9 @@ fun ChatScreen(
                 chatViewModel.refreshMessages()
                 chatViewModel.checkForNewCrashLog()
                 chatViewModel.refreshDebugMode()
+                // Re-check whether the project has a built APK so the
+                // Run button enables itself after the agent assembles.
+                chatViewModel.refreshRunnableState()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -318,6 +334,9 @@ fun ChatScreen(
                 isMoreOptionsEnabled = isIdle,
                 isProjectMenuEnabled,
                 isDebugEnabled = isDebugEnabled,
+                isRunEnabled = isRunnable && !isLaunchingPlugin,
+                isLaunchingPlugin = isLaunchingPlugin,
+                onRunClick = chatViewModel::runProjectStandalone,
                 onBackAction,
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
@@ -733,6 +752,9 @@ private fun ChatTopBar(
     isMoreOptionsEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     isDebugEnabled: Boolean,
+    isRunEnabled: Boolean,
+    isLaunchingPlugin: Boolean,
+    onRunClick: () -> Unit,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     onUpdateProjectNameClick: () -> Unit,
@@ -756,6 +778,26 @@ private fun ChatTopBar(
                 }
             },
             actions = {
+                // Standalone Run button — launches the most recently
+                // assembled plugin APK in the host's plugin slot,
+                // bypassing the agent. Disabled when there's no built
+                // APK on disk or while a launch is already in flight.
+                IconButton(
+                    enabled = isRunEnabled,
+                    onClick = onRunClick,
+                ) {
+                    if (isLaunchingPlugin) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(R.string.chat_run_app),
+                        )
+                    }
+                }
                 IconButton(
                     enabled = isMoreOptionsEnabled,
                     onClick = { isDropDownMenuExpanded = isDropDownMenuExpanded.not() }
