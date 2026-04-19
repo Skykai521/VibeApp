@@ -39,4 +39,19 @@ interface ProjectManager {
      * Returns "YYYYMMDD", or "YYYYMMDD_N" on conflict.
      */
     suspend fun generateProjectId(date: LocalDate = LocalDate.now()): String
+
+    /**
+     * Create a new v2 GRADLE_COMPOSE project bound to the given chatId.
+     * Lays down the KotlinComposeApp template under
+     * `filesDir/projects/{newId}/` and inserts a Project row with
+     * `engine = GRADLE_COMPOSE` and `workspacePath` pointing at the
+     * project root (NOT the `app/` subdir, unlike v1).
+     *
+     * Throws if [chatId] doesn't reference an existing chat.
+     */
+    suspend fun createV2GradleComposeProject(
+        chatId: Int,
+        projectName: String,
+        packageName: String,
+    ): Project
 }

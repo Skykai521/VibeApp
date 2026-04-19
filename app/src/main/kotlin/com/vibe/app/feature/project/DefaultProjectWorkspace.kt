@@ -19,6 +19,19 @@ class DefaultProjectWorkspace(
 
     override val projectId: String get() = project.projectId
 
+    /**
+     * Project file root, derived directly from the persisted workspacePath.
+     * The semantic differs by engine:
+     *  - LEGACY (v1):         workspacePath = `filesDir/projects/{id}/app`
+     *                         (single-module project, root = the `app/` dir)
+     *  - GRADLE_COMPOSE (v2): workspacePath = `filesDir/projects/{id}`
+     *                         (multi-module Gradle project, root = repo root)
+     *
+     * read/write/list/grep tools see paths relative to this root, which
+     * intentionally matches what an Android Studio user would see for that
+     * project layout. Engine-specific tools (assemble_debug_v2,
+     * install_apk_v2) check `project.engine` before acting.
+     */
     override val rootDir: File get() = File(project.workspacePath)
 
     override suspend fun readTextFile(relativePath: String): String = withContext(Dispatchers.IO) {
