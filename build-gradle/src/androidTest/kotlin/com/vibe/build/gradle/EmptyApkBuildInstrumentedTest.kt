@@ -132,7 +132,7 @@ class EmptyApkBuildInstrumentedTest {
         val javaBinary = File(fs.componentInstallDir("jdk-17.0.13"), "bin/java")
         assertTrue("java binary missing at $javaBinary", javaBinary.canExecute())
         assertTrue("aapt2 missing", File(sdkDir, "build-tools/36.0.0/aapt2").canExecute())
-        val androidJar = File(sdkDir, "platforms/android-33/android.jar")
+        val androidJar = File(sdkDir, "platforms/android-34/android.jar")
         assertTrue("android.jar missing at $androidJar", androidJar.isFile)
         assertTrue("android.jar unreadable: size=${androidJar.length()}, canRead=${androidJar.canRead()}", androidJar.canRead() && androidJar.length() > 1_000_000)
 
@@ -171,7 +171,7 @@ class EmptyApkBuildInstrumentedTest {
 
         withTimeout(60_000) { service.start(gradleDist) }
 
-        val events = withTimeout(600_000) {
+        val events = withTimeout(1_200_000) {
             service.runBuild(
                 projectDirectory = projectDir,
                 tasks = listOf(":app:assembleDebug"),
@@ -235,7 +235,34 @@ class EmptyApkBuildInstrumentedTest {
                 z.getEntry("META-INF/CERT.RSA") != null ||
                 apk.length() > 10_000,
             )
+
+            // Sanity: probe is now a Compose app, so the APK should contain
+            // Compose runtime classes in some classes*.dex. Cheapest probe:
+            // scan every classes*.dex for the UTF-8 bytes "androidx/compose/".
+            val composeMarker = "androidx/compose/".toByteArray(Charsets.UTF_8)
+            val dexEntries = z.entries().asSequence()
+                .filter { it.name.matches(Regex("classes\\d*\\.dex")) }
+                .toList()
+            val composeFound = dexEntries.any { entry ->
+                z.getInputStream(entry).use { it.readBytes() }
+                    .let { bytes -> indexOfBytes(bytes, composeMarker) >= 0 }
+            }
+            assertTrue(
+                "APK does not contain androidx.compose classes in any dex (found ${dexEntries.size} dex files)",
+                composeFound,
+            )
         }
+    }
+
+    private fun indexOfBytes(haystack: ByteArray, needle: ByteArray): Int {
+        if (needle.isEmpty()) return 0
+        outer@ for (i in 0..(haystack.size - needle.size)) {
+            for (j in needle.indices) {
+                if (haystack[i + j] != needle[j]) continue@outer
+            }
+            return i
+        }
+        return -1
     }
 
     private fun copyAssetDir(ctx: Context, assetPath: String, destDir: File) {

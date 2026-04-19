@@ -3,8 +3,9 @@
 # Memory budget for the on-device Android emulator/device. 640m heap +
 # 256m metaspace keeps us within a 2GB emulator's working set; a real
 # phone with 4GB+ just runs it faster.
-org.gradle.jvmargs=-Xmx640m -XX:MaxMetaspaceSize=256m
-kotlin.daemon.jvm.options=-Xmx384m
+org.gradle.jvmargs=-Xmx896m -XX:MaxMetaspaceSize=384m
+# Compose compilation is memory-hungry — give Kotlin daemon more room.
+kotlin.daemon.jvm.options=-Xmx768m -XX:MaxMetaspaceSize=256m
 org.gradle.parallel=false
 org.gradle.caching=false
 
