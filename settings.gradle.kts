@@ -94,3 +94,33 @@ project(":shadow-transform").projectDir = file("third_party/shadow/upstream/core
 
 include(":shadow-gradle-plugin")
 project(":shadow-gradle-plugin").projectDir = file("third_party/shadow/upstream/core/gradle-plugin")
+
+// Dynamic family — host-side runtime + AIDL surface that lets the host
+// load and call into a separately-built loader APK.
+include(":shadow-dynamic-apk")
+project(":shadow-dynamic-apk").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-apk")
+
+include(":shadow-dynamic-host")
+project(":shadow-dynamic-host").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-host")
+
+include(":shadow-dynamic-loader")
+project(":shadow-dynamic-loader").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-loader")
+
+include(":shadow-dynamic-loader-impl")
+project(":shadow-dynamic-loader-impl").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-loader-impl")
+
+include(":shadow-dynamic-manager")
+project(":shadow-dynamic-manager").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-manager")
+
+include(":shadow-dynamic-host-multi-loader-ext")
+project(":shadow-dynamic-host-multi-loader-ext").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-host-multi-loader-ext")
+
+include(":shadow-dynamic-manager-multi-loader-ext")
+project(":shadow-dynamic-manager-multi-loader-ext").projectDir =
+    file("third_party/shadow/upstream/dynamic/dynamic-manager-multi-loader-ext")
