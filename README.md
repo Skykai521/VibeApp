@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/badge/license-GPL%203.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Android%2010.0%2B-green.svg)](https://android.com)
 [![Min SDK](https://img.shields.io/badge/minSdk-29-brightgreen.svg)]()
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)]()
 [![Status](https://img.shields.io/badge/status-In%20Development-orange.svg)]()
 
 [**中文文档**](README_CN.md)
@@ -17,9 +18,11 @@
 
 ## What is VibeApp
 
-VibeApp is a **fully open-source** Android app that lets anyone **generate, compile, and install** a real native Android app directly on their phone using natural language — no PC, no coding skills, no cloud required.
+VibeApp is a **fully open-source** Android app that lets anyone **generate, compile, and install** a real native Android app directly on their phone using natural language — no PC, no coding skills, no cloud compiler required.
 
 The entire build pipeline runs on-device. Your code never leaves your phone.
+
+**v2.0 highlight:** generated apps are **Kotlin + Jetpack Compose**, built on-device by a real **Gradle 9.3.1 + AGP 9.1.0 + Kotlin 2.0.21** toolchain that ships bundled inside the APK. No runtime downloads.
 
 ### Screenshots
 
@@ -33,8 +36,8 @@ There are many AI app builders out there, but they share a common problem: **the
 
 |      | Other AI Builders     | VibeApp             |
 |------|-----------------------|---------------------|
-| Output  | Web App / PWA / Cloud-compiled | **Native APK**          |
-| Compilation | Cloud-based                | **On-device local build**         |
+| Output  | Web App / PWA / Cloud-compiled | **Native Android APK (Kotlin + Compose)** |
+| Compilation | Cloud-based                | **On-device local build (Gradle + AGP)** |
 | Privacy | Code uploaded to servers          | **Code never leaves your phone**       |
 | Source Export | Mostly unsupported             | **One-tap source code export**          |
 | Barrier | Requires deployment/environment setup         | **Just configure an AI API key** |
@@ -48,19 +51,22 @@ We believe that in the AI era, apps won't disappear — instead, more people wil
 ### Core Capabilities
 
 - **Conversational Creation** — Describe what you want in natural language, iterate through multi-turn dialogue
-- **On-Device Full Build Pipeline** — AAPT2 + JavacTool + D8 + packaging/signing, the complete build chain runs on your phone
-- **Automatic Error Fix Loop** — Compilation failures are automatically fed back to AI for repair
-- **Multi-Project Management** — Manage multiple app projects simultaneously with version snapshots and build cache
+- **On-Device Gradle + AGP** — Full Android build stack (Gradle 9.3.1, AGP 9.1.0, Kotlin 2.0.21) runs inside your phone, no cloud compile
+- **Bundled Toolchain** — JDK 17, Gradle, Android SDK 36, AAPT2 all ship inside the APK; zero network setup on first build
+- **Run-in-Process** — Launch generated apps inside VibeApp via the Tencent Shadow plugin framework — no system installer, no reboot
+- **Standalone Install** — One-tap build of a non-Shadow flavor APK + system installer handoff; share the app like any other APK
+- **Automatic Error Fix Loop** — Compilation failures are sanitized, fed back to the AI, and retried
+- **Multi-Project Management** — Manage multiple app projects simultaneously with auto snapshots and per-project workspaces
 - **Multi-Model Support** — Claude, GPT, Gemini, Qwen, Kimi, MiniMax, Groq, OpenRouter, and OpenAI-compatible local Ollama
-- **Flexible Export** — Install APK directly or export complete source code
+- **Flexible Export** — Run in-process, install as a standalone APK, or export the full source tree
 
-### Code Generation Strategy (Triple Guarantee)
+### Code Generation Strategy
 
-Stable AI code generation is the product's core. VibeApp uses a triple guarantee mechanism:
+Stable AI code generation is the product's core. VibeApp combines three layers:
 
-1. **Template Constraints** — AI doesn't generate from scratch; it fills in predefined skeletons, minimizing structural errors
-2. **Strict System Prompt** — Explicit whitelist of allowed standard SDK classes
-3. **Auto-Fix Loop** — On compilation failure, sanitized error logs are fed to AI for automatic repair, covering most common error scenarios
+1. **Kotlin + Compose Template** — AI starts from a working `KotlinComposeApp` template with a pre-wired Shadow-compatible `ShadowComposeActivity`; structural errors are minimized
+2. **Strict System Prompt** — Compose-only conventions, explicit don'ts around `ComponentActivity` / `setContent` / native libs
+3. **Auto-Fix Loop** — On build failure, AGP's structured diagnostics are fed to the AI for repair; covers most common Compose/Kotlin errors
 
 ---
 
@@ -69,23 +75,33 @@ Stable AI code generation is the product's core. VibeApp uses a triple guarantee
 ```
 +--------------------------------------------------------------+
 | Presentation Layer                                           |
-| Compose Screens + ViewModels                                 |
-| chat / home / setup / settings / start                       |
+| Compose Screens + ViewModels + Navigation                    |
+| chat / home / setup / settings / start / diagnostic          |
 +--------------------------------------------------------------+
 | Feature Layer                                                |
-| Agent Loop Coordinator + Project Manager + Project Init      |
-| Agent Tools (read/write/list files, run build, rename, icon) |
+| Agent Loop Coordinator (gateway-agnostic tool dispatch)      |
+| Project Manager + Workspace + Snapshot                       |
+| Agent Tools — v2 build tools, file ops, icon, UI inspect     |
 +--------------------------------------------------------------+
 | Data Layer                                                   |
 | Room + DataStore + Repository + Network API clients          |
 | OpenAI / Anthropic / Google / Qwen / Kimi / MiniMax / Groq   |
 +--------------------------------------------------------------+
-| Build Engine Module (build-engine)                           |
-| RESOURCE -> COMPILE -> DEX -> PACKAGE -> SIGN                |
-| AAPT2     JavacTool   D8    ApkBuilder   ApkSigner           |
+| On-Device Build Stack                                        |
+|   build-gradle : GradleProjectInitializer, template renderer |
+|                  GradleBuildService (Tooling API client)     |
+|   gradle-host  : isolated JVM running Gradle Tooling API     |
+|   build-runtime: bundled JDK + Gradle + AndroidSDK extractor |
++--------------------------------------------------------------+
+| Plugin Runtime (Tencent Shadow — vendored)                   |
+| ShadowPluginHost -> :shadow_plugin process                   |
+| VibeAppPluginLoader + VibeAppComponentManager                |
+| PluginContainerActivity + Inspector Service                  |
 +--------------------------------------------------------------+
 | Device Filesystem                                            |
-| /files/projects/{projectId}/app + generated source + APK     |
+| /files/projects/{projectId}/         — Gradle multi-module   |
+| /files/usr/opt/{jdk,gradle,android-sdk}/ — bundled toolchain |
+| /files/shadow/{loader.apk,runtime.apk,plugin-repo}/          |
 +--------------------------------------------------------------+
 ```
 
@@ -94,10 +110,10 @@ Main pipeline:
 ```
 ChatScreen
   -> ChatViewModel
-  -> AgentLoopCoordinator / ProjectInitializer / ProjectManager
-  -> Repository + API Client / Workspace FS
-  -> BuildPipeline.run()
-  -> signed.apk -> PackageInstaller
+  -> AgentLoopCoordinator -> Agent Tool (e.g. assemble_debug_v2)
+  -> GradleBuildService -> gradle-host JVM -> Gradle Tooling API
+  -> :app:assemblePluginDebug -> app-plugin-debug.apk
+  -> ShadowPluginHost.launchPlugin -> :shadow_plugin
 ```
 
 > For detailed layer descriptions, module responsibilities, and key sequences, see [docs/architecture.md](docs/architecture.md)
@@ -109,30 +125,35 @@ ChatScreen
 ```
 User describes what they want
      |
-AI generates Java source + XML layouts (constrained by System Prompt)
+AI edits files inside the generated Kotlin + Compose project
+  (create_compose_project / read_project_file / write_project_file /
+   edit_project_file, all scoped to the per-chat project workspace)
      |
-AAPT2 (compile res/ + link Manifest + generate R.java + generated.apk.res)
-  |-- Failure -> Error sanitization -> AI fix -> retry up to 3 times
+assemble_debug_v2  ->  :app:assemblePluginDebug
+  (on-device Gradle runs AGP 9 against the bundled Android SDK)
+  |-- Failure -> structured diagnostics -> AI fix -> retry
   +-- Success |
-JavacTool compile (source code + R.java -> .class)
+app-plugin-debug.apk   (Shadow-transformed, runs ONLY inside VibeApp)
      |
-D8 conversion (.class -> classes.dex)
-     |
-APK packaging (generated.apk.res + classes.dex -> generated.apk)
-     |
-ApkSigner (V1 + V2 signing -> signed.apk)
-     |
-PackageInstaller guides user to install
+Two output paths:
+  [A] run_in_process_v2    -> Shadow loads the APK into :shadow_plugin
+                              (fast iteration, no install required)
+  [B] install_apk_v2       -> runs :app:assembleNormalDebug too
+                              -> app-normal-debug.apk
+                              -> system installer handoff
+                              (standalone app on the launcher)
 ```
 
 ### Build Chain Tech Stack
 
 | Component | Purpose | Notes |
 |-----------|---------|-------|
-| **AAPT2** | `res/` + Manifest -> `R.java` + `generated.apk.res` | Completes resource compilation and linking before Java compilation |
-| **JavacTool** | Java -> `.class` | Compiles source code and AAPT2-generated `R.java` |
-| **D8** | `.class` -> `.dex` | Official Android DEX compiler |
-| **ApkBuilder + ApkSigner** | Package + Sign | Produces the final `signed.apk` |
+| **Gradle 9.3.1** | Build orchestrator | Runs on-device via Gradle Tooling API, driven from `:gradle-host` |
+| **AGP 9.1.0** | Android Gradle Plugin | Full AAPT2 / Kotlin compile / D8 / packaging / signing pipeline |
+| **Kotlin 2.0.21** | Source language + Compose compiler | Kotlin daemon runs in the on-device Gradle process |
+| **Tencent Shadow 2.x** | In-process plugin runtime | Bytecode transforms plugin APK so Activities extend `ShadowActivity` |
+| **Bundled JDK 17** | JVM for Gradle | Shipped arm64-v8a; extracted to `filesDir` on first build |
+| **Bundled Android SDK 36** | `android.jar`, `build-tools/aapt2` | Shipped arm64-v8a; extracted alongside the JDK |
 
 ---
 
@@ -140,8 +161,9 @@ PackageInstaller guides user to install
 
 ### Requirements
 
-- Android 10.0 (API 29) or above
+- Android 10.0 (API 29) or above, **arm64-v8a**
 - An AI API Key (Claude / GPT-4o / Gemini / Qwen / Kimi / MiniMax — pick one) or a local Ollama service
+- Roughly 2 GB of free space (bundled toolchain + per-project Gradle caches)
 
 ### Install
 
@@ -152,15 +174,22 @@ PackageInstaller guides user to install
 ```bash
 git clone https://github.com/Skykai521/VibeApp.git
 cd VibeApp
+# Generate the bundled toolchain tarballs (one-time, requires a host-side JDK + AGP):
+#   scripts/bootstrap/build-jdk.sh        --abi arm64-v8a
+#   scripts/bootstrap/build-gradle.sh
+#   scripts/bootstrap/build-androidsdk.sh --abi arm64-v8a
+#   scripts/bootstrap/build-manifest.sh
+# Then build the app APK:
 ./gradlew assembleDebug
 ```
 
 ### First Use
 
-1. Open VibeApp -> Settings -> Configure your AI API Key
-2. Tap "New Project"
+1. Open VibeApp → Settings → Configure your AI API Key
+2. Tap "+" on the Home screen → a Kotlin + Compose project is laid down automatically
 3. Describe the app you want in natural language
-4. Wait for auto-generation -> compilation -> installation
+4. The agent edits files, runs `assemble_debug_v2`, and launches via `run_in_process_v2`
+5. Use the top-bar **Run** button to re-launch without a turn, or the **Install APK** menu item to sideload the standalone build
 
 ---
 
@@ -168,74 +197,58 @@ cd VibeApp
 
 ```
 VibeApp/
-+-- app/                                 # Android app module
++-- app/                                   # Android host app
 |   +-- src/main/kotlin/com/vibe/app/
-|   |   +-- presentation/                # Compose UI, navigation, ViewModel, theme
-|   |   |   +-- common/
-|   |   |   +-- theme/
-|   |   |   +-- ui/
-|   |   |       +-- chat/
-|   |   |       +-- home/
-|   |   |       +-- main/
-|   |   |       +-- setting/
-|   |   |       +-- setup/
-|   |   |       +-- diagnostic/
-|   |   +-- feature/                     # Core business orchestration
-|   |   |   +-- agent/                   # Agent loop, gateway, tool registry
-|   |   |   |   +-- loop/
-|   |   |   |   +-- tool/
-|   |   |   |   +-- service/
-|   |   |   +-- diagnostic/              # Chat diagnostic logger
-|   |   |   +-- project/                 # ProjectManager / Workspace abstraction
-|   |   |   +-- projecticon/             # Launcher icon generation
-|   |   |   +-- projectinit/             # Template project init, build entry
-|   |   +-- plugin/                      # Plugin runtime host
-|   |   |   +-- PluginContainerActivity  # Proxy Activity (5 process-isolated slots)
-|   |   |   +-- PluginManager            # Slot allocation, LRU eviction
-|   |   |   +-- PluginResourceLoader     # DexClassLoader + AssetManager resource loading
-|   |   +-- data/                        # Persistence, network, DTO, repository
-|   |   |   +-- database/
-|   |   |   |   +-- dao/
-|   |   |   |   +-- entity/
-|   |   |   +-- datastore/
-|   |   |   +-- dto/
-|   |   |   +-- model/
-|   |   |   +-- network/
-|   |   |   +-- repository/
-|   |   +-- di/                          # Hilt modules
-|   |   +-- util/                        # Common utilities and extensions
-|   +-- src/main/res/                    # UI resources, multi-language strings
-|   +-- src/main/assets/                 # android.jar, templates, static assets
-|   +-- schemas/                         # Room schema snapshots
-+-- build-engine/                        # On-device build engine
-|   +-- src/main/java/com/vibe/build/engine/
-|       +-- apk/                         # APK packaging
-|       +-- compiler/                    # JavacCompiler / ECJ compatibility shim
-|       +-- dex/                         # D8 dex conversion
-|       +-- internal/                    # Workspace, logger, binary resolver
-|       +-- model/                       # BuildResult / BuildStage / CompileInput
-|       +-- pipeline/                    # BuildPipeline / DefaultBuildPipeline
-|       +-- resource/                    # AAPT2 resource compilation and linking
-|       +-- sign/                        # Debug signing
-+-- shadow-runtime/                      # Plugin runtime classes (ShadowActivity etc.)
-+-- build-tools/                         # Bundled build toolchain dependencies
-|   +-- android-stubs/
-|   +-- common/
-|   +-- javac/
-|   +-- jaxp/
-|   +-- kotlinc/
-|   +-- logging/
-|   +-- manifmerger/
-|   +-- project/
-+-- docs/                                # Documentation
-|   +-- architecture.md                  # Full architecture guide
-|   +-- assets/
-+-- .github/                             # Issue templates / CI
-+-- CONTRIBUTING.md                      # Contribution guide and branch strategy
+|   |   +-- presentation/                  # Compose UI, navigation, ViewModels, theme
+|   |   |   +-- ui/{chat, home, main, setup, setting, startscreen, diagnostic, ...}
+|   |   +-- feature/
+|   |   |   +-- agent/{loop, tool, service}  # Agent loop + tool registry
+|   |   |   +-- project/                   # ProjectManager, Workspace, snapshots
+|   |   |   +-- projecticon/               # Launcher icon generation (Lucide)
+|   |   |   +-- diagnostic/                # ChatDiagnosticLogger
+|   |   +-- plugin/v2/                     # Tencent Shadow host integration
+|   |   |   +-- ShadowPluginHost           # Top-level launch orchestrator
+|   |   |   +-- ShadowPluginManager        # Concrete manager subclass
+|   |   |   +-- ShadowPluginProcessService # :shadow_plugin process entry
+|   |   |   +-- ShadowPluginInspectorService, ShadowActivityTracker, ...
+|   |   +-- data/                          # Room, DataStore, network, repositories
+|   |   +-- di/                            # Hilt modules
+|   |   +-- util/
+|   +-- src/main/res/                      # UI resources + multi-language strings
+|   +-- src/main/assets/
+|       +-- bootstrap/                     # Bundled toolchain tarballs
+|       |   +-- jdk-17.0.13-arm64-v8a.tar.gz
+|       |   +-- gradle-9.3.1-common.tar.gz
+|       |   +-- android-sdk-36.0.0-arm64-v8a.tar.gz
+|       |   +-- manifest.json
+|       +-- shadow/
+|       |   +-- loader.apk                 # Loaded into :shadow_plugin at runtime
+|       |   +-- runtime.apk
+|       |   +-- plugin-repo.zip            # Shadow Gradle plugin local Maven repo
+|       +-- agent-system-prompt.md         # v2 agent prompt (Kotlin + Compose + Shadow)
+|       +-- vibeapp-gradle-host.jar        # gradle-host module, copied in
++-- build-gradle/                          # Gradle orchestration from the host app
+|   +-- GradleProjectInitializer           # Renders template -> workspace
+|   +-- GradleBuildService                 # Tooling API client wrapper
+|   +-- ApkInstaller + StandaloneApkBuilder
+|   +-- src/main/assets/templates/KotlinComposeApp/   # Compose project template
++-- build-runtime/                         # On-device toolchain bootstrap
+|   +-- BootstrapFileSystem, RuntimeBootstrapper, ZstdExtractor
+|   +-- (extracts bootstrap/* tarballs into filesDir/usr/opt/)
++-- gradle-host/                           # Isolated JVM running Gradle Tooling API
++-- third_party/shadow/                    # Vendored Tencent Shadow
+|   +-- upstream/                          # Shadow SDK source (core/ + dynamic/)
+|   +-- loader-apk/                        # Our CoreLoaderFactoryImpl + VibeApp glue
+|   +-- runtime-apk/                       # Shadow runtime APK wrapper
++-- scripts/bootstrap/                     # Build the bundled toolchain tarballs
++-- docs/                                  # Architecture + plans + specs
++-- .github/                               # Issue templates / CI
++-- CONTRIBUTING.md
 +-- LICENSE
-+-- README.md                            # English README (this file)
-+-- README_CN.md                         # Chinese README
++-- README.md / README_CN.md
 ```
+
+> The v1 Java/XML build stack (`build-engine/`, `build-tools/*`, `shadow-runtime/` stub, Material Components XML pattern library) was removed in the 2.0 cleanup. Only Kotlin + Compose remains.
 
 ---
 
@@ -259,7 +272,7 @@ VibeApp/
 
 - [x] Multi-project management
 - [x] Multi-model switching (Claude / GPT / Gemini / Qwen / Kimi / MiniMax / Groq / OpenRouter / Ollama)
-- [x] Plugin system — run generated apps inside VibeApp without installation (Shadow-based, 5 process-isolated slots)
+- [x] Plugin system — run generated apps inside VibeApp without installation
 - [x] Build cache — pre-dex caching for library JARs, significantly faster subsequent builds
 - [x] AI multimodal support — image input across Anthropic, OpenAI, and Kimi providers
 - [x] Context compaction — multi-strategy conversation compaction to support longer multi-turn sessions
@@ -269,12 +282,23 @@ VibeApp/
 
 > Goal: Generate higher-quality utility apps and lightweight data tools that anyone can use
 
-- [x] Richer UI component templates — more built-in patterns for common utility app layouts
 - [x] Smarter auto-fix — broader error coverage and higher first-attempt success rate
-- [ ] Utility app enhancements — network requests, local storage, scheduled tasks, and other common capabilities
-- [ ] Web scraping & data tools — structured data fetching and display powered by jsoup
 - [x] Continuous iteration — per-turn auto snapshots with undo, project memo injected into every iterate-mode turn, multi-turn refinement
+- [ ] Utility app enhancements — network requests, local storage, scheduled tasks, and other common capabilities
+- [ ] Web scraping & data tools — structured data fetching and display
 - [ ] Community template marketplace — share and reuse high-quality tool templates
+
+### Phase 4 — v2.0 Kotlin + Compose + On-Device Gradle
+
+> Goal: Replace the hand-rolled Java/XML pipeline with a real Android build stack
+
+- [x] Generated apps are Kotlin + Jetpack Compose (no more Java / XML Views)
+- [x] On-device Gradle 9.3.1 + AGP 9.1.0 + Kotlin 2.0.21 via the Tooling API
+- [x] Bundled toolchain (JDK 17, Gradle, Android SDK 36, AAPT2) shipped in assets — zero network download on first build
+- [x] Tencent Shadow integration — `:shadow_plugin` process, bytecode transform, custom `CoreLoaderFactoryImpl` + `ComponentManager`
+- [x] `run_in_process_v2` vs `install_apk_v2` — same source, two flavors (`plugin` for in-process, `normal` for standalone)
+- [x] Standalone top-bar Run button + Install APK menu item — run/install without burning an agent turn
+- [x] Full v1 deletion — `build-engine`, `build-tools/*`, legacy plugin host, M2 XML UI pattern library
 
 ---
 
@@ -285,8 +309,9 @@ VibeApp stands on the shoulders of these excellent open-source projects:
 | Project | Contribution |
 |---------|-------------|
 | [gpt_mobile](https://github.com/Taewan-P/gpt_mobile) | AI Chat UI reference |
-| [CodeAssist](https://github.com/tyron12233/CodeAssist/) | On-device full Android IDE, proving the end-to-end feasibility |
-| [Shadow](https://github.com/Tencent/Shadow) | Tencent's plugin framework — inspired the host-delegation pattern for running generated apps inside VibeApp without installation |
+| [CodeAssist](https://github.com/tyron12233/CodeAssist/) | On-device full Android IDE, inspired v1's hand-rolled pipeline |
+| [Shadow](https://github.com/Tencent/Shadow) | Tencent's plugin framework — powers v2's in-process run path so generated apps boot inside VibeApp without a system install |
+| [Android Gradle Plugin](https://developer.android.com/build) | AGP 9.1.0 runs unmodified on-device via the Gradle Tooling API |
 
 ---
 
@@ -298,7 +323,7 @@ We welcome contributions of any kind! Please read [CONTRIBUTING.md](CONTRIBUTING
 
 - Bug reports and feature suggestions
 - Improve AI code generation prompt templates
-- Extend supported app types and UI components
+- Extend supported app types and Compose components
 - Improve build chain stability and speed
 - Improve documentation and examples
 
