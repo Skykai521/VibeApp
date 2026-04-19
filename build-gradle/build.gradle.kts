@@ -61,6 +61,8 @@ dependencies {
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.serialization.json)
+    // For ApkInstaller's FileProvider.getUriForFile.
+    implementation(libs.androidx.core.ktx)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -129,6 +129,13 @@ fun BuildRuntimeDebugScreen(
             ) {
                 Text("Generate Counter project + assembleDebug (5-10 min)")
             }
+            Button(
+                onClick = viewModel::installCounterApk,
+                enabled = !ui.launchRunning,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Install last-built Counter APK")
+            }
 
             if (ui.launchLog.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
