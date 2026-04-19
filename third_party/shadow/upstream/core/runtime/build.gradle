@@ -1,0 +1,42 @@
+/**
+ * shadow-runtime是运行时Shadow App所依赖的类。
+ *
+ * 这里面的类混淆意义不大，对体积缩减需求也不强。
+ * shadow-loader的Debug版依赖这个模块的Debug版
+ * shadow-loader的Release版依赖这个模块的Release版
+ * shadow-transform依赖这个模块的Release版
+ * 因此暂定这个模块不混淆，保持Debug版和Release版无差别。
+ */
+
+import com.tencent.shadow.coding.code_generator.ActivityCodeGenerator
+
+buildscript {
+    dependencies {
+        classpath 'com.tencent.shadow.coding:android-jar'
+        classpath 'com.tencent.shadow.coding:code-generator'
+    }
+}
+
+apply plugin: 'com.tencent.shadow.internal.common-jar-settings'
+
+java {
+    sourceSets {
+        main.java.srcDirs += 'build/generated/sources/code-generator'
+    }
+}
+
+dependencies{
+    compileOnly project(':activity-container')
+}
+
+def generateCode = tasks.register('generateCode') {
+    def outputDir = layout.buildDirectory.dir('generated/sources/code-generator')
+    outputs.dir(outputDir)
+            .withPropertyName('outputDir')
+    doLast {
+        ActivityCodeGenerator codeGenerator = new ActivityCodeGenerator()
+        codeGenerator.generate(outputDir.get().getAsFile(), "runtime")
+    }
+}
+
+compileJava.dependsOn(generateCode)

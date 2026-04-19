@@ -1,0 +1,9 @@
+apply plugin: 'com.tencent.shadow.internal.common-jar-settings'
+
+dependencies {
+    implementation project(':utils')
+    compileOnly project(':common')
+    api project(':load-parameters')
+
+    testImplementation "junit:junit:$junit_version"
+}

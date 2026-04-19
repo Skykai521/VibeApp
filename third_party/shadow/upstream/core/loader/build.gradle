@@ -1,0 +1,57 @@
+import com.tencent.shadow.coding.code_generator.ActivityCodeGenerator
+import com.tencent.shadow.coding.common_jar_settings.AndroidJar
+
+buildscript {
+    dependencies {
+        classpath 'com.tencent.shadow.coding:android-jar'
+        classpath 'com.tencent.shadow.coding:code-generator'
+    }
+}
+
+apply plugin: 'com.tencent.shadow.internal.common-jar-settings'
+
+apply plugin: 'kotlin'
+
+java {
+    sourceSets {
+        main.java.srcDirs += 'build/generated/sources/code-generator'
+    }
+}
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_7
+    targetCompatibility = JavaVersion.VERSION_1_7
+
+    kotlinOptions {
+        jvmTarget = "1.6"
+        noJdk = true
+        noStdlib = true
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    testImplementation "junit:junit:$junit_version"
+
+    implementation 'com.tencent.shadow.coding:java-build-config'
+    api project(':runtime')
+    compileOnly project(':activity-container')
+    compileOnly project(':common')
+    api project(':load-parameters')
+    compileOnly files(AndroidJar.ANDROID_JAR_PATH)
+    testImplementation "org.mockito:mockito-inline:5.2.0"
+    testImplementation files(AndroidJar.ANDROID_JAR_PATH)
+}
+
+def generateCode = tasks.register('generateCode') {
+    def outputDir = layout.buildDirectory.dir('generated/sources/code-generator')
+    outputs.dir(outputDir)
+            .withPropertyName('outputDir')
+    doLast {
+        ActivityCodeGenerator codeGenerator = new ActivityCodeGenerator()
+        codeGenerator.generate(outputDir.get().getAsFile(), "loader")
+    }
+}
+
+compileJava.dependsOn(generateCode)
+compileKotlin.dependsOn(generateCode)

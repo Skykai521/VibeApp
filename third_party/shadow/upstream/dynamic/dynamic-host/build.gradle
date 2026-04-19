@@ -1,0 +1,7 @@
+apply plugin: 'com.tencent.shadow.internal.common-jar-settings'
+
+dependencies {
+    implementation 'com.tencent.shadow.core:utils'
+    compileOnly 'com.tencent.shadow.core:common'
+    api project(':dynamic-apk')
+}
