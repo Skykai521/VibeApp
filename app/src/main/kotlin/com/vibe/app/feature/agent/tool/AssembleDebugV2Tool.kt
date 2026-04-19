@@ -8,13 +8,17 @@ import com.vibe.build.gradle.diagnostic.BuildDiagnostic
 import com.vibe.build.gradle.diagnostic.BuildDiagnosticFormatter
 import com.vibe.build.gradle.diagnostic.BuildDiagnosticIngest
 import com.vibe.build.runtime.bootstrap.BootstrapFileSystem
+import com.vibe.build.runtime.bootstrap.BootstrapState
+import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import com.vibe.app.feature.agent.AgentTool
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
+import android.util.Log
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.JsonPrimitive
@@ -40,6 +44,8 @@ class AssembleDebugV2Tool @Inject constructor(
     private val fs: BootstrapFileSystem,
     private val diagnosticIngest: BuildDiagnosticIngest,
     private val diagnosticFormatter: BuildDiagnosticFormatter,
+    private val bootstrapper: RuntimeBootstrapper,
+    @Named("bootstrapManifestUrl") private val bootstrapManifestUrl: String,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -71,9 +77,35 @@ class AssembleDebugV2Tool @Inject constructor(
         }
         val gradleDist = fs.componentInstallDir("gradle-9.3.1")
         if (!gradleDist.isDirectory) {
-            return call.errorResult(
-                "gradle distribution missing at $gradleDist — run bootstrap first.",
-            )
+            // First-ever v2 build on this device — run the bootstrap
+            // (downloads JDK 17 + Gradle 9.3.1 + Android SDK 36 + aapt2
+            // from our GitHub release into filesDir/usr/opt/). Cold
+            // first run is ~10–30 minutes depending on network; the
+            // model should warn the user in its response that the
+            // first `assemble_debug_v2` takes a while.
+            Log.i("AssembleDebugV2Tool", "Gradle dist missing; triggering bootstrap from $bootstrapManifestUrl")
+            var lastState: BootstrapState? = null
+            try {
+                bootstrapper.bootstrap(bootstrapManifestUrl) { state ->
+                    lastState = state
+                    Log.d("AssembleDebugV2Tool", "bootstrap state: $state")
+                }
+            } catch (t: Throwable) {
+                return call.errorResult(
+                    "bootstrap threw ${t.javaClass.simpleName}: ${t.message}. Check network connectivity and retry.",
+                )
+            }
+            val failure = (lastState as? BootstrapState.Failed)?.reason
+            if (failure != null) {
+                return call.errorResult(
+                    "bootstrap failed: $failure. Check network connectivity and retry.",
+                )
+            }
+            if (!gradleDist.isDirectory) {
+                return call.errorResult(
+                    "bootstrap completed but $gradleDist still missing — manifest likely broken.",
+                )
+            }
         }
 
         return try {
@@ -144,7 +176,7 @@ class AssembleDebugV2Tool @Inject constructor(
                     isError = true,
                 )
             }
-            val apk = File(projectDir, "app/build/outputs/apk/debug/app-debug.apk")
+            val apk = File(projectDir, "app/build/outputs/apk/plugin/debug/app-plugin-debug.apk")
             call.result(
                 buildJsonObject {
                     put("status", JsonPrimitive("SUCCESS"))

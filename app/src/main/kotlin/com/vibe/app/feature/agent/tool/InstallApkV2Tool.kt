@@ -48,7 +48,7 @@ class InstallApkV2Tool @Inject constructor(
                 "current project is engine=${project.engine}, not GRADLE_COMPOSE — install_apk_v2 only works for v2 projects.",
             )
         }
-        val apk = File(project.workspacePath, "app/build/outputs/apk/debug/app-debug.apk")
+        val apk = File(project.workspacePath, "app/build/outputs/apk/plugin/debug/app-plugin-debug.apk")
         if (!apk.isFile) {
             return call.errorResult(
                 "APK not found at $apk. Run assemble_debug_v2 first.",

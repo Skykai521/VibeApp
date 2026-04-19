@@ -143,7 +143,11 @@ with a 108×108 viewport and a 66×66 foreground safe zone.
   `app/build/outputs/apk/plugin/debug/app-plugin-debug.apk`. On failure
   returns `diagnostics_markdown` (cleaned errors with file:line:col and
   3-line source snippets) — that's the actionable view, not the raw
-  `failureSummary`.
+  `failureSummary`. **First call on a fresh install can take 15–40
+  minutes** because it downloads the full toolchain (JDK 17 + Gradle
+  9.3.1 + Android SDK 36 + aapt2, ~1–2 GB) before building. Warn the
+  user before calling if the Gradle distribution might not be present
+  yet. Subsequent builds are <60 s.
 - `install_apk_v2()` — hands the most recently built APK to the system
   installer; user confirms in the system dialog.
 - `run_in_process_v2()` — launch the most recently built APK inside
