@@ -2,6 +2,7 @@ package com.vibe.build.runtime.bootstrap
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -38,6 +39,13 @@ open class ZstdExtractor @Inject constructor() {
      * Stream-variant: consumes an arbitrary [InputStream] (e.g.
      * `AssetManager.open(...)` for APK-bundled artifacts) rather than
      * reading a temp file on disk.
+     *
+     * Transparently handles both raw `.tar` and `.tar.gz` inputs — we
+     * peek the first two bytes for the gzip magic (`1f 8b`), and if
+     * present wrap with [GZIPInputStream]. Needed because AGP 9's
+     * `compressAssets` task auto-decompresses `.gz` during APK build
+     * (files go in as `.tar.gz`, come out as `.tar`); we don't control
+     * that, so the extractor needs to tolerate both shapes.
      */
     open fun extract(source: InputStream, destinationDir: File) {
         require(destinationDir.isDirectory) {
@@ -46,8 +54,16 @@ open class ZstdExtractor @Inject constructor() {
         val dstCanonical = destinationDir.canonicalFile
 
         try {
-            GZIPInputStream(source).use { gzipIn ->
-                TarArchiveInputStream(gzipIn).use { tarIn ->
+            val buffered = BufferedInputStream(source)
+            buffered.mark(2)
+            val b0 = buffered.read()
+            val b1 = buffered.read()
+            buffered.reset()
+            val isGzipped = b0 == 0x1f && b1 == 0x8b
+            val tarSource: InputStream = if (isGzipped) GZIPInputStream(buffered) else buffered
+
+            tarSource.use { tarInput ->
+                TarArchiveInputStream(tarInput).use { tarIn ->
                     while (true) {
                         val entry: TarArchiveEntry = tarIn.nextEntry ?: break
                         val target = File(destinationDir, entry.name).canonicalFile

@@ -79,7 +79,13 @@ class RuntimeBootstrapper @Inject constructor(
         stagedDir.deleteRecursively()
         stagedDir.mkdirs()
 
-        context.assets.open("$ASSETS_ROOT/${artifact.fileName}").use { input ->
+        // AGP's `compressAssets` task auto-decompresses `.gz` assets
+        // during APK build — files go in as `.tar.gz` but come out as
+        // bare `.tar`. Try the manifest-listed name first, then the
+        // gz-stripped fallback. The extractor transparently handles
+        // both gzipped and raw tar streams.
+        val assetStream = openAssetWithFallback(artifact.fileName)
+        assetStream.use { input ->
             extractor.extract(input, stagedDir)
         }
 
@@ -94,6 +100,16 @@ class RuntimeBootstrapper @Inject constructor(
             ),
             onState,
         )
+    }
+
+    private fun openAssetWithFallback(fileName: String): java.io.InputStream {
+        val assets = context.assets
+        return try {
+            assets.open("$ASSETS_ROOT/$fileName")
+        } catch (e: java.io.FileNotFoundException) {
+            val alt = fileName.removeSuffix(".gz")
+            if (alt != fileName) assets.open("$ASSETS_ROOT/$alt") else throw e
+        }
     }
 
     private suspend fun emit(
