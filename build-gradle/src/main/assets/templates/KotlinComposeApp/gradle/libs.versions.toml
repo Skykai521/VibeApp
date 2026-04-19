@@ -11,7 +11,7 @@ lifecycleRuntime = "2.8.3"
 # from 1.0 → 1.1 to patch getProcessResourcesFile for AGP 9 output
 # layout. Bump again whenever the vendored plugin binary changes so
 # on-device Gradle caches invalidate.
-shadow = "1.1"
+shadow = "1.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

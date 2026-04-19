@@ -77,19 +77,44 @@ internal class AGPCompatImpl : AGPCompat {
                         "linked-resources-binary-format-$variantName.ap_"
                     )
                 } catch (ignored: Exception) {
-                    // AGP 9+ — restructured the processResources task outputs
-                    // such that neither the `out` nor
-                    // `process<Variant>Resources` predicate matches any
-                    // entry in `task.outputs.files.files`. Fall back to
-                    // walking the entire output tree for any `.ap_` file;
-                    // accept whichever one we find first.
-                    processResourcesTask.outputs.files.asFileTree.files
-                        .firstOrNull { it.isFile && it.name.endsWith(SdkConstants.DOT_RES) }
-                        ?: throw IllegalStateException(
-                            "Shadow: no .ap_ file in processResources outputs of task " +
-                                "${processResourcesTask.path}. AGP may have restructured " +
-                                "the output layout again; patch AGPCompatImpl.getProcessResourcesFile."
+                    // AGP 9+ — output layout changed again. At
+                    // configuration time the declared outputs are file/dir
+                    // paths that don't physically exist yet, so we can't
+                    // scan the tree for a `.ap_`. Strategy:
+                    //   1. Scan declared outputs + 1-level children for
+                    //      an entry whose NAME ends in `.ap_` (covers
+                    //      AGPs that declare the file directly).
+                    //   2. Otherwise take the first declared entry,
+                    //      assume it's the parent dir, compose the
+                    //      AGP 8+ filename under it. Gradle accepts
+                    //      non-existent input paths at config time; if
+                    //      the composed filename is wrong the later
+                    //      ZipFile read surfaces a clear
+                    //      FileNotFoundException with the path.
+                    val declared = processResourcesTask.outputs.files.files
+                    val apCandidate = declared.asSequence()
+                        .flatMap { f ->
+                            sequenceOf(f) +
+                                (f.listFiles()?.asSequence() ?: emptySequence())
+                        }
+                        .firstOrNull { it.name.endsWith(SdkConstants.DOT_RES) }
+                    if (apCandidate != null) {
+                        apCandidate
+                    } else {
+                        val parentDir = declared.firstOrNull()
+                            ?: throw IllegalStateException(
+                                "Shadow: processResources task " +
+                                    "${processResourcesTask.path} has no declared outputs. " +
+                                    "AGP layout change — patch AGPCompatImpl.getProcessResourcesFile."
+                            )
+                        // Log the declared output shape once so next
+                        // failure mode has something to diagnose with.
+                        System.err.println(
+                            "[Shadow AGPCompatImpl] guessing .ap_ path under $parentDir for variant=$variantName; " +
+                                "declared outputs: ${declared.joinToString(", ") { it.name }}"
                         )
+                        File(parentDir, "linked-resources-binary-format-$variantName.ap_")
+                    }
                 }
             }
         }
