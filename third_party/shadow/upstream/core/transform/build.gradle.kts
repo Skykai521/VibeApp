@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.vibeapp.shadow"
-version = "1.2"
+version = "1.4"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17

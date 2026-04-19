@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.vibeapp.shadow"
-version = "1.2"
+version = "1.4"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -27,11 +27,34 @@ gradlePlugin {
     }
 }
 
+// Note: the `shadowPluginRepoLocal` repo is declared in the root
+// settings.gradle.kts dependencyResolutionManagement block — Gradle
+// 8+ rejects per-project repos when the root uses
+// FAIL_ON_PROJECT_REPOS.
+
 dependencies {
     implementation("com.android.tools.build:gradle:9.1.0")
     implementation("com.googlecode.json-simple:json-simple:1.1.1")
     implementation(project(":shadow-transform"))
     implementation(project(":shadow-manifest-parser"))
+    // Runtime classes (PluginManifest, ShadowActivity, ShadowInstrumentation,
+    // …) on the gradle-plugin's classpath. ShadowPlugin captures
+    // Thread.currentThread().contextClassLoader at apply() time; Javassist's
+    // ClassPool is built from that loader, so the transform can only
+    // resolve `com.tencent.shadow.core.runtime.*` if those classes are
+    // already on the buildscript classpath. Declared as a real Maven
+    // coordinate (not `files(...)`) so the published POM lists it — that's
+    // what causes on-device Gradle to pull it onto the host project's
+    // buildscript classpath when `alias(libs.plugins.shadow)` resolves.
+    implementation("com.tencent.shadow.core:runtime-classes:${project.version}")
+}
+
+// Make sure :shadow-core-runtime publishes `runtime-classes` to the local
+// repo BEFORE this module's compile resolves dependencies, otherwise the
+// `implementation("com.tencent.shadow.core:runtime-classes:…")` line above
+// fails to resolve on a clean build.
+tasks.matching { it.name == "compileKotlin" || it.name == "compileJava" }.configureEach {
+    dependsOn(":shadow-core-runtime:publishRuntimeClassesPublicationToShadowPluginRepoRepository")
 }
 
 // Publish to a local Maven repo under the root build dir. The :app

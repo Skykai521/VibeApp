@@ -19,6 +19,16 @@ dependencyResolutionManagement {
         maven { url = uri("https://jitpack.io") }
         // Gradle Tooling API artifacts (used by :gradle-host)
         maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
+        // Local Shadow plugin repo — used by :shadow-gradle-plugin to
+        // resolve `com.tencent.shadow.core:runtime-classes:<version>` (the
+        // JVM JAR variant of the Android runtime AAR, repackaged so
+        // Javassist's ClassPool can load Shadow runtime classes during
+        // ShadowTransform). Build ordering is enforced inside
+        // gradle-plugin/build.gradle.kts via task `dependsOn`.
+        maven {
+            name = "shadowPluginRepoLocal"
+            url = uri(rootDir.resolve("build/shadow-plugin-repo"))
+        }
     }
 }
 
