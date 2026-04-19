@@ -113,6 +113,15 @@
             android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot4"
             android:process=":plugin4"
             android:exported="false" />
+
+        <!-- v2 Shadow plugin host (Phase 5b-4). Single dedicated process
+             for now; the legacy 5-slot model is preserved above while
+             the Shadow path stabilises. Move to :shadow_plugin0..4 if
+             we port the LRU slot policy onto Shadow. -->
+        <service
+            android:name="com.vibe.app.plugin.v2.ShadowPluginProcessService"
+            android:process=":shadow_plugin"
+            android:exported="false" />
     </application>
 
 </manifest>

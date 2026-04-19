@@ -209,6 +209,7 @@ dependencies {
     // Shadow modules the v2 plugin host (ShadowPluginHost) consumes:
     implementation(project(":shadow-dynamic-manager"))
     implementation(project(":shadow-dynamic-host"))
+    implementation(project(":shadow-dynamic-loader"))
     implementation(project(":shadow-common"))
     implementation(project(":shadow-manager"))
     implementation(project(":shadow-load-parameters"))
