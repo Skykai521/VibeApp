@@ -164,6 +164,7 @@ fun ChatScreen(
     val projectName by chatViewModel.projectName.collectAsStateWithLifecycle()
     val isRunnable by chatViewModel.isRunnable.collectAsStateWithLifecycle()
     val isLaunchingPlugin by chatViewModel.isLaunchingPlugin.collectAsStateWithLifecycle()
+    val isInstalling by chatViewModel.isInstalling.collectAsStateWithLifecycle()
     val isSelectTextSheetOpen by chatViewModel.isSelectTextSheetOpen.collectAsStateWithLifecycle()
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
     val question by chatViewModel.question.collectAsStateWithLifecycle()
@@ -302,6 +303,22 @@ fun ChatScreen(
         }
     }
 
+    // Install-APK menu item progress + result toasts.
+    LaunchedEffect(Unit) {
+        chatViewModel.installEvent.collect { event ->
+            val text = when (event) {
+                ChatViewModel.InstallEvent.BuildingApk ->
+                    context.getString(R.string.install_apk_building)
+                ChatViewModel.InstallEvent.Launching ->
+                    context.getString(R.string.install_apk_launching)
+                is ChatViewModel.InstallEvent.Failure -> event.reason
+            }
+            val length = if (event is ChatViewModel.InstallEvent.Failure)
+                Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+            Toast.makeText(context, text, length).show()
+        }
+    }
+
     // Re-sync platforms, messages, and check for new crash logs when returning from plugin/settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -337,6 +354,8 @@ fun ChatScreen(
                 isRunEnabled = isRunnable && !isLaunchingPlugin,
                 isLaunchingPlugin = isLaunchingPlugin,
                 onRunClick = chatViewModel::runProjectStandalone,
+                isInstallEnabled = currentProjectId != null && !isInstalling,
+                onInstallApkClick = chatViewModel::installProjectApk,
                 onBackAction,
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
@@ -755,6 +774,8 @@ private fun ChatTopBar(
     isRunEnabled: Boolean,
     isLaunchingPlugin: Boolean,
     onRunClick: () -> Unit,
+    isInstallEnabled: Boolean,
+    onInstallApkClick: () -> Unit,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     onUpdateProjectNameClick: () -> Unit,
@@ -810,6 +831,7 @@ private fun ChatTopBar(
                     isChatMenuEnabled = isChatMenuEnabled,
                     isProjectMenuEnabled = isProjectMenuEnabled,
                     isDebugEnabled = isDebugEnabled,
+                    isInstallEnabled = isInstallEnabled,
                     onDismissRequest = { isDropDownMenuExpanded = false },
                     onUpdateProjectNameClick = {
                         onUpdateProjectNameClick.invoke()
@@ -819,6 +841,10 @@ private fun ChatTopBar(
                     onExportSourceCodeItemClick = {
                         onExportSourceCodeItemClick()
                         isDropDownMenuExpanded = false
+                    },
+                    onInstallApkClick = {
+                        isDropDownMenuExpanded = false
+                        onInstallApkClick()
                     },
                     onClearChatHistoryClick = {
                         onClearChatHistoryClick()
@@ -848,10 +874,12 @@ fun ChatDropdownMenu(
     isChatMenuEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     isDebugEnabled: Boolean,
+    isInstallEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onUpdateProjectNameClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
+    onInstallApkClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
     onOpenSnapshotHistory: () -> Unit,
@@ -910,6 +938,17 @@ fun ChatDropdownMenu(
             onClick = onExportSourceCodeItemClick,
             leadingIcon = {
                 Icon(Icons.Outlined.Code, contentDescription = null)
+            },
+        )
+        // Builds `:app:assembleNormalDebug` (the un-transformed Shadow
+        // flavor) and hands it to the system installer so the user can
+        // sideload the project as a regular standalone app.
+        DropdownMenuItem(
+            enabled = isInstallEnabled,
+            text = { Text(text = stringResource(R.string.install_apk)) },
+            onClick = onInstallApkClick,
+            leadingIcon = {
+                Icon(Icons.Outlined.InstallMobile, contentDescription = null)
             },
         )
 

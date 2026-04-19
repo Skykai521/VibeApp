@@ -29,6 +29,8 @@ import com.vibe.app.plugin.v2.ShadowPluginHost
 import com.vibe.app.data.database.entity.ProjectEngine
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.vibe.build.gradle.ApkInstaller
+import com.vibe.build.gradle.StandaloneApkBuilder
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.FileUtils
 import java.io.File
@@ -63,6 +65,8 @@ class ChatViewModel @Inject constructor(
     private val projectManager: ProjectManager,
     private val intentStore: IntentStore,
     private val shadowPluginHost: ShadowPluginHost,
+    private val apkInstaller: ApkInstaller,
+    private val standaloneApkBuilder: StandaloneApkBuilder,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -129,6 +133,22 @@ class ChatViewModel @Inject constructor(
 
     sealed class RunEvent {
         data class Failure(val reason: String) : RunEvent()
+    }
+
+    // ── Standalone "Install APK" menu item state ──
+    // Building the `normal` flavor isn't free (no transform but the
+    // Kotlin daemon still has to compile), and the system installer's
+    // confirmation UI is modal — only one install at a time.
+    private val _isInstalling = MutableStateFlow(false)
+    val isInstalling: StateFlow<Boolean> = _isInstalling.asStateFlow()
+
+    private val _installEvent = MutableSharedFlow<InstallEvent>()
+    val installEvent: SharedFlow<InstallEvent> = _installEvent.asSharedFlow()
+
+    sealed class InstallEvent {
+        data object BuildingApk : InstallEvent()
+        data object Launching : InstallEvent()
+        data class Failure(val reason: String) : InstallEvent()
     }
 
     private val currentTimeStamp: Long
@@ -1257,6 +1277,65 @@ class ChatViewModel @Inject constructor(
 
     private fun pluginApkFor(workspacePath: String): File =
         File(workspacePath, "app/build/outputs/apk/plugin/debug/app-plugin-debug.apk")
+
+    /**
+     * Build the `normal` flavor (if not already up-to-date) and hand the
+     * resulting APK to the system installer. The plugin flavor APK we
+     * use for `run_in_process_v2` has the Shadow bytecode transform
+     * applied, so it can't run standalone — it'd crash on launch
+     * looking for `ShadowActivity` symbols. Always build `normal` for
+     * standalone install.
+     */
+    fun installProjectApk() {
+        if (_isInstalling.value) return
+        val projectId = _currentProjectId.value
+        if (projectId == null) {
+            viewModelScope.launch { _installEvent.emit(InstallEvent.Failure("No project selected")) }
+            return
+        }
+        viewModelScope.launch {
+            _isInstalling.value = true
+            try {
+                val project = withContext(Dispatchers.IO) {
+                    projectRepository.fetchProject(projectId)?.project
+                } ?: run {
+                    _installEvent.emit(InstallEvent.Failure("Project not found: $projectId"))
+                    return@launch
+                }
+                if (project.engine != ProjectEngine.GRADLE_COMPOSE) {
+                    _installEvent.emit(InstallEvent.Failure(
+                        "Project engine is ${project.engine}, not GRADLE_COMPOSE; cannot install.",
+                    ))
+                    return@launch
+                }
+                val workspaceDir = File(project.workspacePath)
+                if (!workspaceDir.isDirectory) {
+                    _installEvent.emit(InstallEvent.Failure(
+                        "Workspace missing on disk: $workspaceDir",
+                    ))
+                    return@launch
+                }
+                _installEvent.emit(InstallEvent.BuildingApk)
+                val apk = withContext(Dispatchers.IO) {
+                    standaloneApkBuilder.buildStandaloneApk(workspaceDir)
+                }
+                _installEvent.emit(InstallEvent.Launching)
+                withContext(Dispatchers.Main) {
+                    apkInstaller.install(apk)
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "installProjectApk failed", t)
+                _installEvent.emit(InstallEvent.Failure(
+                    buildString {
+                        append(t.javaClass.simpleName)
+                        t.message?.let { append(": ").append(it) }
+                    },
+                ))
+            } finally {
+                _isInstalling.value = false
+            }
+        }
+    }
 
     private fun readApplicationId(rootDir: File): String? {
         val buildGradle = File(rootDir, "app/build.gradle.kts")
