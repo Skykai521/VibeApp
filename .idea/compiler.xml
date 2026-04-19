@@ -1,13 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <bytecodeTargetLevel target="1.8">
+    <bytecodeTargetLevel target="11">
+      <module name="VibeApp.build-engine" target="21" />
+      <module name="VibeApp.build-tools.android-common-resources" target="11" />
+      <module name="VibeApp.build-tools.android-common-resources.main" target="11" />
+      <module name="VibeApp.build-tools.android-common-resources.test" target="11" />
       <module name="VibeApp.build-tools.build-cache" target="11" />
       <module name="VibeApp.build-tools.build-cache.main" target="11" />
       <module name="VibeApp.build-tools.build-cache.test" target="11" />
+      <module name="VibeApp.build-tools.build-logic" target="11" />
+      <module name="VibeApp.build-tools.build-logic.main" target="11" />
+      <module name="VibeApp.build-tools.build-logic.test" target="11" />
+      <module name="VibeApp.build-tools.common" target="11" />
+      <module name="VibeApp.build-tools.common.main" target="11" />
+      <module name="VibeApp.build-tools.common.test" target="11" />
       <module name="VibeApp.build-tools.eclipse-standalone" target="11" />
       <module name="VibeApp.build-tools.eclipse-standalone.main" target="11" />
       <module name="VibeApp.build-tools.eclipse-standalone.test" target="11" />
+      <module name="VibeApp.build-tools.logging" target="11" />
+      <module name="VibeApp.build-tools.logging.main" target="11" />
+      <module name="VibeApp.build-tools.logging.test" target="11" />
+      <module name="VibeApp.build-tools.manifmerger" target="11" />
+      <module name="VibeApp.build-tools.manifmerger.main" target="11" />
+      <module name="VibeApp.build-tools.manifmerger.test" target="11" />
+      <module name="VibeApp.build-tools.project" target="11" />
+      <module name="VibeApp.build-tools.project.main" target="11" />
+      <module name="VibeApp.build-tools.project.test" target="11" />
+      <module name="VibeApp.build-tools.snapshots" target="11" />
+      <module name="VibeApp.build-tools.snapshots.main" target="11" />
+      <module name="VibeApp.build-tools.snapshots.test" target="11" />
+      <module name="VibeApp.shadow-runtime" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

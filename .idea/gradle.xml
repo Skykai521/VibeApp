@@ -11,26 +11,31 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/build-engine" />
             <option value="$PROJECT_DIR$/build-gradle" />
             <option value="$PROJECT_DIR$/build-runtime" />
-            <option value="$PROJECT_DIR$/build-tools" />
-            <option value="$PROJECT_DIR$/build-tools/android-common-resources" />
-            <option value="$PROJECT_DIR$/build-tools/android-stubs" />
-            <option value="$PROJECT_DIR$/build-tools/build-logic" />
-            <option value="$PROJECT_DIR$/build-tools/common" />
-            <option value="$PROJECT_DIR$/build-tools/javac" />
-            <option value="$PROJECT_DIR$/build-tools/jaxp" />
-            <option value="$PROJECT_DIR$/build-tools/jaxp/jaxp-internal" />
-            <option value="$PROJECT_DIR$/build-tools/jaxp/xml" />
-            <option value="$PROJECT_DIR$/build-tools/kotlinc" />
-            <option value="$PROJECT_DIR$/build-tools/logging" />
-            <option value="$PROJECT_DIR$/build-tools/manifmerger" />
-            <option value="$PROJECT_DIR$/build-tools/project" />
-            <option value="$PROJECT_DIR$/build-tools/snapshots" />
             <option value="$PROJECT_DIR$/gradle-host" />
-            <option value="$PROJECT_DIR$/plugin-host" />
-            <option value="$PROJECT_DIR$/shadow-runtime" />
+            <option value="$PROJECT_DIR$/third_party/shadow/codegen-runner" />
+            <option value="$PROJECT_DIR$/third_party/shadow/java-build-config" />
+            <option value="$PROJECT_DIR$/third_party/shadow/loader-apk" />
+            <option value="$PROJECT_DIR$/third_party/shadow/runtime-apk" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/activity-container" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/common" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/gradle-plugin" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/load-parameters" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/loader" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/manager" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/manifest-parser" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/runtime" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/transform" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/transform-kit" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/core/utils" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-apk" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-host" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-host-multi-loader-ext" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-loader" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-loader-impl" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-manager" />
+            <option value="$PROJECT_DIR$/third_party/shadow/upstream/dynamic/dynamic-manager-multi-loader-ext" />
           </set>
         </option>
       </GradleProjectSettings>

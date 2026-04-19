@@ -10,7 +10,11 @@ plugins {
 }
 
 shadow {
-    transformConfig {
+    // `transform` is the configure method on ShadowExtension (wraps the
+    // `transformConfig: TransformConfig` property via an Action). Do NOT
+    // write `transformConfig { }` directly — that's Groovy DSL sugar
+    // Kotlin DSL doesn't resolve.
+    transform {
         // Classes that should keep resolving to the host's copies rather
         // than the plugin's — Shadow won't rewrite references to these.
         // Extend if the user's plugin needs to pass specific types across
