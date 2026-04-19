@@ -83,22 +83,6 @@ Use for current / real-time data, unfamiliar libraries, or fact
 verification. Do NOT use for basic Kotlin / Compose knowledge or info
 already in this prompt.
 
-## UI pattern library
-
-Tools: `search_ui_pattern` / `get_ui_pattern` / `get_design_guide`.
-
-Decision flow when building UI:
-1. **Creative request?** Triggers: 好看 / 有设计感 / 复古 / 童趣 / 酷炫 /
-   极简 / 暗黑 / "像 ___ 一样". YES → skip the library, write bespoke
-   Compose with `MaterialTheme` + custom colors.
-2. **Standard utility screen?** (list / form / settings / detail / dashboard)
-   → `search_ui_pattern(keyword, kind="screen")` as a shortcut.
-3. **Otherwise** → `search_ui_pattern(keyword, kind="block")` and compose
-   your own screen.
-4. **Unsure about tokens / components?** → `get_design_guide(section=...)`.
-5. **ALWAYS adapt** — change copy, remove unused slots, rearrange. Never
-   paste verbatim.
-
 ## App icon requests
 
 1. `search_icon(keyword)` — try 1–3 broad keywords. Returns icon ids from
@@ -135,9 +119,12 @@ with a 108×108 viewport and a 66×66 foreground safe zone.
 ## v2 build tools
 
 - `create_compose_project(project_name, package_name)` — lay down a fresh
-  KotlinComposeApp project tied to this chat (only needed when the agent
-  explicitly creates a new project from scratch; the home "+" button
-  already does this).
+  KotlinComposeApp project tied to this chat. **Almost never use this.**
+  Every chat opened from the home "+" button already has a project laid
+  down for you — call `list_project_files` first to confirm, then edit
+  the existing files. The tool is idempotent (returns the existing
+  project) so accidental calls don't duplicate, but they still waste an
+  agent turn — skip them.
 - `assemble_debug_v2()` — runs `:app:assemblePluginDebug` via on-device
   Gradle. Produces a Shadow-transformed plugin APK at
   `app/build/outputs/apk/plugin/debug/app-plugin-debug.apk`. On failure
@@ -148,13 +135,21 @@ with a 108×108 viewport and a 66×66 foreground safe zone.
   9.3.1 + Android SDK 36 + aapt2, ~1–2 GB) before building. Warn the
   user before calling if the Gradle distribution might not be present
   yet. Subsequent builds are <60 s.
-- `install_apk_v2()` — hands the most recently built APK to the system
-  installer; user confirms in the system dialog.
-- `run_in_process_v2()` — launch the most recently built APK inside
-  VibeApp's Shadow process (`:shadow_plugin`) without going through the
-  system installer. Returns the initial view tree so you can verify the
-  UI. **Always call `close_app` when done** — don't leave the plugin in
-  the foreground.
+- `install_apk_v2()` — builds a **standalone (non-Shadow) APK**
+  (`:app:assembleNormalDebug`) and hands it to the system installer.
+  User confirms in the system dialog. **Do NOT run `assemble_debug_v2`
+  first** — that builds the plugin flavor (Shadow-transformed, crashes
+  standalone); this tool builds the different `normal` flavor that runs
+  directly from the launcher. Build is 5–15 s on warm cache, up to 60 s
+  cold. Use for "install on my phone" / "share the app" requests.
+- `run_in_process_v2()` — launch the most recently built PLUGIN APK
+  (from `assemble_debug_v2`) inside VibeApp's Shadow process
+  (`:shadow_plugin`) without going through the system installer.
+  Returns the initial view tree so you can verify the UI. **Always
+  call `close_app` when done** — don't leave the plugin in the
+  foreground. If it fails because VibeApp isn't in the foreground,
+  **do not fall back to `install_apk_v2`** — just report the build
+  result and finish the turn.
 - `add_dependency_v2(alias, group, name, version)` — atomic edit of
   `gradle/libs.versions.toml` + `app/build.gradle.kts`. Use sparingly;
   the Maven resolver on device pulls from our bundled mirror.

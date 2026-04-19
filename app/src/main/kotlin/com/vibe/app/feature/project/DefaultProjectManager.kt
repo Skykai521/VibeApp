@@ -149,6 +149,22 @@ class DefaultProjectManager @Inject constructor(
         require(packageName.matches(Regex("[a-z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+"))) {
             "invalid packageName '$packageName' — must look like com.example.foo"
         }
+        // Idempotency guard. The home "+" button always pre-creates a
+        // GRADLE_COMPOSE Project tied to the new chat (see `createProject`
+        // above), so by the time the agent decides to call
+        // `create_compose_project` from inside that chat, a project already
+        // exists. Without this short-circuit each agent call would insert a
+        // SECOND project row sharing the same chatId — Home queries
+        // by-project, so the chat would render twice in the list with
+        // identical content.
+        projectRepository.fetchProjectByChatId(chatId)?.let { existing ->
+            Log.d(
+                tag,
+                "Reusing existing v2 project ${existing.projectId} for chatId=$chatId " +
+                    "(agent re-requested with name='$projectName' pkg='$packageName')",
+            )
+            return@withContext existing
+        }
         val projectId = generateProjectId()
         val rootDir = v2RootDirFor(projectId)
         rootDir.mkdirs()
