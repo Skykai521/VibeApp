@@ -1,4 +1,4 @@
-package com.vibe.app.plugin
+package com.vibe.app.plugin.legacy
 
 import android.app.Activity
 import android.app.Service
@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
+import com.vibe.app.plugin.IPluginInspector
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException

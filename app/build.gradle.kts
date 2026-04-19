@@ -206,7 +206,12 @@ dependencies {
     implementation(project(":shadow-runtime"))
     implementation(project(":build-runtime"))
     implementation(project(":build-gradle"))
-    implementation(project(":plugin-host"))
+    // Shadow modules the v2 plugin host (ShadowPluginHost) consumes:
+    implementation(project(":shadow-dynamic-manager"))
+    implementation(project(":shadow-dynamic-host"))
+    implementation(project(":shadow-common"))
+    implementation(project(":shadow-manager"))
+    implementation(project(":shadow-load-parameters"))
 
     // Test
     testImplementation(libs.junit)

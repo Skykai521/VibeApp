@@ -1,4 +1,4 @@
-package com.vibe.app.plugin
+package com.vibe.app.plugin.legacy
 
 import android.app.ActivityManager
 import android.content.ComponentName
@@ -8,6 +8,7 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
 import android.util.Log
+import com.vibe.app.plugin.IPluginInspector
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

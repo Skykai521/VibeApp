@@ -31,7 +31,7 @@ import com.vibe.app.feature.project.snapshot.SnapshotType
 import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.FileUtils
-import com.vibe.app.plugin.PluginManager
+import com.vibe.app.plugin.legacy.PluginManager
 import com.vibe.build.engine.model.BuildLogLevel
 import com.vibe.build.engine.model.BuildMode
 import com.vibe.build.engine.model.BuildStage

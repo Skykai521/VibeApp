@@ -9,7 +9,7 @@ import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
-import com.vibe.app.plugin.PluginManager
+import com.vibe.app.plugin.legacy.PluginManager
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton

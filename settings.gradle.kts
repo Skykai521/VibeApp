@@ -41,7 +41,6 @@ include(":build-tools:jaxp:xml")
 include(":shadow-runtime")
 include(":build-runtime")
 include(":build-gradle")
-include(":plugin-host")
 include(":gradle-host")
 
 // ── Vendored Tencent Shadow modules (Phase 5b-2 onwards) ──

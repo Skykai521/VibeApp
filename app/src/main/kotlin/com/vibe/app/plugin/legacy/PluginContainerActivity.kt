@@ -1,4 +1,4 @@
-package com.vibe.app.plugin
+package com.vibe.app.plugin.legacy
 
 import android.annotation.SuppressLint
 import android.content.Context

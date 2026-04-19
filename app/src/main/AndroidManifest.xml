@@ -53,7 +53,7 @@
 
         <!-- Plugin process slots (0-4): each in its own process with separate task affinity -->
         <activity
-            android:name="com.vibe.app.plugin.PluginSlot0"
+            android:name="com.vibe.app.plugin.legacy.PluginSlot0"
             android:process=":plugin0"
             android:taskAffinity="com.vibe.app.plugin0"
             android:launchMode="singleTask"
@@ -61,7 +61,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
-            android:name="com.vibe.app.plugin.PluginSlot1"
+            android:name="com.vibe.app.plugin.legacy.PluginSlot1"
             android:process=":plugin1"
             android:taskAffinity="com.vibe.app.plugin1"
             android:launchMode="singleTask"
@@ -69,7 +69,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
-            android:name="com.vibe.app.plugin.PluginSlot2"
+            android:name="com.vibe.app.plugin.legacy.PluginSlot2"
             android:process=":plugin2"
             android:taskAffinity="com.vibe.app.plugin2"
             android:launchMode="singleTask"
@@ -77,7 +77,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
-            android:name="com.vibe.app.plugin.PluginSlot3"
+            android:name="com.vibe.app.plugin.legacy.PluginSlot3"
             android:process=":plugin3"
             android:taskAffinity="com.vibe.app.plugin3"
             android:launchMode="singleTask"
@@ -85,7 +85,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <activity
-            android:name="com.vibe.app.plugin.PluginSlot4"
+            android:name="com.vibe.app.plugin.legacy.PluginSlot4"
             android:process=":plugin4"
             android:taskAffinity="com.vibe.app.plugin4"
             android:launchMode="singleTask"
@@ -94,23 +94,23 @@
             android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
         <!-- Plugin inspector services (0-4): each in matching plugin process -->
         <service
-            android:name="com.vibe.app.plugin.PluginInspectorSlot0"
+            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot0"
             android:process=":plugin0"
             android:exported="false" />
         <service
-            android:name="com.vibe.app.plugin.PluginInspectorSlot1"
+            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot1"
             android:process=":plugin1"
             android:exported="false" />
         <service
-            android:name="com.vibe.app.plugin.PluginInspectorSlot2"
+            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot2"
             android:process=":plugin2"
             android:exported="false" />
         <service
-            android:name="com.vibe.app.plugin.PluginInspectorSlot3"
+            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot3"
             android:process=":plugin3"
             android:exported="false" />
         <service
-            android:name="com.vibe.app.plugin.PluginInspectorSlot4"
+            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot4"
             android:process=":plugin4"
             android:exported="false" />
     </application>
