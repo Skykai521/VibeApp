@@ -10,6 +10,13 @@ org.gradle.caching=false
 android.useAndroidX=true
 android.nonTransitiveRClass=true
 
+# Shadow's Gradle plugin casts `project.extensions.getByName("android")`
+# to the legacy `BaseExtension` / `AppExtension` types; AGP 9's default
+# `android.newDsl=true` makes those extensions a different (ApplicationExtensionImpl)
+# class, which triggers a ClassCastException when the plugin applies.
+# Force the legacy DSL until Shadow's plugin is ported to the new API.
+android.newDsl=false
+
 # AGP's default Maven aapt2 ships an x86_64 ELF binary that can't exec
 # on Android arm64. Force AGP to use the arm64 aapt2 bundled in our
 # on-device SDK tarball.
