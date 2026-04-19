@@ -87,13 +87,21 @@ class DefaultProjectManager @Inject constructor(
         project
     }
 
-    /**
-     * Auto-generated applicationId for projects created from the home
-     * "+" button. `createV2GradleComposeProject` validates applicationId
-     * with the same regex; keep this shape in sync with that check.
-     */
     private fun defaultPackageNameFor(projectId: String): String =
-        "com.vibe.user.proj$projectId"
+        DEFAULT_PACKAGE_NAME(projectId)
+
+    companion object {
+        /**
+         * Auto-generated applicationId for projects created from the
+         * home "+" button. Single source of truth — the agent loop
+         * coordinator reads this same function to fill
+         * `{{PACKAGE_NAME}}` in the system prompt. If the two sites
+         * drift, the agent sees template sources in one package and
+         * prompt copy in another and starts "fixing" files to match.
+         */
+        val DEFAULT_PACKAGE_NAME: (projectId: String) -> String =
+            { "com.vibe.generated.p$it" }
+    }
 
     override suspend fun openWorkspace(projectId: String): ProjectWorkspace {
         val project = requireNotNull(projectRepository.fetchProject(projectId)?.project) {

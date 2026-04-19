@@ -117,7 +117,14 @@ class AssembleDebugV2Tool @Inject constructor(
                 // variant runs Shadow's bytecode transform, which is
                 // what ShadowPluginHost needs to load the APK.
                 tasks = listOf(":app:assemblePluginDebug"),
-                args = emptyList(),
+                // `--stacktrace` so on failure the Tooling API receives
+                // the full exception chain; without it Gradle replaces
+                // the trace with "Run with --stacktrace option to get
+                // the stack trace." and we see only the top-level
+                // BuildException message, which is usually too generic
+                // to debug (e.g. "NoSuchElementException" without
+                // knowing which AGP/Shadow predicate failed).
+                args = listOf("--stacktrace"),
             ).toList()
             val finish = events.filterIsInstance<HostEvent.BuildFinish>().firstOrNull()
             val err = events.filterIsInstance<HostEvent.Error>().firstOrNull()

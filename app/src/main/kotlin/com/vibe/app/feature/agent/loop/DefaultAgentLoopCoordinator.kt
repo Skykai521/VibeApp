@@ -790,8 +790,8 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         memo: ProjectMemo? = null,
     ): String {
         val packageName = request.projectId
-            ?.let { "com.vibe.generated.p$it" }
-            ?: "com.vibe.generated.emptyactivity"
+            ?.let(com.vibe.app.feature.project.DefaultProjectManager.DEFAULT_PACKAGE_NAME)
+            ?: "com.vibe.generated.noproject"
         val packagePath = packageName.replace('.', '/')
         val custom = request.systemPrompt
             ?.takeIf { it.isNotBlank() }

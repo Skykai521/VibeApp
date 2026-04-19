@@ -104,6 +104,22 @@ internal class ToolingApiDriver(
         while (current != null && depth < 10) {
             if (sb.isNotEmpty()) sb.append(" | caused by ")
             sb.append(current.javaClass.name).append(": ").append(current.message ?: "(no message)")
+            // Include the first 3 frames from packages we care about —
+            // com.tencent.shadow.* for Shadow plugin issues,
+            // com.android.build.* for AGP DSL issues. Frames from
+            // org.gradle.* / kotlin reflection / java.* are noise.
+            val interesting = current.stackTrace
+                .filter { frame ->
+                    frame.className.startsWith("com.tencent.shadow") ||
+                        frame.className.startsWith("com.android.build")
+                }
+                .take(3)
+            for (frame in interesting) {
+                sb.append("\n    at ").append(frame.className)
+                    .append('.').append(frame.methodName)
+                    .append('(').append(frame.fileName ?: "?")
+                    .append(':').append(frame.lineNumber).append(')')
+            }
             current = current.cause
             depth++
         }
