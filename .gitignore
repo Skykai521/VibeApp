@@ -41,6 +41,9 @@ app/build/**
 # Phase 2a dev bootstrap artifact staging (large, never committed)
 /scripts/bootstrap/artifacts
 
+# Gradle build outputs for the pure-JVM :gradle-host module
+/gradle-host/build/
+
 # GradleHost shaded JAR, copied from gradle-host/build/libs at build time.
 /app/src/main/assets/vibeapp-gradle-host.jar
 # GradleHost JAR copied into build-gradle's androidTest assets
