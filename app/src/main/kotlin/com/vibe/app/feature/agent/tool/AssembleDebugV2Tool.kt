@@ -4,6 +4,9 @@ import com.vibe.app.data.database.entity.ProjectEngine
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.build.gradle.GradleBuildService
 import com.vibe.build.gradle.HostEvent
+import com.vibe.build.gradle.diagnostic.BuildDiagnostic
+import com.vibe.build.gradle.diagnostic.BuildDiagnosticFormatter
+import com.vibe.build.gradle.diagnostic.BuildDiagnosticIngest
 import com.vibe.build.runtime.bootstrap.BootstrapFileSystem
 import com.vibe.app.feature.agent.AgentTool
 import com.vibe.app.feature.agent.AgentToolCall
@@ -35,6 +38,8 @@ class AssembleDebugV2Tool @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val gradleBuildService: GradleBuildService,
     private val fs: BootstrapFileSystem,
+    private val diagnosticIngest: BuildDiagnosticIngest,
+    private val diagnosticFormatter: BuildDiagnosticFormatter,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -82,9 +87,6 @@ class AssembleDebugV2Tool @Inject constructor(
             ).toList()
             val finish = events.filterIsInstance<HostEvent.BuildFinish>().firstOrNull()
             val err = events.filterIsInstance<HostEvent.Error>().firstOrNull()
-            val errorLogs = events.filterIsInstance<HostEvent.Log>()
-                .filter { it.level == "ERROR" }
-                .takeLast(20)
 
             if (finish == null) {
                 return call.errorResult(
@@ -92,17 +94,46 @@ class AssembleDebugV2Tool @Inject constructor(
                 )
             }
             if (!finish.success) {
+                // Pull every Log event we got — Kotlin compiler errors can land at any
+                // level. The ingest pipeline filters down to actionable diagnostics.
+                val allLogLines = events.filterIsInstance<HostEvent.Log>().asSequence()
+                    .map { it.text }
+                val diagnostics = diagnosticIngest.ingest(
+                    lines = allLogLines,
+                    projectRoot = projectDir.absolutePath,
+                )
+                val markdown = diagnosticFormatter.format(diagnostics, projectRoot = projectDir)
                 return call.result(
                     buildJsonObject {
                         put("status", JsonPrimitive("FAILED"))
                         put("durationMs", JsonPrimitive(finish.durationMs))
                         finish.failureSummary?.let { put("failureSummary", JsonPrimitive(it)) }
-                        if (errorLogs.isNotEmpty()) {
+                        put("diagnostics_markdown", JsonPrimitive(markdown))
+                        if (diagnostics.isNotEmpty()) {
                             put(
-                                "errorLogs",
-                                buildJsonArray { errorLogs.forEach { add(JsonPrimitive(it.text)) } },
+                                "diagnostics",
+                                buildJsonArray {
+                                    diagnostics.forEach { d ->
+                                        add(buildJsonObject {
+                                            put("severity", JsonPrimitive(d.severity.name))
+                                            put("source", JsonPrimitive(d.source.name))
+                                            d.file?.let { put("file", JsonPrimitive(it)) }
+                                            d.line?.let { put("line", JsonPrimitive(it)) }
+                                            d.column?.let { put("column", JsonPrimitive(it)) }
+                                            put("message", JsonPrimitive(d.message))
+                                        })
+                                    }
+                                },
                             )
                         }
+                        put(
+                            "hint",
+                            JsonPrimitive(
+                                "Read diagnostics_markdown for the cleaned errors with source snippets, " +
+                                    "fix the underlying problems via edit_project_file / write_project_file, " +
+                                    "then call assemble_debug_v2 again.",
+                            ),
+                        )
                     },
                     isError = true,
                 )

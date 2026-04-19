@@ -171,6 +171,12 @@ GRADLE_COMPOSE (every v2 tool errors otherwise).
 - `assemble_debug_v2()` — runs `:app:assembleDebug` via on-device
   Gradle. Cold first build is 5–10 minutes (Maven + Kotlin daemon
   spinup); subsequent builds < 60 s. Returns the APK path on success.
+  **On failure** the result includes a `diagnostics_markdown` field —
+  cleaned-up Kotlin / AAPT2 errors with file:line:col + 3-line source
+  snippets. Read it carefully, fix the underlying problems via
+  `edit_project_file` / `write_project_file`, then call
+  `assemble_debug_v2` again. Don't paraphrase the raw `failureSummary`
+  field at the user — `diagnostics_markdown` is the actionable view.
 - `install_apk_v2()` — hands the most recently built APK to the
   system installer; user confirms in the system dialog.
 - `add_dependency_v2(alias, group, name, version)` — atomic edit of
