@@ -148,6 +148,11 @@ val shadowPluginPublishTasks = listOf(
     ":shadow-transform:publishAllPublicationsToShadowPluginRepoRepository",
     ":shadow-transform-kit:publishAllPublicationsToShadowPluginRepoRepository",
     ":shadow-manifest-parser:publishAllPublicationsToShadowPluginRepoRepository",
+    // shadow-core-runtime: AAR providing the runtime stub interfaces that
+    // Shadow's generated PluginManifest.java implements. Plugin templates
+    // declare it as compileOnly — at runtime the host APK loads the real
+    // runtime via shadow-runtime-apk.
+    ":shadow-core-runtime:publishAllPublicationsToShadowPluginRepoRepository",
 )
 val copyShadowPluginRepo by tasks.registering(Zip::class) {
     dependsOn(shadowPluginPublishTasks)
@@ -272,6 +277,12 @@ dependencies {
     implementation(project(":shadow-common"))
     implementation(project(":shadow-manager"))
     implementation(project(":shadow-load-parameters"))
+    // Shadow's PluginContainerActivity / PluginContainerService etc. — the
+    // host APK must contain these classes because Android resolves manifest
+    // <activity> / <service> entries against the install-time DEX. At
+    // runtime the runtime-apk also ships them into :shadow_plugin, but the
+    // initial process bring-up needs them on the host classpath.
+    implementation(project(":shadow-activity-container"))
 
     // Test
     testImplementation(libs.junit)

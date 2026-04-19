@@ -19,6 +19,7 @@
 package com.tencent.shadow.core.loader.blocs
 
 import android.content.Context
+import android.util.Log
 import com.tencent.shadow.core.loader.exceptions.ParsePluginApkException
 import com.tencent.shadow.core.runtime.PluginManifest
 
@@ -28,25 +29,37 @@ object CheckPackageNameBloc {
         pluginManifest: PluginManifest,
         hostAppContext: Context
     ) {
+        // VibeApp deliberately gives every generated project its own
+        // applicationId (e.g. `com.vibe.generated.p202604193`) so the
+        // plugin APK is also installable standalone via the system
+        // installer. In plugin-runtime mode upstream Shadow's strict
+        // equality check forbids that — the original reasoning (kept
+        // below for context) is irrelevant for our use case:
+        //
+        //   1. Resources.getIdentifier(name, …) returns wrong IDs because
+        //      Context.getPackageName resolves to the host's package, not
+        //      the plugin's. Compose-only plugins reference resources via
+        //      compile-time R constants, never by string lookup, so this
+        //      doesn't affect us.
+        //   2. OEM-modified Android may pull packageName off the plugin's
+        //      Context for permission/system queries. Generated projects
+        //      request no permissions, so the worst case is a permission
+        //      query against `com.vibe.app` (the host) instead of the
+        //      plugin's id — still safe, since the host already declares
+        //      whatever it needs.
+        //
+        // Log a warning so resource-lookup-by-name regressions are easier
+        // to spot, but don't fail the load.
         if (pluginManifest.applicationPackageName != hostAppContext.packageName) {
-            /*
-            要求插件和宿主包名一致有两方面原因：
-            1.正常的构建过程中，aapt会将包名写入到arsc文件中。插件正常安装运行时，如果以
-            android.content.Context.getPackageName为参数传给
-            android.content.res.Resources.getIdentifier方法，可以正常获取到资源。但是在插件环境运行时，
-            Context.getPackageName会得到宿主的packageName，则getIdentifier方法不能正常获取到资源。为此，
-            一个可选的办法是继承Resources，覆盖getIdentifier方法。但是Resources的构造器已经被标记为
-            @Deprecated了，未来可能会不可用，因此不首选这个方法。
-
-            2.Android系统，更多情况下是OEM修改的Android系统，会在我们的context上调用getPackageName或者
-            getOpPackageName等方法，然后将这个packageName跨进程传递做它用。系统的其他代码会以这个packageName
-            去PackageManager中查询权限等信息。如果插件使用自己的包名，就需要在Context的getPackageName等实现中
-            new Throwable()，然后判断调用来源以决定返回自己的包名还是插件的包名。但是如果保持采用宿主的包名，则没有
-            这个烦恼。
-
-            我们也可以始终认为Shadow App是宿主的扩展代码，使用是宿主的一部分，那么采用宿主的包名就是理所应当的了。
-             */
-            throw ParsePluginApkException("插件和宿主包名不一致。宿主:${hostAppContext.packageName} 插件:${pluginManifest.applicationPackageName}")
+            Log.w(
+                "CheckPackageNameBloc",
+                "plugin/host package mismatch tolerated " +
+                    "(host=${hostAppContext.packageName}, " +
+                    "plugin=${pluginManifest.applicationPackageName}). " +
+                    "Avoid Resources.getIdentifier(name, …) in plugin code.",
+            )
+            // Suppress unused-import warning when the throw is removed.
+            if (false) throw ParsePluginApkException("unreachable")
         }
     }
 }

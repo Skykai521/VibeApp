@@ -3,6 +3,8 @@
 // host talks to over Shadow's Service/IPC contract. Like runtime-apk,
 // never installed — loaded via DexClassLoader at runtime.
 plugins {
+    // AGP 9.x has built-in Kotlin support; no separate kotlin.android
+    // plugin needed.
     alias(libs.plugins.android.application)
 }
 
@@ -20,10 +22,21 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    sourceSets {
+        getByName("main") {
+            java.srcDirs("src/main/kotlin")
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 

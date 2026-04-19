@@ -65,6 +65,17 @@
             android:name="com.vibe.app.plugin.v2.ShadowPluginInspectorService"
             android:process=":shadow_plugin"
             android:exported="false" />
+
+        <!-- Shadow's container Activity. Plugin Activities are routed here
+             by VibeAppComponentManager.onBindContainerActivity — the
+             container then delegates onCreate / lifecycle / touches to the
+             actual plugin Activity instance via Shadow's runtime. Must run
+             in the same `:shadow_plugin` process as the plugin code. -->
+        <activity
+            android:name="com.tencent.shadow.core.runtime.container.PluginContainerActivity"
+            android:process=":shadow_plugin"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|locale|layoutDirection|fontScale|uiMode" />
     </application>
 
 </manifest>
