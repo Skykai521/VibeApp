@@ -7,8 +7,11 @@ activityCompose = "1.9.0"
 coreKtx = "1.13.1"
 lifecycleRuntime = "2.8.3"
 # Shadow plugin version — matches the coordinate we publish to
-# assets/shadow/plugin-repo.zip (see :app:copyShadowPluginRepo).
-shadow = "1.0"
+# assets/shadow/plugin-repo.zip (see :app:copyShadowPluginRepo). Bumped
+# from 1.0 → 1.1 to patch getProcessResourcesFile for AGP 9 output
+# layout. Bump again whenever the vendored plugin binary changes so
+# on-device Gradle caches invalidate.
+shadow = "1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

@@ -71,10 +71,26 @@ internal class AGPCompatImpl : AGPCompat {
                 )
             } catch (ignored: Exception) {
                 // 反射获取出错，备用
-                File(
-                    processResourcesTask.outputs.files.files.first { it.name.equals("process${capitalizeVariantName}Resources") },
-                    "linked-resources-binary-format-$variantName.ap_"
-                )
+                try {
+                    File(
+                        processResourcesTask.outputs.files.files.first { it.name.equals("process${capitalizeVariantName}Resources") },
+                        "linked-resources-binary-format-$variantName.ap_"
+                    )
+                } catch (ignored: Exception) {
+                    // AGP 9+ — restructured the processResources task outputs
+                    // such that neither the `out` nor
+                    // `process<Variant>Resources` predicate matches any
+                    // entry in `task.outputs.files.files`. Fall back to
+                    // walking the entire output tree for any `.ap_` file;
+                    // accept whichever one we find first.
+                    processResourcesTask.outputs.files.asFileTree.files
+                        .firstOrNull { it.isFile && it.name.endsWith(SdkConstants.DOT_RES) }
+                        ?: throw IllegalStateException(
+                            "Shadow: no .ap_ file in processResources outputs of task " +
+                                "${processResourcesTask.path}. AGP may have restructured " +
+                                "the output layout again; patch AGPCompatImpl.getProcessResourcesFile."
+                        )
+                }
             }
         }
     }
