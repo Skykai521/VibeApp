@@ -28,4 +28,8 @@ dependencies {
     // ContentProvider delegate types live in :shadow-common; the Generated*
     // classes here reference them.
     compileOnly(project(":shadow-common"))
+    // PluginContainerActivity / NativePluginContainerActivity reference
+    // com.tencent.shadow.coding.java_build_config.BuildConfig. Shared
+    // module so multiple consumers don't dex-merge duplicate copies.
+    implementation(project(":shadow-java-build-config"))
 }

@@ -24,4 +24,8 @@ dependencies {
     api(project(":shadow-load-parameters"))
     compileOnly(project(":shadow-common"))
     compileOnly(project(":shadow-activity-container"))
+    // ComponentManager.kt + ShadowActivityDelegate.kt reference
+    // com.tencent.shadow.coding.java_build_config.BuildConfig. Pulled
+    // from the shared stub module; see :shadow-java-build-config.
+    implementation(project(":shadow-java-build-config"))
 }

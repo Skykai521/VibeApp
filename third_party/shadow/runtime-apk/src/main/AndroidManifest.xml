@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Empty manifest — the runtime APK is never installed or launched. It
+  exists only as a DexClassLoader-able container for Shadow's runtime
+  classes. No application tag, no activities, no permissions.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

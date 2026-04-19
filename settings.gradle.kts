@@ -124,3 +124,18 @@ project(":shadow-dynamic-host-multi-loader-ext").projectDir =
 include(":shadow-dynamic-manager-multi-loader-ext")
 project(":shadow-dynamic-manager-multi-loader-ext").projectDir =
     file("third_party/shadow/upstream/dynamic/dynamic-manager-multi-loader-ext")
+
+// Thin APK wrappers — see third_party/shadow/{loader-apk,runtime-apk}/
+// for rationale. Produces the two APKs bundled into the host's assets.
+// Shared stub for com.tencent.shadow.coding.java_build_config.BuildConfig.
+// Single source of the class; both :shadow-activity-container and
+// :shadow-loader depend on it instead of shipping their own copy.
+include(":shadow-java-build-config")
+project(":shadow-java-build-config").projectDir =
+    file("third_party/shadow/java-build-config")
+
+include(":shadow-runtime-apk")
+project(":shadow-runtime-apk").projectDir = file("third_party/shadow/runtime-apk")
+
+include(":shadow-loader-apk")
+project(":shadow-loader-apk").projectDir = file("third_party/shadow/loader-apk")

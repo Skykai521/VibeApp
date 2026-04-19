@@ -114,8 +114,24 @@ val copyGradleHostJar by tasks.registering(Copy::class) {
     rename { "vibeapp-gradle-host.jar" }
 }
 
+// Copy Shadow's loader + runtime APKs into assets/shadow/. At first run
+// the app extracts them to filesDir/shadow/ so DexClassLoader can mmap
+// them from a regular file path. See Phase 5b-3 in
+// docs/superpowers/plans/2026-04-19-v2-phase-5b-shadow-full-integration.md.
+val copyShadowApks by tasks.registering(Copy::class) {
+    dependsOn(":shadow-loader-apk:assembleRelease", ":shadow-runtime-apk:assembleRelease")
+    from(project(":shadow-loader-apk").layout.buildDirectory.file("outputs/apk/release/shadow-loader-apk-release-unsigned.apk")) {
+        rename { "loader.apk" }
+    }
+    from(project(":shadow-runtime-apk").layout.buildDirectory.file("outputs/apk/release/shadow-runtime-apk-release-unsigned.apk")) {
+        rename { "runtime.apk" }
+    }
+    into(layout.projectDirectory.dir("src/main/assets/shadow"))
+}
+
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
     dependsOn(copyGradleHostJar)
+    dependsOn(copyShadowApks)
 }
 
 configurations.all {

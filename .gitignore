@@ -54,5 +54,9 @@ app/build/**
 # Claude Code session-local state
 /.claude
 
-# Build outputs from the JVM-only Shadow codegen runner module
+# Build outputs for vendored Shadow modules (source committed, build/ not)
 /third_party/shadow/codegen-runner/build/
+/third_party/shadow/java-build-config/build/
+/third_party/shadow/loader-apk/build/
+/third_party/shadow/runtime-apk/build/
+/third_party/shadow/upstream/**/build/
