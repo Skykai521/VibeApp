@@ -14,6 +14,12 @@ shadow = "1.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntime" }
+# Explicit owner-plumbing deps — normally transitive through
+# activity-compose / ComponentActivity, but ShadowComposeActivity wires
+# them by hand because Shadow's transform rips Activity out of the
+# hierarchy (see MainActivity.kt).
+androidx-lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycleRuntime" }
+androidx-savedstate = { group = "androidx.savedstate", name = "savedstate", version = "1.2.1" }
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 compose-ui = { group = "androidx.compose.ui", name = "ui" }
 compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }

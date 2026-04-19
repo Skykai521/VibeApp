@@ -1,0 +1,108 @@
+package {{PACKAGE_NAME}}
+
+import android.app.Activity
+import android.os.Bundle
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.ComposeView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+
+/**
+ * Base Activity class for Compose UIs inside a Tencent-Shadow-hosted plugin.
+ *
+ * Why this exists: Compose's `setContent { }` extension requires
+ * `androidx.activity.ComponentActivity`. Under Shadow's bytecode transform,
+ * this class's `extends Activity` clause gets rewritten to
+ * `extends com.tencent.shadow.core.runtime.ShadowActivity`, which sits
+ * in a completely separate class hierarchy (ShadowContext, not Activity).
+ * `ComponentActivity.setContent` therefore can't resolve at runtime, and
+ * `ComponentActivity`'s built-in LifecycleOwner/SavedStateRegistryOwner/
+ * ViewModelStoreOwner plumbing disappears.
+ *
+ * Workaround: implement those owners ourselves and expose a Compose entry
+ * point (`setComposeContent`) that builds a `ComposeView` with the owners
+ * attached to its view tree. Works identically whether or not the Shadow
+ * transform is applied — uncompiled with the transform off, the class is
+ * a regular Activity; with it, Shadow's delegator dispatches lifecycle
+ * callbacks into the same overrides.
+ *
+ * Subclass and call `setComposeContent { }` from `onCreate` instead of the
+ * Compose-for-Activity `setContent { }` extension.
+ */
+open class ShadowComposeActivity :
+    Activity(),
+    LifecycleOwner,
+    SavedStateRegistryOwner,
+    ViewModelStoreOwner {
+
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    private val savedStateController = SavedStateRegistryController.create(this)
+    private val ownedViewModelStore = ViewModelStore()
+
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+    override val savedStateRegistry: SavedStateRegistry
+        get() = savedStateController.savedStateRegistry
+    override val viewModelStore: ViewModelStore get() = ownedViewModelStore
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        savedStateController.performAttach()
+        savedStateController.performRestore(savedInstanceState)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+    }
+
+    override fun onPause() {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        super.onPause()
+    }
+
+    override fun onStop() {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        ownedViewModelStore.clear()
+        super.onDestroy()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        savedStateController.performSave(outState)
+    }
+
+    /**
+     * Install the Compose content, equivalent to `ComponentActivity.setContent { }`.
+     * Creates a [ComposeView], wires this Activity as its lifecycle /
+     * saved-state / view-model owner, and calls `setContentView`.
+     */
+    fun setComposeContent(content: @Composable () -> Unit) {
+        val composeView = ComposeView(this).apply {
+            setViewTreeLifecycleOwner(this@ShadowComposeActivity)
+            setViewTreeSavedStateRegistryOwner(this@ShadowComposeActivity)
+            setViewTreeViewModelStoreOwner(this@ShadowComposeActivity)
+            setContent(content)
+        }
+        setContentView(composeView)
+    }
+}

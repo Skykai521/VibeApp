@@ -187,6 +187,26 @@ GRADLE_COMPOSE (every v2 tool errors otherwise).
   want to verify the UI works — much faster than installing.
 - `add_dependency_v2(alias, group, name, version)` — atomic edit of
   `gradle/libs.versions.toml` + `app/build.gradle.kts`. Use sparingly.
+
+### v2 Compose scaffolding — don't touch `ComponentActivity`
+
+v2 projects build under Tencent Shadow's bytecode transform: plugin
+Activities extend `com.tencent.shadow.core.runtime.ShadowActivity`,
+not `android.app.Activity`, and `ComponentActivity` is not in the
+hierarchy. The template ships a `ShadowComposeActivity` base class
+that hand-wires `LifecycleOwner` / `SavedStateRegistryOwner` /
+`ViewModelStoreOwner`, and exposes `setComposeContent { … }` as the
+Compose entry point.
+
+- **Always subclass `ShadowComposeActivity`** for v2 Activities — NOT
+  `ComponentActivity` or `AppCompatActivity`. The `androidx.activity.compose.setContent`
+  extension won't resolve at runtime after the Shadow transform.
+- **Use `setComposeContent { … }`** inside `onCreate` — not
+  `setContent { … }`. Signature is identical.
+- UI inspection (`inspect_ui` / `interact_ui`) and `close_app` are not
+  yet wired for v2 Shadow-hosted plugins. `run_in_process_v2` will
+  return a `"running"` status without a view tree. Skip `inspect_ui`
+  / `interact_ui` for v2 until that changes.
 - `remove_dependency_v2(alias)` — symmetric remove.
 - `export_project_source_v2()` — zip the project for off-device use,
   with a README explaining how to open it in Android Studio.

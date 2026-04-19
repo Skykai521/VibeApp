@@ -1,8 +1,6 @@
 package {{PACKAGE_NAME}}
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,10 +18,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-class MainActivity : ComponentActivity() {
+// ShadowComposeActivity wraps Activity (transformed to
+// com.tencent.shadow.core.runtime.ShadowActivity under the Shadow
+// plugin flavor) and wires the owners Compose needs. Call
+// `setComposeContent` — NOT `androidx.activity.compose.setContent` —
+// since the extension-function variant requires ComponentActivity,
+// which isn't in Shadow's class hierarchy.
+class MainActivity : ShadowComposeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+        setComposeContent {
             MaterialTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
                     CounterScreen(modifier = Modifier.padding(inner))
