@@ -1,7 +1,10 @@
 package com.vibe.app.plugin.v2
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
 import android.util.Log
 import com.vibe.app.plugin.IPluginInspector
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -53,6 +56,11 @@ class ShadowPluginHost @Inject constructor(
 
     @Volatile
     private var serviceBound = false
+
+    @Volatile
+    private var inspector: IPluginInspector? = null
+
+    private var inspectorConnection: ServiceConnection? = null
 
     fun launchPlugin(
         apkPath: String,
@@ -198,11 +206,47 @@ class ShadowPluginHost @Inject constructor(
         return launchName ?: "$packageName.MainActivity"
     }
 
+    /**
+     * Returns the [IPluginInspector] for the `:shadow_plugin` process.
+     * Binds [ShadowPluginInspectorService] lazily on first call and
+     * caches the resulting binder. The inspector is process-scoped,
+     * not project-scoped — only one plugin runs at a time under
+     * Shadow, and the same binder serves whichever plugin is resumed.
+     */
     fun getInspector(projectId: String): IPluginInspector? {
-        // TODO(5b-6): bridge the plugin-process inspector Service over
-        // Shadow's PPS IPC. For now return null so callers short-circuit.
-        Log.w(TAG, "ShadowPluginHost.getInspector not yet implemented (project=$projectId)")
-        return null
+        inspector?.let { return it }
+        if (!installed.containsKey(projectId)) {
+            // No plugin launched for this project yet. Nothing to inspect.
+            return null
+        }
+        return bindInspectorBlocking()
+    }
+
+    private fun bindInspectorBlocking(): IPluginInspector? {
+        val latch = java.util.concurrent.CountDownLatch(1)
+        var bound: IPluginInspector? = null
+        val connection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                bound = IPluginInspector.Stub.asInterface(service)
+                inspector = bound
+                latch.countDown()
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                inspector = null
+            }
+        }
+        val intent = Intent().apply {
+            setClassName(context, ShadowPluginInspectorService::class.java.name)
+        }
+        if (!context.bindService(intent, connection, Context.BIND_AUTO_CREATE)) {
+            Log.e(TAG, "bindService for ShadowPluginInspectorService returned false")
+            return null
+        }
+        inspectorConnection = connection
+        // 10 s gives the plugin process time to warm up on a cold start.
+        latch.await(10, java.util.concurrent.TimeUnit.SECONDS)
+        return bound
     }
 
     fun finishPluginAndReturn(projectId: String) {

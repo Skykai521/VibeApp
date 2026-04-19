@@ -19,11 +19,17 @@
 
 ## Known gaps — not implemented, not tested
 
-### 1. Inspector bridge is a stub
+### 1. ~~Inspector bridge is a stub~~ ✅ Landed
 
-`ShadowPluginHost.getInspector(projectId)` returns `null`. `RunInProcessV2Tool` detects this and returns a `"running"` status without a `view_tree`. `InspectUiTool` / `InteractUiTool` still inject legacy `PluginManager`, so calling them on a Shadow-hosted project returns `"plugin not running"`.
+Closed in the same 5b-7 series. Files added:
 
-To fix: declare a `ShadowPluginInspectorService` in the host manifest with `android:process=":shadow_plugin"` (same process as Shadow-hosted plugins). Host binds to it over `IPluginInspector` AIDL. Inside the shadow_plugin process the service walks the foreground `PluginContainerActivity`'s view tree — v1's `PluginInspectorService.dumpViewTree` logic can port over almost verbatim; the only change is finding the foreground Activity (no `ActivityHolder` between a user's Activity and the container under Shadow — you always want the container's decor view).
+- `app/src/main/kotlin/com/vibe/app/plugin/v2/ShadowActivityTracker.kt` — `Application.ActivityLifecycleCallbacks` singleton installed from `VibeApp.Application.onCreate()`, tracks the currently resumed Activity in every process. In `:shadow_plugin` that's always a `PluginContainerActivity`.
+- `app/src/main/kotlin/com/vibe/app/plugin/v2/PluginInspectionCore.kt` — shared inspection engine (view-tree dump, action dispatch, hidden-API bypass). Parameterised by `activityProvider: () -> Activity?` so different hosts plug in different Activity-lookup strategies.
+- `app/src/main/kotlin/com/vibe/app/plugin/v2/ShadowPluginInspectorService.kt` — thin `Service` shell exposing `IPluginInspector.Stub`, delegates to `PluginInspectionCore` configured with `ShadowActivityTracker::foregroundActivity`. Declared in `AndroidManifest.xml` with `android:process=":shadow_plugin"`.
+
+`ShadowPluginHost.getInspector` now binds the service lazily on first call, caches the binder. `InspectUiTool` / `InteractUiTool` fall through to `ShadowPluginHost.getInspector` when legacy `PluginManager` doesn't own the projectId. Agent system prompt updated to drop the "not yet wired" caveat.
+
+v1's `PluginInspectorService` (818 lines) is left untouched to eliminate regression risk — it'll be deleted alongside the rest of `plugin/legacy/` after the on-device checklist passes.
 
 ### 2. `RunInProcessV2Tool` launch has never been exercised
 
@@ -53,7 +59,7 @@ Before deleting `plugin/legacy/` (Phase 5b-7 proper):
 - [ ] Add a Snackbar call inside the plugin. Snackbar shows.
 - [ ] Add a second Activity in the plugin, navigate to it from `MainActivity` via `startActivity`. Second Activity renders.
 - [ ] Add a Service in the plugin (bound or started, doesn't matter). Plugin starts the service, plugin-side callbacks fire.
-- [ ] Wire the inspector bridge (see gap 1). Verify `inspect_ui` returns the expected view tree for a Shadow-hosted plugin.
+- [ ] `inspect_ui` returns the expected view tree for a Shadow-hosted plugin (inspector bridge landed, needs on-device verification).
 - [ ] `close_app` brings VibeApp to the foreground — plugin disappears from view.
 - [ ] Re-test `run_in_process_v2` on the same projectId; install cache is reused, second launch is fast.
 

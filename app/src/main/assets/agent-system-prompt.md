@@ -203,10 +203,9 @@ Compose entry point.
   extension won't resolve at runtime after the Shadow transform.
 - **Use `setComposeContent { … }`** inside `onCreate` — not
   `setContent { … }`. Signature is identical.
-- UI inspection (`inspect_ui` / `interact_ui`) and `close_app` are not
-  yet wired for v2 Shadow-hosted plugins. `run_in_process_v2` will
-  return a `"running"` status without a view tree. Skip `inspect_ui`
-  / `interact_ui` for v2 until that changes.
+- `inspect_ui` / `interact_ui` / `close_app` work for v2 plugins the
+  same as for v1. Cold-start to the first view tree is slower under
+  Shadow because the loader + runtime APKs also have to load.
 - `remove_dependency_v2(alias)` — symmetric remove.
 - `export_project_source_v2()` — zip the project for off-device use,
   with a README explaining how to open it in Android Studio.

@@ -122,6 +122,14 @@
             android:name="com.vibe.app.plugin.v2.ShadowPluginProcessService"
             android:process=":shadow_plugin"
             android:exported="false" />
+
+        <!-- v2 inspector Service (Phase 5b-7). Runs in the same
+             :shadow_plugin process as Shadow's PPS + the plugin Activity,
+             so it can reach the Activity's decor view directly. -->
+        <service
+            android:name="com.vibe.app.plugin.v2.ShadowPluginInspectorService"
+            android:process=":shadow_plugin"
+            android:exported="false" />
     </application>
 
 </manifest>

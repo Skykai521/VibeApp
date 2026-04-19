@@ -17,6 +17,7 @@ import kotlinx.serialization.json.buildJsonObject
 @Singleton
 class InspectUiTool @Inject constructor(
     private val pluginManager: PluginManager,
+    private val shadowPluginHost: ShadowPluginHost,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -48,6 +49,7 @@ class InspectUiTool @Inject constructor(
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         val inspector = pluginManager.getInspector(context.projectId)
+            ?: shadowPluginHost.getInspector(context.projectId)
             ?: return call.result(
                 buildJsonObject {
                     put("error", JsonPrimitive("plugin not running"))
@@ -101,6 +103,7 @@ class CloseAppTool @Inject constructor(
 @Singleton
 class InteractUiTool @Inject constructor(
     private val pluginManager: PluginManager,
+    private val shadowPluginHost: ShadowPluginHost,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -175,6 +178,7 @@ class InteractUiTool @Inject constructor(
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         val inspector = pluginManager.getInspector(context.projectId)
+            ?: shadowPluginHost.getInspector(context.projectId)
             ?: return call.result(
                 buildJsonObject {
                     put("error", JsonPrimitive("plugin not running"))

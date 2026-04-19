@@ -91,44 +91,34 @@ class RunInProcessV2Tool @Inject constructor(
             projectName = project.name,
         )
 
-        // Inspector bridging through Shadow's PPS is pending Phase 5b-6.
-        // Until then, getInspector() returns null and we report
-        // "running" without a view tree.
+        // Wait for the inspector AIDL to bind. Shadow's cold-start is
+        // slower than v1's because the Compose runtime + Shadow loader
+        // both have to load into :shadow_plugin — give it longer.
         var inspector: com.vibe.app.plugin.IPluginInspector? = null
         for (attempt in 1..30) {
             delay(500)
             inspector = pluginHost.getInspector(context.projectId)
             if (inspector != null) break
         }
-        return if (inspector != null) {
-            try {
-                val viewTree = inspector.dumpViewTree(
-                    """{"scope":"visible","include_windows":true}""",
-                )
-                call.result(
-                    buildJsonObject {
-                        put("status", JsonPrimitive("running"))
-                        put("packageName", JsonPrimitive(packageName))
-                        put("view_tree", JsonPrimitive(viewTree))
-                    },
-                )
-            } catch (e: Exception) {
-                call.result(
-                    buildJsonObject {
-                        put("status", JsonPrimitive("running"))
-                        put("packageName", JsonPrimitive(packageName))
-                        put(
-                            "note",
-                            JsonPrimitive(
-                                "App launched but view tree not yet available " +
-                                    "(Compose first frame may still be rendering): " +
-                                    "${e.message}",
-                            ),
-                        )
-                    },
-                )
-            }
-        } else {
+        if (inspector == null) {
+            return call.errorResult(
+                "App launched but inspector did not connect within 15s. The plugin may be " +
+                    "slow to start (Compose first frame), or it crashed during init — check " +
+                    "read_runtime_log.",
+            )
+        }
+        return try {
+            val viewTree = inspector.dumpViewTree(
+                """{"scope":"visible","include_windows":true}""",
+            )
+            call.result(
+                buildJsonObject {
+                    put("status", JsonPrimitive("running"))
+                    put("packageName", JsonPrimitive(packageName))
+                    put("view_tree", JsonPrimitive(viewTree))
+                },
+            )
+        } catch (e: Exception) {
             call.result(
                 buildJsonObject {
                     put("status", JsonPrimitive("running"))
@@ -136,8 +126,8 @@ class RunInProcessV2Tool @Inject constructor(
                     put(
                         "note",
                         JsonPrimitive(
-                            "App launched via Shadow; UI inspection not wired " +
-                                "(Phase 5b-6). Skip inspect_ui / interact_ui for now.",
+                            "App launched but view tree not yet available (Compose first " +
+                                "frame may still be rendering): ${e.message}",
                         ),
                     )
                 },

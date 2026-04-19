@@ -6,6 +6,7 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.vibe.app.feature.agent.service.AgentNotificationHelper
+import com.vibe.app.plugin.v2.ShadowActivityTracker
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -23,6 +24,11 @@ class VibeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         notificationHelper.createChannels()
+        // Register the foreground-Activity tracker in EVERY process
+        // (including :shadow_plugin), so ShadowPluginInspectorService
+        // can resolve the current PluginContainerActivity without a
+        // static Activity handoff.
+        ShadowActivityTracker.install(this)
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
