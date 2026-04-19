@@ -40,6 +40,22 @@ class ShadowPluginHost @Inject constructor(
 
     private val installed = mutableMapOf<String /* projectId */, InstalledProject>()
 
+    /**
+     * partKeys that have already been fed through the
+     * `loadPlugin` + `callApplicationOnCreate` sequence in the CURRENT
+     * plugin-process lifecycle. Shadow's `ComponentManager` throws
+     * "重复添加Component" if `loadPlugin` runs a second time for the same
+     * partKey, and calling Application.onCreate twice would re-init the
+     * plugin's state.
+     *
+     * Scoped to the host process — if the `:shadow_plugin` process is
+     * killed and comes back, `serviceBound` flips to false first (via
+     * `onServiceDisconnected`, wired below) and we flush this set so
+     * the re-bind triggers a clean `loadPlugin`. Don't persist across
+     * host-process restarts: `installed` doesn't survive that either.
+     */
+    private val loadedPartKeys = mutableSetOf<String>()
+
     @Volatile
     private var serviceBound = false
 
@@ -90,6 +106,18 @@ class ShadowPluginHost @Inject constructor(
 
         // Drive Shadow's load sequence. These calls are synchronous IPC
         // into the plugin process — must NOT run on the main thread.
+        //
+        // loadRunTime / loadPluginLoader are idempotent on the plugin-process
+        // side (they no-op when the runtime/loader APK is already loaded),
+        // so running them on every launch is cheap and lets us recover if
+        // the plugin process is fresh (e.g. after Android reaped it).
+        //
+        // loadPlugin + callApplicationOnCreate are NOT idempotent:
+        //   - ComponentManager.addPluginApkInfo throws "重复添加Component"
+        //     when a partKey is re-added.
+        //   - Application.onCreate would fire the plugin's init twice.
+        // We gate those on loadedPartKeys so a re-launch from the Run
+        // button just dispatches the Intent without re-loading.
         withContext(Dispatchers.IO) {
             try {
                 manager.loadRunTime(install.uuid)
@@ -97,14 +125,23 @@ class ShadowPluginHost @Inject constructor(
                 val loader = checkNotNull(loaderBinder()) {
                     "Shadow PluginLoader binder unavailable after loadPluginLoader"
                 }
-                loader.loadPlugin(install.partKey)
-                loader.callApplicationOnCreate(install.partKey)
+                if (install.partKey !in loadedPartKeys) {
+                    loader.loadPlugin(install.partKey)
+                    loader.callApplicationOnCreate(install.partKey)
+                    loadedPartKeys += install.partKey
+                    Log.i(TAG, "loaded plugin partKey=${install.partKey}")
+                } else {
+                    Log.i(TAG, "re-launch: skipping loadPlugin for partKey=${install.partKey}")
+                }
             } catch (e: Exception) {
-                // Anything from load/install — binder RemoteException,
-                // LoadPluginException marshalled across, etc. This path
-                // won't succeed end-to-end until Phase 5b-5 applies the
-                // Shadow transform to plugin APKs.
-                Log.e(TAG, "Shadow rejected plugin load — expected until 5b-5", e)
+                // Safety net for the first-launch path (transform /
+                // classloader / manifest issues) and for the rare case
+                // where the plugin process died between launches without
+                // us catching the disconnect — in which case loadPlugin
+                // might still see "重复添加Component" from a stale
+                // ComponentManager. Log and rethrow; upper layers
+                // surface a clear error to the user.
+                Log.e(TAG, "Shadow rejected plugin load", e)
                 throw e
             }
         }
