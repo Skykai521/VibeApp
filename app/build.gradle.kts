@@ -129,9 +129,31 @@ val copyShadowApks by tasks.registering(Copy::class) {
     into(layout.projectDirectory.dir("src/main/assets/shadow"))
 }
 
+// Bundle the Shadow Gradle plugin + its vendored transform deps as a
+// local Maven repo. The app extracts this at first run to
+// `filesDir/shadow/plugin-repo/` and the v2 project template's
+// `pluginManagement.repositories` resolves `com.tencent.shadow.plugin`
+// from there. See Phase 5b-5.
+val shadowPluginPublishTasks = listOf(
+    ":shadow-gradle-plugin:publishAllPublicationsToShadowPluginRepoRepository",
+    ":shadow-transform:publishAllPublicationsToShadowPluginRepoRepository",
+    ":shadow-transform-kit:publishAllPublicationsToShadowPluginRepoRepository",
+    ":shadow-manifest-parser:publishAllPublicationsToShadowPluginRepoRepository",
+)
+val copyShadowPluginRepo by tasks.registering(Zip::class) {
+    dependsOn(shadowPluginPublishTasks)
+    from(rootProject.layout.buildDirectory.dir("shadow-plugin-repo"))
+    archiveFileName.set("plugin-repo.zip")
+    destinationDirectory.set(layout.projectDirectory.dir("src/main/assets/shadow"))
+    // Stable archive for reproducible builds.
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+}
+
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
     dependsOn(copyGradleHostJar)
     dependsOn(copyShadowApks)
+    dependsOn(copyShadowPluginRepo)
 }
 
 configurations.all {

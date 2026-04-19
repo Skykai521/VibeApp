@@ -2,6 +2,23 @@ plugins {
     alias(libs.plugins.android.application)
     // AGP 9.x has built-in Kotlin support; no separate kotlin.android plugin.
     alias(libs.plugins.kotlin.compose)
+    // Tencent Shadow plugin. Adds a "Shadow" flavor dimension with two
+    // flavors (normal / plugin); only the plugin flavor gets Shadow's
+    // bytecode transform. Use `:app:assemblePluginDebug` to produce the
+    // Shadow-loadable APK.
+    alias(libs.plugins.shadow)
+}
+
+shadow {
+    transformConfig {
+        // Classes that should keep resolving to the host's copies rather
+        // than the plugin's — Shadow won't rewrite references to these.
+        // Extend if the user's plugin needs to pass specific types across
+        // the host/plugin boundary (e.g., shared AIDL interfaces).
+        useHostContext = arrayOf(
+            "com.vibe.app.plugin.IPluginInspector",
+        )
+    }
 }
 
 android {

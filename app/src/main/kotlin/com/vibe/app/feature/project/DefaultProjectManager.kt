@@ -9,6 +9,7 @@ import com.vibe.app.data.database.entity.ProjectBuildStatus
 import com.vibe.app.data.database.entity.ProjectEngine
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.feature.projectinit.ProjectInitializer
+import com.vibe.app.plugin.v2.ShadowPluginRepoExtractor
 import com.vibe.build.gradle.GradleProjectInitializer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -31,6 +32,7 @@ class DefaultProjectManager @Inject constructor(
     private val projectInitializer: ProjectInitializer,
     private val chatRoomV2Dao: ChatRoomV2Dao,
     private val gradleProjectInitializer: GradleProjectInitializer,
+    private val shadowPluginRepoExtractor: ShadowPluginRepoExtractor,
 ) : ProjectManager {
 
     private val tag = "ProjectManager"
@@ -138,6 +140,7 @@ class DefaultProjectManager @Inject constructor(
         // toolchain layout.
         val sdkDir = File(context.filesDir, "usr/opt/android-sdk-36.0.0")
         val gradleUserHome = File(context.filesDir, ".gradle")
+        val shadowPluginRepo = shadowPluginRepoExtractor.extractIfNeeded()
         gradleProjectInitializer.initialize(
             GradleProjectInitializer.Input(
                 templateName = "KotlinComposeApp",
@@ -146,6 +149,7 @@ class DefaultProjectManager @Inject constructor(
                 sdkDir = sdkDir,
                 gradleUserHome = gradleUserHome,
                 destinationDir = rootDir,
+                shadowPluginRepo = shadowPluginRepo,
             ),
         )
 

@@ -82,7 +82,13 @@ class AssembleDebugV2Tool @Inject constructor(
             gradleBuildService.start(gradleDist)
             val events = gradleBuildService.runBuild(
                 projectDirectory = projectDir,
-                tasks = listOf(":app:assembleDebug"),
+                // `assemblePluginDebug`, not `assembleDebug`: Shadow's
+                // Gradle plugin (wired into the KotlinComposeApp template
+                // in Phase 5b-5) adds a "Shadow" flavor dimension with
+                // `normal` + `plugin` flavors. Only the `plugin` flavor
+                // variant runs Shadow's bytecode transform, which is
+                // what ShadowPluginHost needs to load the APK.
+                tasks = listOf(":app:assemblePluginDebug"),
                 args = emptyList(),
             ).toList()
             val finish = events.filterIsInstance<HostEvent.BuildFinish>().firstOrNull()

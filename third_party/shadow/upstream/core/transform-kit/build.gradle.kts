@@ -4,7 +4,11 @@
 // the on-device build pipeline. Keep as a pure JVM module.
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    `maven-publish`
 }
+
+group = "com.vibeapp.shadow"
+version = "1.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -21,4 +25,16 @@ dependencies {
     api("com.android.tools.build:gradle:9.1.0")
     api("com.android.tools:common:32.1.0")
     api(gradleApi())
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") { from(components["java"]) }
+    }
+    repositories {
+        maven {
+            name = "shadowPluginRepo"
+            url = uri(rootProject.layout.buildDirectory.dir("shadow-plugin-repo"))
+        }
+    }
 }

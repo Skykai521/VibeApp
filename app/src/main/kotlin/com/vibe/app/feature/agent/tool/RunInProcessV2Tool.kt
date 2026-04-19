@@ -9,7 +9,7 @@ import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
-import com.vibe.app.plugin.legacy.PluginManager
+import com.vibe.app.plugin.v2.ShadowPluginHost
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,11 +26,14 @@ import kotlinx.serialization.json.buildJsonObject
  * system installer.
  *
  * v2 analogue of [LaunchAppTool] (which targets v1 LEGACY projects).
- * Uses the same [PluginManager] with its 5-slot LRU + IPluginInspector
- * binding pattern; the only difference is where the APK lives on disk
- * and how the package name gets resolved.
+ * Goes through [ShadowPluginHost] — i.e. Tencent Shadow — so plugin
+ * Activities can use Fragments, nested Activity navigation, and the
+ * other three components v1's hand-rolled DexClassLoader host never
+ * supported.
  *
- * APK lookup: `<workspacePath>/app/build/outputs/apk/debug/app-debug.apk`
+ * APK lookup: `<workspacePath>/app/build/outputs/apk/plugin/debug/app-plugin-debug.apk`
+ * (the `plugin` Shadow flavor runs Shadow's bytecode transform;
+ * `assemble_debug_v2` invokes `:app:assemblePluginDebug` accordingly).
  *
  * Package name lookup: parsed from `app/build.gradle.kts`'s
  * `applicationId = "..."` line (the v2 template guarantees this is
@@ -39,7 +42,7 @@ import kotlinx.serialization.json.buildJsonObject
 @Singleton
 class RunInProcessV2Tool @Inject constructor(
     private val projectRepository: ProjectRepository,
-    private val pluginManager: PluginManager,
+    private val pluginHost: ShadowPluginHost,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -62,9 +65,12 @@ class RunInProcessV2Tool @Inject constructor(
             )
         }
         val rootDir = File(project.workspacePath)
-        val apk = File(rootDir, "app/build/outputs/apk/debug/app-debug.apk")
+        val apk = File(rootDir, "app/build/outputs/apk/plugin/debug/app-plugin-debug.apk")
         if (!apk.isFile) {
-            return call.errorResult("No v2 APK found at $apk. Run assemble_debug_v2 first.")
+            return call.errorResult(
+                "No v2 Shadow-plugin APK found at $apk. Run assemble_debug_v2 first " +
+                    "(it invokes :app:assemblePluginDebug, which runs the Shadow transform).",
+            )
         }
         if (!isVibeAppInForeground()) {
             return call.errorResult(
@@ -78,38 +84,51 @@ class RunInProcessV2Tool @Inject constructor(
                     "Use add_dependency_v2 / write_project_file to ensure the file is intact.",
             )
 
-        pluginManager.launchPlugin(
+        pluginHost.launchPlugin(
             apkPath = apk.absolutePath,
             packageName = packageName,
             projectId = context.projectId,
             projectName = project.name,
         )
 
-        // Wait for the Inspector AIDL to bind. Cold v2 plugin process may take longer
-        // than v1 because the Compose runtime classes are larger.
+        // Inspector bridging through Shadow's PPS is pending Phase 5b-6.
+        // Until then, getInspector() returns null and we report
+        // "running" without a view tree.
         var inspector: com.vibe.app.plugin.IPluginInspector? = null
         for (attempt in 1..30) {
             delay(500)
-            inspector = pluginManager.getInspector(context.projectId)
+            inspector = pluginHost.getInspector(context.projectId)
             if (inspector != null) break
         }
-        if (inspector == null) {
-            return call.errorResult(
-                "App launched but Inspector did not connect within 15s. The plugin may be " +
-                    "slow to start (Compose first frame), or it crashed during init — check " +
-                    "read_runtime_log.",
-            )
-        }
-        return try {
-            val viewTree = inspector.dumpViewTree("""{"scope":"visible","include_windows":true}""")
-            call.result(
-                buildJsonObject {
-                    put("status", JsonPrimitive("running"))
-                    put("packageName", JsonPrimitive(packageName))
-                    put("view_tree", JsonPrimitive(viewTree))
-                },
-            )
-        } catch (e: Exception) {
+        return if (inspector != null) {
+            try {
+                val viewTree = inspector.dumpViewTree(
+                    """{"scope":"visible","include_windows":true}""",
+                )
+                call.result(
+                    buildJsonObject {
+                        put("status", JsonPrimitive("running"))
+                        put("packageName", JsonPrimitive(packageName))
+                        put("view_tree", JsonPrimitive(viewTree))
+                    },
+                )
+            } catch (e: Exception) {
+                call.result(
+                    buildJsonObject {
+                        put("status", JsonPrimitive("running"))
+                        put("packageName", JsonPrimitive(packageName))
+                        put(
+                            "note",
+                            JsonPrimitive(
+                                "App launched but view tree not yet available " +
+                                    "(Compose first frame may still be rendering): " +
+                                    "${e.message}",
+                            ),
+                        )
+                    },
+                )
+            }
+        } else {
             call.result(
                 buildJsonObject {
                     put("status", JsonPrimitive("running"))
@@ -117,8 +136,8 @@ class RunInProcessV2Tool @Inject constructor(
                     put(
                         "note",
                         JsonPrimitive(
-                            "App launched but view tree not yet available (Compose first " +
-                                "frame may still be rendering): ${e.message}",
+                            "App launched via Shadow; UI inspection not wired " +
+                                "(Phase 5b-6). Skip inspect_ui / interact_ui for now.",
                         ),
                     )
                 },

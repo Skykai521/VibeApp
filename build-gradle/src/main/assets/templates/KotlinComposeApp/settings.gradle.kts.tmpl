@@ -1,5 +1,9 @@
 pluginManagement {
     repositories {
+        // VibeApp's on-device Shadow plugin repo, extracted at first
+        // run from assets/shadow/plugin-repo.zip. Holds
+        // com.tencent.shadow.plugin + its vendored transform deps.
+        maven { url = uri("file://{{SHADOW_PLUGIN_REPO}}") }
         google()
         mavenCentral()
         gradlePluginPortal()
@@ -9,6 +13,9 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // Same local repo — the Shadow plugin needs its vendored
+        // transform-kit/transform deps at configuration time.
+        maven { url = uri("file://{{SHADOW_PLUGIN_REPO}}") }
         google()
         mavenCentral()
     }

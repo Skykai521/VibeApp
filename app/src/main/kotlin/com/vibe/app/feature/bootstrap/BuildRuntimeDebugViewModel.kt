@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vibe.app.data.datastore.SettingDataSource
+import com.vibe.app.plugin.v2.ShadowPluginRepoExtractor
 import com.vibe.build.gradle.ApkInstaller
 import com.vibe.build.gradle.GradleBuildService
 import com.vibe.build.gradle.GradleProjectInitializer
@@ -35,6 +36,7 @@ class BuildRuntimeDebugViewModel @Inject constructor(
     private val settingDataSource: SettingDataSource,
     private val gradleBuildService: GradleBuildService,
     private val projectInitializer: GradleProjectInitializer,
+    private val shadowPluginRepoExtractor: ShadowPluginRepoExtractor,
     private val apkInstaller: ApkInstaller,
     @Named("bootstrapManifestUrl") private val manifestUrl: String,
     @Named("appCacheDir") private val cacheDir: File,
@@ -212,6 +214,7 @@ class BuildRuntimeDebugViewModel @Inject constructor(
                 val projectDir = File(fs.usrRoot.parentFile, "projects/counter")
                 projectDir.parentFile?.mkdirs()
 
+                val shadowPluginRepo = shadowPluginRepoExtractor.extractIfNeeded()
                 projectInitializer.initialize(
                     GradleProjectInitializer.Input(
                         templateName = "KotlinComposeApp",
@@ -220,6 +223,7 @@ class BuildRuntimeDebugViewModel @Inject constructor(
                         sdkDir = sdkDir,
                         gradleUserHome = gradleUserHome,
                         destinationDir = projectDir,
+                        shadowPluginRepo = shadowPluginRepo,
                     ),
                 )
 

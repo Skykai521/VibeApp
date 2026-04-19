@@ -6,6 +6,9 @@ composeBom = "2024.06.00"
 activityCompose = "1.9.0"
 coreKtx = "1.13.1"
 lifecycleRuntime = "2.8.3"
+# Shadow plugin version — matches the coordinate we publish to
+# assets/shadow/plugin-repo.zip (see :app:copyShadowPluginRepo).
+shadow = "1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -19,3 +22,8 @@ compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# Tencent Shadow plugin — adds two product flavors (normal / plugin)
+# and bytecode-transforms the plugin flavor so Activities extend
+# com.tencent.shadow.core.runtime.ShadowActivity instead of
+# android.app.Activity. Resolved from {{SHADOW_PLUGIN_REPO}}.
+shadow = { id = "com.tencent.shadow.plugin", version.ref = "shadow" }

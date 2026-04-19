@@ -38,6 +38,7 @@ class GradleProjectInitializerInstrumentedTest {
                     sdkDir = File("/dev/null/sdk"),
                     gradleUserHome = File("/dev/null/.gradle"),
                     destinationDir = dest,
+                    shadowPluginRepo = File("/dev/null/shadow-plugin-repo"),
                 ),
             )
 

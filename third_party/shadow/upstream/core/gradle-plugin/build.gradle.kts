@@ -4,8 +4,12 @@
 // java-gradle-plugin JVM module.
 plugins {
     `java-gradle-plugin`
+    `maven-publish`
     alias(libs.plugins.kotlin.jvm)
 }
+
+group = "com.vibeapp.shadow"
+version = "1.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -28,4 +32,18 @@ dependencies {
     implementation("com.googlecode.json-simple:json-simple:1.1.1")
     implementation(project(":shadow-transform"))
     implementation(project(":shadow-manifest-parser"))
+}
+
+// Publish to a local Maven repo under the root build dir. The :app
+// module picks this up (via copyShadowPluginRepo) and bundles it into
+// assets/shadow/plugin-repo so on-device Gradle builds can resolve
+// `com.tencent.shadow.plugin` from filesDir/shadow/plugin-repo at
+// template-project configuration time.
+publishing {
+    repositories {
+        maven {
+            name = "shadowPluginRepo"
+            url = uri(rootProject.layout.buildDirectory.dir("shadow-plugin-repo"))
+        }
+    }
 }

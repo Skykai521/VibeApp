@@ -125,6 +125,10 @@ class EmptyApkBuildInstrumentedTest {
                 sdkDir = sdkDir,
                 gradleUserHome = gradleUserHome,
                 destinationDir = projectDir,
+                // Tests don't exercise Shadow plugin resolution;
+                // a bogus path is fine — the template substitutes it
+                // into settings.gradle.kts but Gradle isn't invoked.
+                shadowPluginRepo = File("/dev/null/shadow-plugin-repo"),
             ),
         )
 

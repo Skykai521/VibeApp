@@ -36,6 +36,7 @@ class GradleProjectInitializer @Inject constructor(
             "PACKAGE_PATH" to input.packageName.replace('.', '/'),
             "SDK_DIR" to input.sdkDir.absolutePath,
             "GRADLE_USER_HOME" to input.gradleUserHome.absolutePath,
+            "SHADOW_PLUGIN_REPO" to input.shadowPluginRepo.absolutePath,
         )
         return stager.stage(
             template = ProjectTemplate.FromDirectory(template),
@@ -81,5 +82,14 @@ class GradleProjectInitializer @Inject constructor(
         val sdkDir: File,
         val gradleUserHome: File,
         val destinationDir: File,
+        /**
+         * Local Maven repo containing Shadow's Gradle plugin + its
+         * vendored transform deps. Produced by
+         * `ShadowPluginRepoExtractor.extractIfNeeded()` before this
+         * call. Templates reference the absolute path via the
+         * `{{SHADOW_PLUGIN_REPO}}` placeholder in their
+         * `settings.gradle.kts.tmpl`.
+         */
+        val shadowPluginRepo: File,
     )
 }
