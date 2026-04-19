@@ -40,8 +40,12 @@ app/build/**
 
 /.obsidian
 
-# Phase 2a dev bootstrap artifact staging (large, never committed)
+# Bootstrap artifact staging (built by scripts/bootstrap/build-*.sh;
+# large, derived, never committed).
 /scripts/bootstrap/artifacts
+# Bootstrap artifacts copied into the APK by copyBootstrapArtifacts.
+# Source of truth is scripts/bootstrap/artifacts/.
+/app/src/main/assets/bootstrap/
 
 # Gradle build outputs for the pure-JVM :gradle-host module
 /gradle-host/build/

@@ -72,8 +72,7 @@ dependencies {
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)
 
-    // tar+gzip bootstrap format (Phase 2a): stdlib java.util.zip covers gzip
-    implementation(libs.eddsa)
+    // tar+gzip bootstrap format: stdlib java.util.zip covers gzip
     implementation(libs.commons.compress)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore)

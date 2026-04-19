@@ -104,6 +104,15 @@ android {
     lint {
         baseline = file("lint-baseline.xml")
     }
+
+    androidResources {
+        // Toolchain tarballs in assets/bootstrap/ are already compressed
+        // (gzip). Telling AGP to leave them alone saves build CPU +
+        // avoids the double-compression that would otherwise shrink
+        // them by a fraction of a percent.
+        @Suppress("UnstableApiUsage")
+        noCompress += listOf("tar.gz", "tar.zst")
+    }
 }
 
 val copyGradleHostJar by tasks.registering(Copy::class) {
@@ -150,10 +159,40 @@ val copyShadowPluginRepo by tasks.registering(Zip::class) {
     isReproducibleFileOrder = true
 }
 
+// Copy the on-device toolchain (JDK / Gradle / Android SDK / aapt2)
+// produced by `scripts/bootstrap/build-*.sh` under
+// `scripts/bootstrap/artifacts/` into `src/main/assets/bootstrap/`.
+// No network download on-device — `RuntimeBootstrapper` just streams
+// from the APK and extracts into filesDir/usr/opt.
+//
+// If the artifacts directory is empty / missing, the copy is a no-op:
+// the resulting APK builds fine but `assemble_debug_v2` will error at
+// runtime with a clear message. Run the scripts to populate it:
+//
+//   scripts/bootstrap/build-jdk.sh        --abi x86_64
+//   scripts/bootstrap/build-gradle.sh
+//   scripts/bootstrap/build-androidsdk.sh --abi x86_64
+//   scripts/bootstrap/build-manifest.sh
+//
+// (Swap `x86_64` for your target ABI: `arm64-v8a` / `armeabi-v7a`.)
+val copyBootstrapArtifacts by tasks.registering(Copy::class) {
+    val artifactDir = rootProject.layout.projectDirectory.dir("scripts/bootstrap/artifacts")
+    from(artifactDir) {
+        // All payload tarballs + the manifest that describes them.
+        include("*.tar.zst", "*.tar.gz", "manifest.json")
+    }
+    into(layout.projectDirectory.dir("src/main/assets/bootstrap"))
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    // Bounded artifact directory; missing dir = no-op (builds APK
+    // without the toolchain, expected during early repo setup).
+    onlyIf { artifactDir.asFile.isDirectory && artifactDir.asFile.list()?.isNotEmpty() == true }
+}
+
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
     dependsOn(copyGradleHostJar)
     dependsOn(copyShadowApks)
     dependsOn(copyShadowPluginRepo)
+    dependsOn(copyBootstrapArtifacts)
 }
 
 configurations.all {

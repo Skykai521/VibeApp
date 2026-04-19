@@ -16,7 +16,6 @@ import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import javax.inject.Named
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,10 +39,6 @@ class VibeApp : Application() {
 
     @Inject
     lateinit var bootstrapFs: BootstrapFileSystem
-
-    @Inject
-    @Named("bootstrapManifestUrl")
-    lateinit var bootstrapManifestUrl: String
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -72,14 +67,10 @@ class VibeApp : Application() {
             }
         })
 
-        // Kick off the on-device toolchain bootstrap in the background
-        // on fresh installs. Every v2 build needs Gradle / JDK / Android
-        // SDK / aapt2 under filesDir/usr/opt; doing it during app idle
-        // means by the time the user hits "编译" the first time, the
-        // heavy 1–2 GB download is already in flight (or done). If the
-        // store already reports Ready, we skip — the bootstrap itself
-        // is also idempotent via SHA-256 checks so re-running is cheap,
-        // but there's no reason to wake the network.
+        // Extract the bundled toolchain (JDK / Gradle / Android SDK /
+        // aapt2 from `assets/bootstrap/`) into filesDir/usr/opt/ on
+        // first launch. Subsequent launches skip once the state store
+        // reports Ready and the Gradle dir exists.
         bootstrapScope.launch {
             try {
                 val state = bootstrapStateStore.current()
@@ -88,8 +79,8 @@ class VibeApp : Application() {
                     Log.d(TAG, "bootstrap already Ready (v${state.manifestVersion})")
                     return@launch
                 }
-                Log.i(TAG, "bootstrap state=$state, triggering background bootstrap")
-                bootstrapper.bootstrap(bootstrapManifestUrl) { s ->
+                Log.i(TAG, "bootstrap state=$state, extracting bundled toolchain")
+                bootstrapper.bootstrap { s ->
                     Log.d(TAG, "bootstrap progress: $s")
                 }
             } catch (t: Throwable) {

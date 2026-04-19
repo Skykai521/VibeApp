@@ -5,6 +5,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,55 +31,62 @@ import javax.inject.Singleton
 open class ZstdExtractor @Inject constructor() {
 
     open fun extract(source: File, destinationDir: File) {
+        source.inputStream().use { extract(it, destinationDir) }
+    }
+
+    /**
+     * Stream-variant: consumes an arbitrary [InputStream] (e.g.
+     * `AssetManager.open(...)` for APK-bundled artifacts) rather than
+     * reading a temp file on disk.
+     */
+    open fun extract(source: InputStream, destinationDir: File) {
         require(destinationDir.isDirectory) {
             "destinationDir must exist: $destinationDir"
         }
         val dstCanonical = destinationDir.canonicalFile
 
         try {
-            source.inputStream().use { fileIn ->
-                GZIPInputStream(fileIn).use { gzipIn ->
-                    TarArchiveInputStream(gzipIn).use { tarIn ->
-                        while (true) {
-                            val entry: TarArchiveEntry = tarIn.nextEntry ?: break
-                            val target = File(destinationDir, entry.name).canonicalFile
-                            if (!target.path.startsWith(dstCanonical.path + File.separator) &&
-                                target.path != dstCanonical.path
-                            ) {
-                                throw ExtractionFailedException(
-                                    "tar entry escapes destination: ${entry.name}",
-                                )
-                            }
+            GZIPInputStream(source).use { gzipIn ->
+                TarArchiveInputStream(gzipIn).use { tarIn ->
+                    while (true) {
+                        val entry: TarArchiveEntry = tarIn.nextEntry ?: break
+                        val target = File(destinationDir, entry.name).canonicalFile
+                        if (!target.path.startsWith(dstCanonical.path + File.separator) &&
+                            target.path != dstCanonical.path
+                        ) {
+                            throw ExtractionFailedException(
+                                "tar entry escapes destination: ${entry.name}",
+                            )
+                        }
 
-                            if (entry.isDirectory) {
-                                target.mkdirs()
-                                continue
-                            }
+                        if (entry.isDirectory) {
+                            target.mkdirs()
+                            continue
+                        }
 
-                            if (entry.isSymbolicLink) {
-                                // Tar symlink entry: size is 0; the link target is
-                                // in entry.linkName (may be relative, e.g. "libz.so.1.3.2").
-                                // Creating the symlink exactly preserves the archive's
-                                // intent. If the file already exists (e.g. re-extract),
-                                // delete it first to avoid NIO's FileAlreadyExistsException.
-                                target.parentFile?.mkdirs()
-                                if (target.exists() || java.nio.file.Files.isSymbolicLink(target.toPath())) {
-                                    java.nio.file.Files.delete(target.toPath())
-                                }
-                                java.nio.file.Files.createSymbolicLink(
-                                    target.toPath(),
-                                    java.nio.file.Paths.get(entry.linkName),
-                                )
-                                continue
-                            }
-
+                        if (entry.isSymbolicLink) {
+                            // Tar symlink entry: size is 0; the link target is
+                            // in entry.linkName (may be relative, e.g. "libz.so.1.3.2").
+                            // Creating the symlink exactly preserves the archive's
+                            // intent. If the file already exists (e.g. re-extract),
+                            // delete it first to avoid NIO's FileAlreadyExistsException.
                             target.parentFile?.mkdirs()
-                            FileOutputStream(target).use { out ->
-                                tarIn.copyTo(out)
+                            if (target.exists() || java.nio.file.Files.isSymbolicLink(target.toPath())) {
+                                java.nio.file.Files.delete(target.toPath())
                             }
-                            if ((entry.mode and 0b001_000_000) != 0) {
-                                target.setExecutable(true, /* ownerOnly = */ true)
-                            }
+                            java.nio.file.Files.createSymbolicLink(
+                                target.toPath(),
+                                java.nio.file.Paths.get(entry.linkName),
+                            )
+                            continue
+                        }
+
+                        target.parentFile?.mkdirs()
+                        FileOutputStream(target).use { out ->
+                            tarIn.copyTo(out)
+                        }
+                        if ((entry.mode and 0b001_000_000) != 0) {
+                            target.setExecutable(true, /* ownerOnly = */ true)
                         }
                     }
                 }

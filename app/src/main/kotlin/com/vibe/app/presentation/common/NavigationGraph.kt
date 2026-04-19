@@ -14,7 +14,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
-import com.vibe.app.feature.bootstrap.BuildRuntimeDebugScreen
 import com.vibe.app.presentation.ui.chat.ChatScreen
 import com.vibe.app.presentation.ui.diagnostic.DiagnosticScreen
 import com.vibe.app.presentation.ui.home.HomeScreen
@@ -176,7 +175,6 @@ fun NavGraphBuilder.settingNavigation(navController: NavHostController) {
                     )
                 },
                 onNavigateToAboutPage = { navController.navigate(Route.ABOUT_PAGE) },
-                onNavigateToBuildRuntimeDebug = { navController.navigate(Route.BUILD_RUNTIME_DEBUG) }
             )
         }
         composable(
@@ -195,9 +193,6 @@ fun NavGraphBuilder.settingNavigation(navController: NavHostController) {
         }
         composable(Route.LICENSE) {
             LicenseScreen(onNavigationClick = { navController.navigateUp() })
-        }
-        composable(Route.BUILD_RUNTIME_DEBUG) {
-            BuildRuntimeDebugScreen(onBack = { navController.popBackStack() })
         }
     }
 }

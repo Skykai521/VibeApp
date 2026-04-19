@@ -1,58 +1,43 @@
 package com.vibe.build.runtime.bootstrap
 
-import kotlinx.coroutines.flow.collect
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Orchestrates one full bootstrap cycle:
- *   1. Fetch manifest bytes from primary mirror
- *   2. Verify Ed25519 signature
- *   3. Parse JSON into [BootstrapManifest]
- *   4. For each component:
- *        Downloading → Verifying → Unpacking → Installing
- *   5. Ready(manifestVersion)
+ * Orchestrates one full toolchain install:
+ *   1. Read bundled `assets/bootstrap/manifest.json`
+ *   2. For each component in the manifest, stream its tar.gz artifact
+ *      from assets and extract into `filesDir/usr/opt/<componentId>/`
+ *   3. Emit `Ready(manifestVersion)` through the state store
  *
- * Errors at any step transition state to [BootstrapState.Failed] with a
- * human-readable reason. Downloader failures retry once via mirror
- * fallback before giving up.
+ * Tarballs are produced by `scripts/bootstrap/build-*.sh` and placed
+ * into `app/src/main/assets/bootstrap/` by the `copyBootstrapArtifacts`
+ * Gradle task — see app/build.gradle.kts.
  *
- * Progress is communicated two ways:
- * - The `store` sees the coarse state machine (Downloading, Verifying, ...)
- * - The `onState` callback receives every state including intra-component
- *   progress, for UI that wants finer granularity.
+ * No HTTP, no signature check, no mirror fallback: the APK itself is
+ * the source of truth (signed by Android's APK signing scheme). The
+ * `parsedManifestOverride` hook remains for unit-test injection.
  */
 @Singleton
 class RuntimeBootstrapper @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val fs: BootstrapFileSystem,
     private val store: BootstrapStateStore,
     private val parser: ManifestParser,
-    private val signature: ManifestSignature,
-    private val mirrors: MirrorSelector,
-    private val downloader: BootstrapDownloader,
     private val extractor: ZstdExtractor,
     private val abi: Abi,
-    private val fetcher: ManifestFetcher,
-    /** Phase 1a test hook — bypasses real manifest fetch + verify + parse. */
-    private val parsedManifestOverride: BootstrapManifest? = null,
 ) {
     suspend fun bootstrap(
-        manifestUrl: String,
         onState: suspend (BootstrapState) -> Unit = {},
     ) {
         try {
             fs.ensureDirectories()
 
-            val manifest = if (parsedManifestOverride != null) {
-                parsedManifestOverride
-            } else {
-                val fetched = fetcher.fetch(manifestFileName = manifestUrl.substringAfterLast('/'))
-                if (!signature.verify(fetched.manifestBytes, fetched.signatureBytes)) {
-                    throw SignatureMismatchException(
-                        "manifest signature failed verification",
-                    )
-                }
-                parser.parse(fetched.manifestBytes)
+            val manifest = run {
+                val bytes = context.assets.open(MANIFEST_ASSET).use { it.readBytes() }
+                parser.parse(bytes)
             }
 
             for (component in manifest.components) {
@@ -76,56 +61,39 @@ class RuntimeBootstrapper @Inject constructor(
         artifact: ArchArtifact,
         onState: suspend (BootstrapState) -> Unit,
     ) {
-        val partFile = fs.tempDownloadFile(artifact.fileName)
-
-        // Download with single mirror fallback retry
-        val maxAttempts = 2
-        for (attempt in 1..maxAttempts) {
-            val url = mirrors.currentUrlFor(artifact.fileName)
-            try {
-                downloader.download(
-                    url = url,
-                    destination = partFile,
-                    expectedSha256 = artifact.sha256,
-                    expectedSizeBytes = artifact.sizeBytes,
-                ).collect { event ->
-                    if (event is DownloadEvent.Progress) {
-                        emit(
-                            BootstrapState.Downloading(
-                                componentId = component.id,
-                                bytesRead = event.bytesRead,
-                                totalBytes = event.totalBytes,
-                            ),
-                            onState,
-                        )
-                    }
-                }
-                break   // success
-            } catch (e: BootstrapException) {
-                if (attempt < maxAttempts) {
-                    mirrors.markPrimaryFailed()
-                    continue
-                }
-                throw e
-            }
-        }
-
-        emit(BootstrapState.Verifying(component.id), onState)
-        // The downloader already verified SHA-256 while streaming; the
-        // Ed25519 manifest signature is verified once at manifest load
-        // (Phase 1c). Verifying here is a nominal state for the UI.
+        // Show "Downloading" on the UI even though we're streaming from
+        // assets — it's still the longest single step per component
+        // (decompress + write to disk). sizeBytes is known from the
+        // manifest; we emit one Progress event at start + end.
+        emit(
+            BootstrapState.Downloading(
+                componentId = component.id,
+                bytesRead = 0L,
+                totalBytes = artifact.sizeBytes,
+            ),
+            onState,
+        )
 
         emit(BootstrapState.Unpacking(component.id), onState)
         val stagedDir = fs.stagedExtractDir(component.id)
         stagedDir.deleteRecursively()
         stagedDir.mkdirs()
-        extractor.extract(partFile, stagedDir)
+
+        context.assets.open("$ASSETS_ROOT/${artifact.fileName}").use { input ->
+            extractor.extract(input, stagedDir)
+        }
 
         emit(BootstrapState.Installing(component.id), onState)
         fs.atomicInstall(stagedDir, component.id)
 
-        // Clean up .part file post-install
-        partFile.delete()
+        emit(
+            BootstrapState.Downloading(
+                componentId = component.id,
+                bytesRead = artifact.sizeBytes,
+                totalBytes = artifact.sizeBytes,
+            ),
+            onState,
+        )
     }
 
     private suspend fun emit(
@@ -138,4 +106,9 @@ class RuntimeBootstrapper @Inject constructor(
 
     private fun Throwable.messageOrClass(): String =
         this.message?.takeIf { it.isNotBlank() } ?: this::class.simpleName ?: "unknown error"
+
+    companion object {
+        private const val ASSETS_ROOT = "bootstrap"
+        private const val MANIFEST_ASSET = "$ASSETS_ROOT/manifest.json"
+    }
 }

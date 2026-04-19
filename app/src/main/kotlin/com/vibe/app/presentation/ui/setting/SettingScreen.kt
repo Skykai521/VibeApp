@@ -68,7 +68,6 @@ fun SettingScreen(
     onNavigateToAddPlatform: () -> Unit,
     onNavigateToPlatformSetting: (String) -> Unit,
     onNavigateToAboutPage: () -> Unit,
-    onNavigateToBuildRuntimeDebug: () -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     val scrollBehavior = pinnedExitUntilCollapsedScrollBehavior(
@@ -163,23 +162,6 @@ fun SettingScreen(
                 isEnabled = settingViewModel.debugMode.collectAsStateWithLifecycle().value,
                 onToggle = settingViewModel::toggleDebugMode
             )
-
-            if (settingViewModel.debugMode.collectAsStateWithLifecycle().value) {
-                SettingItem(
-                    title = "Build Runtime (debug)",
-                    description = "Trigger bootstrap + launch test process",
-                    onItemClick = onNavigateToBuildRuntimeDebug,
-                    showTrailingIcon = true,
-                    showLeadingIcon = true,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.BugReport,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-            }
 
             if (dialogState.isThemeDialogOpen) {
                 ThemeSettingDialog(settingViewModel)
