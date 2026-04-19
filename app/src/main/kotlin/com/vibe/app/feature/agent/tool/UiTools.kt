@@ -6,6 +6,7 @@ import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
 import com.vibe.app.plugin.legacy.PluginManager
+import com.vibe.app.plugin.v2.ShadowPluginHost
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.JsonPrimitive
@@ -65,6 +66,7 @@ class InspectUiTool @Inject constructor(
 @Singleton
 class CloseAppTool @Inject constructor(
     private val pluginManager: PluginManager,
+    private val shadowPluginHost: ShadowPluginHost,
 ) : AgentTool {
 
     override val definition = AgentToolDefinition(
@@ -80,7 +82,11 @@ class CloseAppTool @Inject constructor(
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         return try {
+            // Fan out to both hosts. Whichever owns this projectId runs
+            // the real close; the other is a no-op. Cheaper than
+            // introducing a per-tool registry of which host owns what.
             pluginManager.finishPluginAndReturn(context.projectId)
+            shadowPluginHost.finishPluginAndReturn(context.projectId)
             call.result(
                 buildJsonObject {
                     put("status", JsonPrimitive("closed"))

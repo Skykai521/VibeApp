@@ -206,12 +206,33 @@ class ShadowPluginHost @Inject constructor(
     }
 
     fun finishPluginAndReturn(projectId: String) {
-        // TODO(5b-6): post a finish signal to the plugin activity via
-        // ShadowActivity's intent extras. Until then this is a no-op.
-        Log.w(TAG, "ShadowPluginHost.finishPluginAndReturn not yet implemented (project=$projectId)")
+        // Bring VibeApp's main Activity back to foreground. That's
+        // enough to pop the user out of the plugin UI — the plugin
+        // keeps running in its own task, and `launchPlugin` for the
+        // same projectId re-uses the existing install, so there's no
+        // cost to leaving it around. Shadow's PluginLoader has no
+        // finish() equivalent anyway.
+        val hostIntent = Intent().apply {
+            setClassName(context, VIBEAPP_MAIN_ACTIVITY)
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
+        }
+        try {
+            context.startActivity(hostIntent)
+            Log.i(TAG, "finishPluginAndReturn: brought host to foreground (project=$projectId)")
+        } catch (e: Exception) {
+            Log.e(TAG, "finishPluginAndReturn: startActivity failed (project=$projectId)", e)
+        }
     }
 
     companion object {
         private const val TAG = "ShadowPluginHost"
+
+        // Hard-coded because this module is inside :app; the host
+        // launcher Activity's fully-qualified name is stable.
+        private const val VIBEAPP_MAIN_ACTIVITY = "com.vibe.app.presentation.ui.main.MainActivity"
     }
 }
