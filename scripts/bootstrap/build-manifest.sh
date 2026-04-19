@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Composes scripts/bootstrap/artifacts/manifest.json from the
-# .tar.gz artifacts in that directory, then signs it into manifest.json.sig
-# using the dev keypair.
+# Composes scripts/bootstrap/artifacts/manifest.json from the .tar.gz
+# artifacts in that directory. The manifest is read by
+# `RuntimeBootstrapper` from bundled assets — no network, no signature
+# verification (the APK itself is the trust boundary).
 
 set -euo pipefail
 
@@ -64,7 +65,3 @@ done
 } >> "$manifest"
 
 echo "wrote $manifest"
-
-# Sign with JDK's built-in Ed25519 (JEP 330 single-file java). Requires
-# JDK 15+ on PATH. No external dependencies, no kotlin CLI needed.
-java "$script_dir/SignManifest.java" "$manifest"

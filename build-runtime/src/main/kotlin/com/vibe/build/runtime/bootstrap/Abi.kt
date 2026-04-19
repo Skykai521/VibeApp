@@ -2,13 +2,12 @@ package com.vibe.build.runtime.bootstrap
 
 /**
  * Android ABI enumeration recognized by the bootstrap subsystem.
- * Maps `Build.SUPPORTED_ABIS` entries to the three architectures we ship
+ * Maps `Build.SUPPORTED_ABIS` entries to the two architectures we ship
  * toolchain artifacts for.
  */
 enum class Abi(val abiId: String) {
     ARM64("arm64-v8a"),
-    ARM32("armeabi-v7a"),
-    X86_64("x86_64");
+    ARM32("armeabi-v7a");
 
     companion object {
         /**

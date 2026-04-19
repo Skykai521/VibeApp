@@ -44,7 +44,7 @@ object BuildRuntimeModule {
         Abi.pickPreferred(Build.SUPPORTED_ABIS)
             ?: error(
                 "Unsupported ABI set: ${Build.SUPPORTED_ABIS.joinToString()}. " +
-                "VibeApp supports arm64-v8a, armeabi-v7a, x86_64 only.",
+                "VibeApp supports arm64-v8a and armeabi-v7a only.",
             )
 
     @Provides

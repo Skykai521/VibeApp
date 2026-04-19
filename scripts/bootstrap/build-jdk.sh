@@ -23,7 +23,7 @@ while [[ $# -gt 0 ]]; do
         --jdk-version) jdk_version="$2"; shift 2;;
         -h|--help)
             cat <<EOF
-Usage: $0 --abi <arm64-v8a|armeabi-v7a|x86_64>
+Usage: $0 --abi <arm64-v8a|armeabi-v7a>
           [--mirror URL] [--jdk-version VER]
 
 Downloads Termux openjdk-17 .deb, repacks as
@@ -44,8 +44,7 @@ done
 case "$abi" in
     arm64-v8a)   termux_arch="aarch64";;
     armeabi-v7a) termux_arch="arm";;
-    x86_64)      termux_arch="x86_64";;
-    *) echo "Unsupported ABI: $abi" >&2; exit 2;;
+    *) echo "Unsupported ABI: $abi (only arm64-v8a / armeabi-v7a)" >&2; exit 2;;
 esac
 
 deb_name="openjdk-17_${jdk_version}_${termux_arch}.deb"
@@ -135,7 +134,6 @@ esac
 case "$abi" in
     arm64-v8a)   ndk_triple="aarch64-linux-android";;
     armeabi-v7a) ndk_triple="arm-linux-androideabi";;
-    x86_64)      ndk_triple="x86_64-linux-android";;
 esac
 if [[ -n "$ndk_host_tag" && -d "$ndk_home_default" ]]; then
     ndk_libcxx="$ndk_home_default/toolchains/llvm/prebuilt/$ndk_host_tag/sysroot/usr/lib/$ndk_triple/libc++_shared.so"

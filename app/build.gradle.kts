@@ -169,12 +169,12 @@ val copyShadowPluginRepo by tasks.registering(Zip::class) {
 // the resulting APK builds fine but `assemble_debug_v2` will error at
 // runtime with a clear message. Run the scripts to populate it:
 //
-//   scripts/bootstrap/build-jdk.sh        --abi x86_64
+//   scripts/bootstrap/build-jdk.sh        --abi arm64-v8a
 //   scripts/bootstrap/build-gradle.sh
-//   scripts/bootstrap/build-androidsdk.sh --abi x86_64
+//   scripts/bootstrap/build-androidsdk.sh --abi arm64-v8a
 //   scripts/bootstrap/build-manifest.sh
 //
-// (Swap `x86_64` for your target ABI: `arm64-v8a` / `armeabi-v7a`.)
+// (Swap `arm64-v8a` for `armeabi-v7a` for older 32-bit ARM devices.)
 val copyBootstrapArtifacts by tasks.registering(Copy::class) {
     val artifactDir = rootProject.layout.projectDirectory.dir("scripts/bootstrap/artifacts")
     from(artifactDir) {

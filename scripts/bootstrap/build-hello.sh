@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
         --min-api) min_api="$2"; shift 2;;
         -h|--help)
             cat <<EOF
-Usage: $0 --abi <arm64-v8a|armeabi-v7a|x86_64> [--ndk-path PATH] [--min-api N]
+Usage: $0 --abi <arm64-v8a|armeabi-v7a> [--ndk-path PATH] [--min-api N]
 
 Cross-compiles scripts/bootstrap/hello/hello.c for the given Android ABI
 and writes scripts/bootstrap/artifacts/hello-<abi>.tar.gz.
@@ -43,8 +43,7 @@ esac
 case "$abi" in
     arm64-v8a)    clang_target="aarch64-linux-android${min_api}";;
     armeabi-v7a)  clang_target="armv7a-linux-androideabi${min_api}";;
-    x86_64)       clang_target="x86_64-linux-android${min_api}";;
-    *) echo "Unsupported ABI: $abi" >&2; exit 2;;
+    *) echo "Unsupported ABI: $abi (only arm64-v8a / armeabi-v7a)" >&2; exit 2;;
 esac
 
 toolchain="$ndk_home/toolchains/llvm/prebuilt/$host_tag"

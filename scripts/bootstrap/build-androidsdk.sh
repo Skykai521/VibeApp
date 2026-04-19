@@ -67,7 +67,7 @@ while [[ $# -gt 0 ]]; do
         --platform-rev) platform_rev="${ANDROID_PLATFORM_REV:-33_r02}"; shift 2;;
         -h|--help)
             cat <<EOF
-Usage: $0 --abi <arm64-v8a|armeabi-v7a|x86_64>
+Usage: $0 --abi <arm64-v8a|armeabi-v7a>
           [--mirror URL] [--aapt2-version VER] [--sdk-version VER]
           [--platform-rev REV]
 
@@ -101,8 +101,7 @@ done
 case "$abi" in
     arm64-v8a)   termux_arch="aarch64";;
     armeabi-v7a) termux_arch="arm";;
-    x86_64)      termux_arch="x86_64";;
-    *) echo "Unsupported ABI: $abi" >&2; exit 2;;
+    *) echo "Unsupported ABI: $abi (only arm64-v8a / armeabi-v7a)" >&2; exit 2;;
 esac
 
 mkdir -p "$artifacts_dir"
