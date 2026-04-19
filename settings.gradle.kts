@@ -82,3 +82,15 @@ project(":shadow-manifest-parser").projectDir = file("third_party/shadow/upstrea
 
 include(":shadow-loader")
 project(":shadow-loader").projectDir = file("third_party/shadow/upstream/core/loader")
+
+include(":shadow-manager")
+project(":shadow-manager").projectDir = file("third_party/shadow/upstream/core/manager")
+
+include(":shadow-transform-kit")
+project(":shadow-transform-kit").projectDir = file("third_party/shadow/upstream/core/transform-kit")
+
+include(":shadow-transform")
+project(":shadow-transform").projectDir = file("third_party/shadow/upstream/core/transform")
+
+include(":shadow-gradle-plugin")
+project(":shadow-gradle-plugin").projectDir = file("third_party/shadow/upstream/core/gradle-plugin")

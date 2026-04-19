@@ -28,7 +28,6 @@ import com.android.sdklib.AndroidVersion.VersionCodes
 import com.tencent.shadow.core.gradle.extensions.PackagePluginExtension
 import com.tencent.shadow.core.manifest_parser.createManifestValueParser
 import com.tencent.shadow.core.manifest_parser.generatePluginManifest
-import com.tencent.shadow.core.transform.DeprecatedTransformWrapper
 import com.tencent.shadow.core.transform.GradleTransformWrapper
 import com.tencent.shadow.core.transform.ShadowTransform
 import com.tencent.shadow.core.transform_kit.AndroidClassPoolBuilder
@@ -62,37 +61,32 @@ class ShadowPlugin : Plugin<Project> {
                 lateInitBuilder,
                 { shadowExtension.transformConfig.useHostContext }
             )
-            if (agpCompat.hasDeprecatedTransformApi()) {
-                baseExtension.registerTransform(
-                    DeprecatedTransformWrapper(
-                        project,
-                        shadowTransform
+            // VibeApp targets AGP 9+; Shadow's `hasDeprecatedTransformApi()`
+            // returns false for AGP >= 8 so the legacy registerTransform path
+            // is unreachable. We've removed DeprecatedTransformWrapper.kt
+            // along with this branch — only the Variant API path remains.
+            val androidComponentsExtension =
+                project.extensions.getByName("androidComponents") as ApplicationAndroidComponentsExtension
+            androidComponentsExtension.onVariants(
+                selector = androidComponentsExtension.selector()
+                    .withFlavor(
+                        ShadowTransform.DimensionName
+                                to ShadowTransform.ApplyShadowTransformFlavorName
                     )
+            ) { variant ->
+                val taskProvider = project.tasks.register(
+                    "${variant.name}ShadowTransform",
+                    GradleTransformWrapper::class.java,
+                    shadowTransform
                 )
-            } else {
-                val androidComponentsExtension =
-                    project.extensions.getByName("androidComponents") as ApplicationAndroidComponentsExtension
-                androidComponentsExtension.onVariants(
-                    selector = androidComponentsExtension.selector()
-                        .withFlavor(
-                            ShadowTransform.DimensionName
-                                    to ShadowTransform.ApplyShadowTransformFlavorName
-                        )
-                ) { variant ->
-                    val taskProvider = project.tasks.register(
-                        "${variant.name}ShadowTransform",
-                        GradleTransformWrapper::class.java,
-                        shadowTransform
+                variant.artifacts.forScope(ScopedArtifacts.Scope.ALL)
+                    .use<GradleTransformWrapper>(taskProvider)
+                    .toTransform(
+                        ScopedArtifact.CLASSES,
+                        GradleTransformWrapper::allJars,
+                        GradleTransformWrapper::allDirectories,
+                        GradleTransformWrapper::output
                     )
-                    variant.artifacts.forScope(ScopedArtifacts.Scope.ALL)
-                        .use<GradleTransformWrapper>(taskProvider)
-                        .toTransform(
-                            ScopedArtifact.CLASSES,
-                            GradleTransformWrapper::allJars,
-                            GradleTransformWrapper::allDirectories,
-                            GradleTransformWrapper::output
-                        )
-                }
             }
         }
 

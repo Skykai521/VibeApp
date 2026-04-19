@@ -127,7 +127,7 @@ open class PackagePluginExtension {
                 project.logger.info("uuid = " + json["UUID"] + " 由文件生成")
             }
             this.uuid.isEmpty() -> {
-                json["UUID"] = UUID.randomUUID().toString().toUpperCase()
+                json["UUID"] = UUID.randomUUID().toString().uppercase()
                 project.logger.info("uuid = " + json["UUID"] + " 随机生成")
             }
             else -> {

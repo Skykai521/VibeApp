@@ -1,9 +1,14 @@
 package com.tencent.shadow.core.manifest_parser
 
 import com.squareup.javapoet.*
-import com.tencent.shadow.core.runtime.PluginManifest
+// PluginManifest is referenced by name (not by Class) so this module
+// stays pure-JVM and the Gradle/build-engine integration can depend on
+// it without pulling in the Android runtime AAR.
 import java.io.File
 import javax.lang.model.element.Modifier
+
+private val PluginManifestClassName: ClassName =
+    ClassName.get("com.tencent.shadow.core.runtime", "PluginManifest")
 
 /**
  * PluginManifest.java生成器
@@ -42,7 +47,7 @@ private class PluginManifestBuilder(
 ) {
     val classBuilder: TypeSpec.Builder =
         TypeSpec.classBuilder("PluginManifest")
-            .addSuperinterface(ClassName.get(PluginManifest::class.java))
+            .addSuperinterface(PluginManifestClassName)
             .addModifiers(Modifier.PUBLIC)!!
 
     fun build(): TypeSpec {

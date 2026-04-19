@@ -160,15 +160,15 @@ abstract class AbstractTransform(
 
             result.forEach {
                 val defClass = it.key
-                bw.appendln("Class ${defClass}中缺少方法:")
+                bw.appendLine("Class ${defClass}中缺少方法:")
                 val methodMap = it.value
                 methodMap.forEach {
                     val methodString = it.key
                     val useClass = it.value
 
-                    bw.appendln("${methodString}被这些类调用了:")
+                    bw.appendLine("${methodString}被这些类调用了:")
                     useClass.forEach {
-                        bw.appendln(it)
+                        bw.appendLine(it)
                     }
                 }
                 bw.newLine()
@@ -185,10 +185,10 @@ abstract class AbstractTransform(
             val tempFile = File.createTempFile("shadow_override_check", ".txt", project.buildDir)
             val bw = BufferedWriter(FileWriter(tempFile))
             result.forEach {
-                bw.appendln("In Class ${it.key} 这些方法不再Override父类了:")
+                bw.appendLine("In Class ${it.key} 这些方法不再Override父类了:")
                 it.value.map { "${it.first.name}:${it.first.signature}(转换前定义在${it.second})" }
                     .forEach {
-                        bw.appendln(it)
+                        bw.appendLine(it)
                     }
                 bw.newLine()
             }

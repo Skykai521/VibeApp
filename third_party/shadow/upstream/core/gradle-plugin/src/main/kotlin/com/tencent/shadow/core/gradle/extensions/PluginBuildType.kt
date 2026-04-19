@@ -19,15 +19,17 @@
 package com.tencent.shadow.core.gradle.extensions
 
 import groovy.lang.Closure
-import groovy.lang.Tuple2
 import org.gradle.api.NamedDomainObjectContainer
 
 open class PluginBuildType {
 
     var name = ""
 
-    var loaderApkConfig: Tuple2<String, String> = Tuple2("", "")
-    var runtimeApkConfig: Tuple2<String, String> = Tuple2("", "")
+    // Was groovy.lang.Tuple2; switched to Kotlin Pair so .first / .second
+    // resolve unambiguously under Kotlin 2.x + Java 21 (Tuple2 inherits
+    // List.getFirst() in Java 21, which collides with Tuple1.first).
+    var loaderApkConfig: Pair<String, String> = Pair("", "")
+    var runtimeApkConfig: Pair<String, String> = Pair("", "")
     lateinit var pluginApks: NamedDomainObjectContainer<PluginApkConfig>
 
     constructor(name: String) {

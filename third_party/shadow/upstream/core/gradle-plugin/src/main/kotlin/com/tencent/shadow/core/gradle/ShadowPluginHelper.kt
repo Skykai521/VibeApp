@@ -86,7 +86,7 @@ open class ShadowPluginHelper {
 
             val splitList = buildType.runtimeApkConfig.second.split(":")
             val runtimeFileParent =
-                splitList[splitList.lastIndex].replace("assemble", "").toLowerCase()
+                splitList[splitList.lastIndex].replace("assemble", "").lowercase()
             val runtimeApkName: String = buildType.runtimeApkConfig.first
             val runtimeFile = File(
                 "${project.rootDir}" +
@@ -110,7 +110,7 @@ open class ShadowPluginHelper {
             val loaderApkName: String = buildType.loaderApkConfig.first
             val splitList = buildType.loaderApkConfig.second.split(":")
             val loaderFileParent =
-                splitList[splitList.lastIndex].replace("assemble", "").toLowerCase()
+                splitList[splitList.lastIndex].replace("assemble", "").lowercase()
             val loaderFile = File(
                 "${project.rootDir}" +
                         "/${extension.loaderApkProjectPath}/build/outputs/apk/$loaderFileParent/$loaderApkName"

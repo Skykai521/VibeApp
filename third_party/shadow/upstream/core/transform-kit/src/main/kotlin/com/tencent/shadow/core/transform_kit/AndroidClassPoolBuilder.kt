@@ -39,9 +39,9 @@ class AndroidClassPoolBuilder(
         classPool.appendClassPath(LoaderClassPath(contextClassLoader))
         if (logger.isInfoEnabled && contextClassLoader is VisitableURLClassLoader) {
             val sb = StringBuilder()
-            sb.appendln()
+            sb.appendLine()
             for (urL in contextClassLoader.urLs) {
-                sb.appendln(urL)
+                sb.appendLine(urL)
             }
             logger.info("AndroidClassPoolBuilder appendClassPath contextClassLoader URLs:$sb")
         }

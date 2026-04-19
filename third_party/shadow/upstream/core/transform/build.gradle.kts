@@ -1,0 +1,17 @@
+// Shadow's specific Javassist transforms (Activity/Service/Fragment etc.).
+// Vendored from Shadow `core/transform`. Pure-JVM Kotlin module that
+// builds on top of :shadow-transform-kit.
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+kotlin { jvmToolchain(17) }
+
+dependencies {
+    api(project(":shadow-transform-kit"))
+}

@@ -1,22 +1,19 @@
-// Plugin AndroidManifest parser + PluginManifest generator. Uses Android
-// Parcelable through PluginManifest, so it's an Android library not a pure
-// JVM module. Vendored from Shadow `core/manifest-parser`.
+// Plugin AndroidManifest parser + PluginManifest.java generator. Vendored
+// from Shadow `core/manifest-parser`. Pure-JVM Kotlin module — the source
+// has zero `import android.*` statements and PluginManifest is referenced
+// by name through JavaPoet (see PluginManifestGenerator.kt) so the Gradle
+// plugin / build-engine integration can depend on it without an AAR.
 plugins {
-    alias(libs.plugins.android.library)
-    // AGP 9.x ships built-in Kotlin support; no separate kotlin.android needed.
+    alias(libs.plugins.kotlin.jvm)
 }
 
-android {
-    namespace = "com.tencent.shadow.core.manifest_parser"
-    compileSdk = 36
-    defaultConfig { minSdk = 29 }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
+
+kotlin { jvmToolchain(17) }
 
 dependencies {
-    implementation("com.squareup:javapoet:1.13.0")
-    compileOnly(project(":shadow-core-runtime"))
+    api("com.squareup:javapoet:1.13.0")
 }

@@ -45,9 +45,9 @@ abstract class ClassTransform(val project: Project) {
         val logger = project.logger
         if (logger.isInfoEnabled) {
             val sb = StringBuilder()
-            sb.appendln()
+            sb.appendLine()
             inputs.forEach {
-                sb.appendln(it.asFile().absolutePath)
+                sb.appendLine(it.asFile().absolutePath)
             }
             logger.info("ClassTransform input paths:$sb")
         }
