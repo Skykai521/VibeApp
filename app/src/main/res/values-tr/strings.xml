@@ -112,9 +112,6 @@
     <string name="tool_name_grep_project_files">Proje dosyalarında ara</string>
     <string name="tool_name_web_search">Web araması</string>
     <string name="tool_name_fetch_web_page">Web sayfasını getir</string>
-    <string name="tool_name_search_ui_pattern">Arayüz şablonu ara</string>
-    <string name="tool_name_get_ui_pattern">Arayüz şablonunu al</string>
-    <string name="tool_name_get_design_guide">Tasarım rehberini al</string>
     <string name="tool_name_search_icon">Simge ara</string>
     <string name="crash_detected_title">Uygulama çöktü</string>
     <string name="crash_auto_fix">Otomatik onar</string>

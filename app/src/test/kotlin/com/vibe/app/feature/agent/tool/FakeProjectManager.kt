@@ -3,7 +3,6 @@ package com.vibe.app.feature.agent.tool
 import com.vibe.app.data.database.entity.Project
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.app.feature.project.ProjectWorkspace
-import com.vibe.build.engine.model.BuildResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import java.io.File
@@ -16,6 +15,11 @@ import java.time.LocalDate
 internal class FakeProjectManager(private val workspace: File) : ProjectManager {
     override suspend fun createProject(enabledPlatforms: List<String>, name: String?): Project =
         error("not used")
+    override suspend fun createV2GradleComposeProject(
+        chatId: Int,
+        projectName: String,
+        packageName: String,
+    ): Project = error("not used")
     override suspend fun openWorkspace(projectId: String): ProjectWorkspace =
         FakeWorkspace(projectId, workspace)
     override fun observeProject(projectId: String): Flow<Project?> = emptyFlow()
@@ -32,7 +36,5 @@ internal class FakeWorkspace(
     override suspend fun writeTextFile(relativePath: String, content: String) = error("not used")
     override suspend fun deleteFile(relativePath: String) = error("not used")
     override suspend fun listFiles(): List<String> = error("not used")
-    override suspend fun cleanBuildCache() = error("not used")
-    override suspend fun buildProject(): BuildResult = error("not used")
     override suspend fun resolveFile(relativePath: String): File = File(rootDir, relativePath)
 }

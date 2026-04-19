@@ -20,9 +20,6 @@ import com.vibe.app.feature.agent.tool.UpdatePlanStepTool
 import com.vibe.app.feature.agent.tool.WebSearchTool
 import com.vibe.app.feature.agent.tool.FetchWebPageTool
 import com.vibe.app.feature.agent.tool.GrepProjectFilesTool
-import com.vibe.app.feature.agent.tool.SearchUiPatternTool
-import com.vibe.app.feature.agent.tool.GetUiPatternTool
-import com.vibe.app.feature.agent.tool.GetDesignGuideTool
 import com.vibe.app.feature.agent.tool.GetProjectMemoTool
 import com.vibe.app.feature.agent.tool.UpdateProjectIntentTool
 import com.vibe.app.feature.agent.tool.AddDependencyV2Tool
@@ -61,9 +58,6 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindUpdatePlanStep(tool: UpdatePlanStepTool): AgentTool
     @Binds @IntoSet abstract fun bindWebSearch(tool: WebSearchTool): AgentTool
     @Binds @IntoSet abstract fun bindFetchWebPage(tool: FetchWebPageTool): AgentTool
-    @Binds @IntoSet abstract fun bindSearchUiPattern(tool: SearchUiPatternTool): AgentTool
-    @Binds @IntoSet abstract fun bindGetUiPattern(tool: GetUiPatternTool): AgentTool
-    @Binds @IntoSet abstract fun bindGetDesignGuide(tool: GetDesignGuideTool): AgentTool
     @Binds @IntoSet abstract fun bindUpdateProjectIntent(tool: UpdateProjectIntentTool): AgentTool
     @Binds @IntoSet abstract fun bindGetProjectMemo(tool: GetProjectMemoTool): AgentTool
 

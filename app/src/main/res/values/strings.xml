@@ -86,6 +86,8 @@
     <string name="scroll_to_bottom_icon">Scroll to bottom icon</string>
     <string name="options">Options</string>
     <string name="chat_run_app">Run app</string>
+    <string name="install_apk_building">Building standalone APK…</string>
+    <string name="install_apk_launching">Opening system installer…</string>
     <string name="chat_models">Chat Models</string>
     <string name="chat_models_description">Set model identifiers for each provider in this chat only.</string>
     <string name="chat_model_for_platform">Model for %1$s</string>
@@ -148,9 +150,6 @@
     <string name="tool_name_grep_project_files">Search project files</string>
     <string name="tool_name_web_search">Web search</string>
     <string name="tool_name_fetch_web_page">Fetch web page</string>
-    <string name="tool_name_search_ui_pattern">Search UI pattern</string>
-    <string name="tool_name_get_ui_pattern">Get UI pattern</string>
-    <string name="tool_name_get_design_guide">Get design guide</string>
     <string name="tool_name_search_icon">Search icon</string>
     <string name="tool_name_create_plan">Create plan</string>
     <string name="tool_name_update_plan_step">Update plan</string>

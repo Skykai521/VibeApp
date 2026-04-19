@@ -17,9 +17,6 @@ private val REPEATABLE_TOOLS = setOf(
     "fix_crash_guide",
     "web_search",
     "fetch_web_page",
-    "search_ui_pattern",
-    "get_ui_pattern",
-    "get_design_guide",
     "search_icon",
 )
 

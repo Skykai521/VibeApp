@@ -79,6 +79,8 @@
     <string name="edit">编辑</string>
     <string name="options">选择</string>
     <string name="chat_run_app">运行应用</string>
+    <string name="install_apk_building">正在构建独立安装包…</string>
+    <string name="install_apk_launching">正在打开系统安装器…</string>
     <string name="update_project_name">修改项目名称</string>
     <string name="project_name">项目名称</string>
     <string name="project_name_length_limit">项目名称长度限制：%1$s/50</string>
@@ -134,9 +136,6 @@
     <string name="tool_name_grep_project_files">搜索项目文件</string>
     <string name="tool_name_web_search">网页搜索</string>
     <string name="tool_name_fetch_web_page">抓取网页</string>
-    <string name="tool_name_search_ui_pattern">搜索界面模式</string>
-    <string name="tool_name_get_ui_pattern">获取界面模式</string>
-    <string name="tool_name_get_design_guide">获取设计指南</string>
     <string name="tool_name_search_icon">搜索图标</string>
     <string name="tool_name_create_plan">创建计划</string>
     <string name="tool_name_update_plan_step">更新计划</string>
