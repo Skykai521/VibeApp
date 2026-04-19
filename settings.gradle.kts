@@ -70,3 +70,15 @@ project(":shadow-activity-container").projectDir =
 include(":shadow-core-runtime")
 project(":shadow-core-runtime").projectDir =
     file("third_party/shadow/upstream/core/runtime")
+
+include(":shadow-utils")
+project(":shadow-utils").projectDir = file("third_party/shadow/upstream/core/utils")
+
+include(":shadow-load-parameters")
+project(":shadow-load-parameters").projectDir = file("third_party/shadow/upstream/core/load-parameters")
+
+include(":shadow-manifest-parser")
+project(":shadow-manifest-parser").projectDir = file("third_party/shadow/upstream/core/manifest-parser")
+
+include(":shadow-loader")
+project(":shadow-loader").projectDir = file("third_party/shadow/upstream/core/loader")

@@ -28,7 +28,7 @@ class AndroidManifestReader {
 
     private fun readXml(xmlFile: File): Document {
         try {
-            val documentBuilderFactory = DocumentBuilderFactory.newDefaultInstance()
+            val documentBuilderFactory = DocumentBuilderFactory.newInstance()
             val documentBuilder = documentBuilderFactory.newDocumentBuilder()
             return documentBuilder.parse(xmlFile)!!
         } catch (e: Exception) {

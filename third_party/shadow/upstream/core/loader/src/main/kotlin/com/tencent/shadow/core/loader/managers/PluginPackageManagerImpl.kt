@@ -242,7 +242,7 @@ internal class PluginPackageManagerImpl(
                 pluginArchiveFilePath,
                 PackageManager.GET_META_DATA
             )!!
-            val metaData = packageInfo.applicationInfo.metaData
+            val metaData = packageInfo.applicationInfo!!.metaData
             copy.metaData = metaData
         }
 
