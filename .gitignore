@@ -53,3 +53,6 @@ app/build/**
 
 # Claude Code session-local state
 /.claude
+
+# Build outputs from the JVM-only Shadow codegen runner module
+/third_party/shadow/codegen-runner/build/
