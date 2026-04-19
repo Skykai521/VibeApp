@@ -5,7 +5,6 @@ import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolContext
 import com.vibe.app.feature.agent.AgentToolDefinition
 import com.vibe.app.feature.agent.AgentToolResult
-import com.vibe.app.plugin.legacy.PluginManager
 import com.vibe.app.plugin.v2.ShadowPluginHost
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,7 +15,6 @@ import kotlinx.serialization.json.buildJsonObject
 
 @Singleton
 class InspectUiTool @Inject constructor(
-    private val pluginManager: PluginManager,
     private val shadowPluginHost: ShadowPluginHost,
 ) : AgentTool {
 
@@ -48,12 +46,11 @@ class InspectUiTool @Inject constructor(
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
-        val inspector = pluginManager.getInspector(context.projectId)
-            ?: shadowPluginHost.getInspector(context.projectId)
+        val inspector = shadowPluginHost.getInspector(context.projectId)
             ?: return call.result(
                 buildJsonObject {
                     put("error", JsonPrimitive("plugin not running"))
-                    put("hint", JsonPrimitive("Please build and run the app first using run_build_pipeline."))
+                    put("hint", JsonPrimitive("Please build and run the app first using assemble_debug_v2 + run_in_process_v2."))
                 },
             )
         return try {
@@ -67,7 +64,6 @@ class InspectUiTool @Inject constructor(
 
 @Singleton
 class CloseAppTool @Inject constructor(
-    private val pluginManager: PluginManager,
     private val shadowPluginHost: ShadowPluginHost,
 ) : AgentTool {
 
@@ -84,10 +80,6 @@ class CloseAppTool @Inject constructor(
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
         return try {
-            // Fan out to both hosts. Whichever owns this projectId runs
-            // the real close; the other is a no-op. Cheaper than
-            // introducing a per-tool registry of which host owns what.
-            pluginManager.finishPluginAndReturn(context.projectId)
             shadowPluginHost.finishPluginAndReturn(context.projectId)
             call.result(
                 buildJsonObject {
@@ -102,7 +94,6 @@ class CloseAppTool @Inject constructor(
 
 @Singleton
 class InteractUiTool @Inject constructor(
-    private val pluginManager: PluginManager,
     private val shadowPluginHost: ShadowPluginHost,
 ) : AgentTool {
 
@@ -177,12 +168,11 @@ class InteractUiTool @Inject constructor(
     )
 
     override suspend fun execute(call: AgentToolCall, context: AgentToolContext): AgentToolResult {
-        val inspector = pluginManager.getInspector(context.projectId)
-            ?: shadowPluginHost.getInspector(context.projectId)
+        val inspector = shadowPluginHost.getInspector(context.projectId)
             ?: return call.result(
                 buildJsonObject {
                     put("error", JsonPrimitive("plugin not running"))
-                    put("hint", JsonPrimitive("Please build and run the app first using run_build_pipeline."))
+                    put("hint", JsonPrimitive("Please build and run the app first using assemble_debug_v2 + run_in_process_v2."))
                 },
             )
 

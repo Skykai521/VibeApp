@@ -238,12 +238,6 @@
 
     <!-- Home screen -->
     <string name="home_session_thinking">%s is thinking…</string>
-    <string name="home_legacy_badge">LEGACY</string>
-
-    <!-- v2.0 upgrade notice -->
-    <string name="v2_upgrade_title">Projects updated</string>
-    <string name="v2_upgrade_body">VibeApp 2.0 builds apps with Gradle + Jetpack Compose. Projects you created before the upgrade are marked LEGACY and continue to work as before; new projects use the Compose stack.</string>
-    <string name="v2_upgrade_ack">Got it</string>
 
     <!-- Notification permission -->
     <string name="notification_permission_title">Enable Notifications</string>

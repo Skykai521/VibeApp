@@ -220,12 +220,6 @@
 
     <!-- Home screen -->
     <string name="home_session_thinking">%s 正在思考…</string>
-    <string name="home_legacy_badge">旧版</string>
-
-    <!-- v2.0 upgrade notice -->
-    <string name="v2_upgrade_title">项目升级提示</string>
-    <string name="v2_upgrade_body">意造 2.0 使用 Gradle + Jetpack Compose 构建应用。升级前创建的项目已标记为"旧版"，继续按原方式工作；新项目会使用新的 Compose 技术栈。</string>
-    <string name="v2_upgrade_ack">我知道了</string>
 
     <!-- Notification permission -->
     <string name="notification_permission_title">开启通知权限</string>

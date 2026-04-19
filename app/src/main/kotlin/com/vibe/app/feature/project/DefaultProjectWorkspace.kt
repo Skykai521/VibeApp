@@ -2,9 +2,6 @@ package com.vibe.app.feature.project
 
 import android.util.Log
 import com.vibe.app.data.database.entity.Project
-import com.vibe.app.feature.diagnostic.BuildTriggerSource
-import com.vibe.app.feature.projectinit.ProjectInitializer
-import com.vibe.build.engine.model.BuildResult
 import java.io.File
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +9,6 @@ import kotlinx.coroutines.withContext
 
 class DefaultProjectWorkspace(
     override val project: Project,
-    private val projectInitializer: ProjectInitializer,
 ) : ProjectWorkspace {
 
     private val tag = "ProjectWorkspace"
@@ -20,17 +16,10 @@ class DefaultProjectWorkspace(
     override val projectId: String get() = project.projectId
 
     /**
-     * Project file root, derived directly from the persisted workspacePath.
-     * The semantic differs by engine:
-     *  - LEGACY (v1):         workspacePath = `filesDir/projects/{id}/app`
-     *                         (single-module project, root = the `app/` dir)
-     *  - GRADLE_COMPOSE (v2): workspacePath = `filesDir/projects/{id}`
-     *                         (multi-module Gradle project, root = repo root)
-     *
-     * read/write/list/grep tools see paths relative to this root, which
-     * intentionally matches what an Android Studio user would see for that
-     * project layout. Engine-specific tools (assemble_debug_v2,
-     * install_apk_v2) check `project.engine` before acting.
+     * Project root derived from the persisted workspacePath. v2 projects
+     * live at `filesDir/projects/{id}/` (the Gradle multi-module root);
+     * file tools see paths relative to this root, matching what an
+     * Android Studio user would see.
      */
     override val rootDir: File get() = File(project.workspacePath)
 
@@ -62,20 +51,6 @@ class DefaultProjectWorkspace(
             .sorted()
             .toList()
     }
-
-    override suspend fun cleanBuildCache(): Unit = withContext(Dispatchers.IO) {
-        val buildDir = File(rootDir, "build")
-        if (buildDir.exists()) {
-            buildDir.deleteRecursively()
-            Log.d(tag, "Cleaned build cache for project $projectId")
-        }
-    }
-
-    override suspend fun buildProject(): BuildResult =
-        projectInitializer.buildProject(
-            projectId = projectId,
-            triggerSource = BuildTriggerSource.AGENT_TOOL,
-        )
 
     override suspend fun resolveFile(relativePath: String): File = withContext(Dispatchers.IO) {
         require(relativePath.isNotBlank()) { "relativePath must not be blank" }

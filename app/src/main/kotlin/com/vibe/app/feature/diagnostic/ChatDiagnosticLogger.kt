@@ -4,10 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolResult
-import com.vibe.build.engine.model.BuildLogLevel
-import com.vibe.build.engine.model.BuildResult
-import com.vibe.build.engine.model.BuildStage
-import com.vibe.build.engine.model.BuildStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -71,15 +67,6 @@ interface ChatDiagnosticLogger {
         iteration: Int,
         result: AgentToolResult,
         startedAt: Long,
-        completedAt: Long = System.currentTimeMillis(),
-    )
-
-    suspend fun logBuildResult(
-        context: DiagnosticContext,
-        triggerSource: String,
-        result: BuildResult,
-        startedAt: Long,
-        stageDurations: Map<BuildStage, Long>,
         completedAt: Long = System.currentTimeMillis(),
     )
 
@@ -428,66 +415,6 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
             "cancel" in probe -> "tool_cancelled"
             else -> "tool_error"
         }
-    }
-
-    override suspend fun logBuildResult(
-        context: DiagnosticContext,
-        triggerSource: String,
-        result: BuildResult,
-        startedAt: Long,
-        stageDurations: Map<BuildStage, Long>,
-        completedAt: Long,
-    ) {
-        writeEvent(
-            DiagnosticEvent(
-                id = createDiagnosticEventId(completedAt),
-                timestamp = completedAt,
-                chatId = context.chatId,
-                projectId = context.projectId,
-                platformUid = context.platformUid,
-                turnId = context.turnId,
-                category = DiagnosticCategories.BUILD_RESULT,
-                level = if (result.status == BuildStatus.SUCCESS) DiagnosticLevels.INFO else DiagnosticLevels.WARN,
-                summary = "Build ${result.status.name.lowercase()} for ${context.projectId.orEmpty()}",
-                payload = buildJsonObject {
-                    put("triggerSource", triggerSource)
-                    put("projectId", context.projectId.orEmpty())
-                    put("status", if (result.status == BuildStatus.SUCCESS) "success" else "failed")
-                    put("durationMs", (completedAt - startedAt).coerceAtLeast(0L))
-                    putIfNotNull("currentStage", result.logs.lastOrNull()?.stage?.name)
-                    putIfNotNull("resourceStageMs", stageDurations[BuildStage.RESOURCE])
-                    putIfNotNull("compileStageMs", stageDurations[BuildStage.COMPILE])
-                    putIfNotNull("dexStageMs", stageDurations[BuildStage.DEX])
-                    putIfNotNull("packageStageMs", stageDurations[BuildStage.PACKAGE])
-                    putIfNotNull("signStageMs", stageDurations[BuildStage.SIGN])
-                    put("errorCount", result.logs.count { it.level == BuildLogLevel.ERROR })
-                    put("warningCount", result.logs.count { it.level == BuildLogLevel.WARNING })
-                    putIfNotNull("errorMessagePreview", result.errorMessage?.clipPreview())
-                    // Include actual error/warning log entries so exported diagnostics contain actionable detail
-                    val errorAndWarningLogs = result.logs.filter {
-                        it.level == BuildLogLevel.ERROR || it.level == BuildLogLevel.WARNING
-                    }
-                    if (errorAndWarningLogs.isNotEmpty()) {
-                        putJsonArray("errorLogs") {
-                            errorAndWarningLogs.take(20).forEach { log ->
-                                add(buildJsonObject {
-                                    put("stage", log.stage.name)
-                                    put("level", log.level.name)
-                                    put("message", log.message.clipPreview())
-                                    putIfNotNull("sourcePath", log.sourcePath)
-                                    putIfNotNull("line", log.line)
-                                })
-                            }
-                        }
-                    }
-                    putJsonArray("artifactSummary") {
-                        result.artifacts.forEach { artifact ->
-                            add(JsonPrimitive("${artifact.stage.name}:${File(artifact.path).name}"))
-                        }
-                    }
-                },
-            ),
-        )
     }
 
     override suspend fun logConversationCompaction(

@@ -1,7 +1,6 @@
 package com.vibe.app.feature.project
 
 import com.vibe.app.data.database.entity.Project
-import com.vibe.build.engine.model.BuildResult
 import java.io.File
 
 interface ProjectWorkspace {
@@ -13,7 +12,5 @@ interface ProjectWorkspace {
     suspend fun writeTextFile(relativePath: String, content: String)
     suspend fun deleteFile(relativePath: String)
     suspend fun listFiles(): List<String>
-    suspend fun cleanBuildCache()
-    suspend fun buildProject(): BuildResult
     suspend fun resolveFile(relativePath: String): File
 }

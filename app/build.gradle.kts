@@ -27,8 +27,8 @@ android {
         // docs/superpowers/plans/2026-04-18-v2-phase-1d-termux-exec.md
         // (Phase 1d post-mortem) for the full context.
         targetSdk = 28
-        versionCode = 15
-        versionName = "1.9.0"
+        versionCode = 16
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -224,8 +224,6 @@ dependencies {
     // so that dialogs / popup menus / bottom sheets are visible to the agent on API 30+.
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:4.3")
 
-    implementation(project(":build-engine"))
-    implementation(project(":shadow-runtime"))
     implementation(project(":build-runtime"))
     implementation(project(":build-gradle"))
     // Shadow modules the v2 plugin host (ShadowPluginHost) consumes:

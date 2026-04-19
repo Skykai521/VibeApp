@@ -161,8 +161,6 @@ fun ChatScreen(
     val isEditQuestionDialogOpen by chatViewModel.isEditQuestionDialogOpen.collectAsStateWithLifecycle()
     val currentProjectId by chatViewModel.currentProjectId.collectAsStateWithLifecycle()
     val projectName by chatViewModel.projectName.collectAsStateWithLifecycle()
-    val isBuildRunning by chatViewModel.isBuildRunning.collectAsStateWithLifecycle()
-    val buildProgress by chatViewModel.buildProgress.collectAsStateWithLifecycle()
     val isSelectTextSheetOpen by chatViewModel.isSelectTextSheetOpen.collectAsStateWithLifecycle()
     val isLoaded by chatViewModel.isLoaded.collectAsStateWithLifecycle()
     val question by chatViewModel.question.collectAsStateWithLifecycle()
@@ -186,7 +184,6 @@ fun ChatScreen(
     val showSnapshotHistory by chatViewModel.showSnapshotHistory.collectAsStateWithLifecycle()
     val showProjectMemo by chatViewModel.showProjectMemo.collectAsStateWithLifecycle()
     val isIdle = loadingStates.all { it == ChatViewModel.LoadingState.Idle }
-    val runButtonEnabled = isIdle && !isBuildRunning && currentProjectId != null
     val isChatMenuEnabled = chatRoom.id > 0
     val isProjectMenuEnabled = currentProjectId != null
     val context = LocalContext.current
@@ -283,16 +280,6 @@ fun ChatScreen(
     }
 
     LaunchedEffect(Unit) {
-        Log.d("RunBuild", "buildEvent collector started")
-        chatViewModel.buildEvent.collect { event ->
-            Log.d("RunBuild", "buildEvent received: $event")
-            when (event) {
-                is ChatViewModel.BuildEvent.InstallApk -> installApk(context, event.apkPath)
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
         chatViewModel.undoEvent.collect { event ->
             val messageRes = when (event) {
                 ChatViewModel.UndoEvent.Success -> R.string.turn_undo_done_toast
@@ -328,17 +315,12 @@ fun ChatScreen(
             ChatTopBar(
                 projectName ?: chatRoom.title,
                 isChatMenuEnabled,
-                runButtonEnabled,
                 isMoreOptionsEnabled = isIdle,
                 isProjectMenuEnabled,
                 isDebugEnabled = isDebugEnabled,
-                buildProgress = buildProgress.progress,
-                isBuildProgressVisible = buildProgress.isVisible,
                 onBackAction,
                 scrollBehavior,
                 chatViewModel::openProjectNameDialog,
-                chatViewModel::runBuild,
-                onInstallApkClick = { chatViewModel.installBuild() },
                 onExportChatItemClick = {
                     scope.launch {
                         exportChat(context, chatViewModel)
@@ -347,16 +329,6 @@ fun ChatScreen(
                 onExportSourceCodeItemClick = {
                     val projectId = currentProjectId ?: return@ChatTopBar
                     scope.launch { exportSourceCode(context, projectId) }
-                },
-                onExportApkItemClick = {
-                    scope.launch {
-                        val apkPath = withContext(Dispatchers.IO) { chatViewModel.getSignedApkPath() }
-                        if (apkPath != null) {
-                            shareApk(context, apkPath)
-                        } else {
-                            Toast.makeText(context, "No built APK found. Please run a build first.", Toast.LENGTH_SHORT).show()
-                        }
-                    }
                 },
                 onClearChatHistoryClick = { isClearChatDialogOpen = true },
                 onDiagnosticClick = onNavigateToDiagnostic,
@@ -758,20 +730,14 @@ private fun MissingPlatformPromptCard(
 private fun ChatTopBar(
     title: String,
     isChatMenuEnabled: Boolean,
-    isRunEnabled: Boolean,
     isMoreOptionsEnabled: Boolean,
     isProjectMenuEnabled: Boolean,
     isDebugEnabled: Boolean,
-    buildProgress: Float,
-    isBuildProgressVisible: Boolean,
     onBackAction: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     onUpdateProjectNameClick: () -> Unit,
-    onRunClick: () -> Unit,
-    onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
-    onExportApkItemClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
     onOpenSnapshotHistory: () -> Unit,
@@ -791,15 +757,6 @@ private fun ChatTopBar(
             },
             actions = {
                 IconButton(
-                    enabled = isRunEnabled,
-                    onClick = onRunClick
-                ) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(id = R.drawable.ic_run),
-                        contentDescription = stringResource(R.string.run)
-                    )
-                }
-                IconButton(
                     enabled = isMoreOptionsEnabled,
                     onClick = { isDropDownMenuExpanded = isDropDownMenuExpanded.not() }
                 ) {
@@ -816,17 +773,9 @@ private fun ChatTopBar(
                         onUpdateProjectNameClick.invoke()
                         isDropDownMenuExpanded = false
                     },
-                    onInstallApkClick = {
-                        onInstallApkClick()
-                        isDropDownMenuExpanded = false
-                    },
                     onExportChatItemClick = onExportChatItemClick,
                     onExportSourceCodeItemClick = {
                         onExportSourceCodeItemClick()
-                        isDropDownMenuExpanded = false
-                    },
-                    onExportApkItemClick = {
-                        onExportApkItemClick()
                         isDropDownMenuExpanded = false
                     },
                     onClearChatHistoryClick = {
@@ -848,16 +797,6 @@ private fun ChatTopBar(
             },
             scrollBehavior = scrollBehavior
         )
-
-        LinearProgressIndicator(
-            progress = { buildProgress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .alpha(if (isBuildProgressVisible) 1f else 0f),
-            gapSize = 0.dp,
-            drawStopIndicator = {},
-        )
     }
 }
 
@@ -869,10 +808,8 @@ fun ChatDropdownMenu(
     isDebugEnabled: Boolean,
     onDismissRequest: () -> Unit,
     onUpdateProjectNameClick: () -> Unit,
-    onInstallApkClick: () -> Unit,
     onExportChatItemClick: () -> Unit,
     onExportSourceCodeItemClick: () -> Unit,
-    onExportApkItemClick: () -> Unit,
     onClearChatHistoryClick: () -> Unit,
     onDiagnosticClick: () -> Unit,
     onOpenSnapshotHistory: () -> Unit,
@@ -892,14 +829,6 @@ fun ChatDropdownMenu(
             onClick = onUpdateProjectNameClick,
             leadingIcon = {
                 Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null)
-            },
-        )
-        DropdownMenuItem(
-            enabled = isProjectMenuEnabled,
-            text = { Text(text = stringResource(R.string.install_apk)) },
-            onClick = onInstallApkClick,
-            leadingIcon = {
-                Icon(Icons.Outlined.InstallMobile, contentDescription = null)
             },
         )
         DropdownMenuItem(
@@ -939,14 +868,6 @@ fun ChatDropdownMenu(
             onClick = onExportSourceCodeItemClick,
             leadingIcon = {
                 Icon(Icons.Outlined.Code, contentDescription = null)
-            },
-        )
-        DropdownMenuItem(
-            enabled = isProjectMenuEnabled,
-            text = { Text(text = stringResource(R.string.export_apk)) },
-            onClick = onExportApkItemClick,
-            leadingIcon = {
-                Icon(Icons.Outlined.Android, contentDescription = null)
             },
         )
 

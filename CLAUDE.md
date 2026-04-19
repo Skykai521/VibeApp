@@ -6,117 +6,98 @@
 
 If this summary conflicts with the codebase, follow these files first:
 
-- `app/build.gradle.kts` and `build-engine/build.gradle.kts` for SDK / Java config
-- `docs/architecture.md` for module boundaries and runtime flow
-- `docs/build-engine.md` and `docs/build-chain.md` for the real on-device build pipeline
-- `CONTRIBUTING.md` for branch and review workflow
+- `app/build.gradle.kts`, `build-gradle/build.gradle.kts`, `gradle-host/build.gradle.kts` for the build configuration.
+- `docs/architecture.md` for module boundaries and runtime flow.
+- `docs/superpowers/specs/2026-04-18-v2-gradle-compose-arch-design.md` for the v2 design.
+- `docs/superpowers/specs/2026-04-19-v2-phase-5b-exit-log.md` for the state of the Shadow integration.
+- `CONTRIBUTING.md` for branch and review workflow.
 
 ## Project Overview
 
-VibeApp (意造) is an Android app that lets users generate, compile, sign, and install native Android APKs directly on their phone from natural-language prompts. The build runs on-device inside the app workspace; model inference may use cloud APIs or a local OpenAI-compatible endpoint such as Ollama.
+VibeApp (意造) is an Android app that lets users generate, compile, sign, and load native Android APKs directly on their phone from natural-language prompts. Generated apps are **Kotlin + Jetpack Compose** and build via an on-device Gradle + AGP toolchain; model inference may use cloud APIs or a local OpenAI-compatible endpoint such as Ollama.
 
 ## Current Tech Stack
 
-- **Language**: Kotlin for the app, Java + XML for generated projects
-- **UI**: Jetpack Compose + Material 3
-- **Architecture**: MVVM + UDF
-- **DI**: Hilt
-- **Persistence**: Room + DataStore
-- **Async**: Coroutines + Flow
-- **Network providers**: OpenAI, Anthropic, Google, Qwen, Ollama/OpenAI-compatible endpoints
-- **Build chain**: AAPT2 + `JavacCompiler`/`JavacTool` + D8 + `AndroidApkBuilder` + `DebugApkSigner`
-- **App SDK**: `minSdk = 29`, `targetSdk = 36`, `compileSdk = 36`
-- **Build-engine defaults**: `CompileInput` now defaults to `minSdk = 29`, `targetSdk = 36`
-- **Java levels**: app/build-engine code targets Java 11; generated template apps stay on a conservative Java 8 source level
+- **Language**: Kotlin everywhere (app + generated projects).
+- **UI**: Jetpack Compose + Material 3.
+- **Architecture**: MVVM + UDF.
+- **DI**: Hilt.
+- **Persistence**: Room + DataStore.
+- **Async**: Coroutines + Flow.
+- **Network providers**: OpenAI, Anthropic, Google, Qwen, Ollama / OpenAI-compatible endpoints.
+- **Generated project build chain**: bootstrapped Gradle 9.3.1 + AGP 9.1.0 + Kotlin 2.0.21 running on device. Output is a Shadow-transformed "plugin" APK loaded in-process.
+- **Plugin hosting**: Tencent Shadow, vendored under `third_party/shadow/`. Loader + runtime APKs ship as app assets; Shadow's Gradle plugin is bundled as a local Maven repo.
+- **App SDK**: `minSdk = 29`, `targetSdk = 28` (intentional — Termux exec path; see `docs/superpowers/plans/2026-04-18-v2-phase-1d-termux-exec.md`). Generated-project `compileSdk = 34` / `targetSdk = 34`.
 
 ## Current Project Structure
 
 ```text
 app/src/main/kotlin/com/vibe/app/
-├── presentation/   # Compose UI, navigation, ViewModel, theme
-│   ├── common/
-│   ├── icons/
-│   ├── theme/
-│   └── ui/
-│       ├── chat/
-│       ├── home/
-│       ├── main/
-│       ├── migrate/
-│       ├── setting/
-│       ├── setup/
-│       └── startscreen/
-├── feature/        # Agent loop, project workspace/init, icon generation
-│   ├── agent/
-│   │   ├── loop/
-│   │   └── tool/
-│   ├── project/
-│   ├── projecticon/
-│   └── projectinit/
-├── data/           # Room, DataStore, DTO, repository, network clients
-│   ├── database/
-│   ├── datastore/
-│   ├── dto/
-│   ├── model/
-│   ├── network/
-│   └── repository/
-├── di/
+├── presentation/              # Compose UI, navigation, ViewModel, theme
+│   └── ui/{chat, home, main, migrate, setting, setup, startscreen, ...}
+├── feature/
+│   ├── agent/{loop, tool}/    # Agent loop coordinator + tool implementations
+│   ├── project/               # DefaultProjectManager, ProjectWorkspace, snapshots
+│   ├── projecticon/           # Launcher icon generation
+│   └── diagnostic/            # ChatDiagnosticLogger
+├── plugin/v2/                 # Tencent Shadow host (ShadowPluginHost, extractors,
+│                              # inspector service, activity tracker, zip builder)
+├── data/{database, datastore, dto, model, network, repository}/
+├── di/                        # Hilt modules
 └── util/
 
-build-engine/src/main/java/com/vibe/build/engine/
-├── apk/
-├── compiler/
-├── dex/
-├── internal/
-├── model/
-├── pipeline/
-├── resource/
-└── sign/
+build-gradle/                  # Gradle project initializer + template renderer
+gradle-host/                   # Gradle Tooling API host (runs in its own JVM)
+build-runtime/                 # Bootstrap runtime: download + exec Java, Gradle, AAPT2
+third_party/shadow/            # Vendored Tencent Shadow source + APK modules
 ```
 
 ## Key Implementation Facts
 
-1. **Generated apps are Java + XML, not Kotlin + Compose.** The current production path is optimized for Java/XML generation and on-device compilation success.
-2. **The real compiler path is Javac-based.** `EcjCompiler` still exists only as a deprecated compatibility wrapper; do not describe ECJ as the primary compiler.
-3. **AAPT2 runs before Java compilation.** The pipeline is `RESOURCE -> COMPILE -> DEX -> PACKAGE -> SIGN`.
-4. **Project workspaces live under app-private storage.** The typical runtime workspace is `files/projects/{projectId}/app`.
-5. **Agent tooling is workspace-centric.** Tools read/write/list project files, run the build pipeline, rename projects, and update launcher icons.
-6. **Provider support is not uniform.** Platform settings support multiple providers, but agent-loop gateway behavior is implemented in `feature/agent/loop` and should be checked before assuming identical tool-calling capability across providers.
-7. **Agent system prompt lives in `app/src/main/assets/agent-system-prompt.md`.** It is loaded at runtime by `DefaultAgentLoopCoordinator` and supports `{{PACKAGE_NAME}}` and `{{PACKAGE_PATH}}` template variables. Edit this file (not Kotlin code) when adding constraints or rules for the AI code generation agent.
+1. **Generated apps are Kotlin + Compose.** There is no v1 Java/XML path — Phase 6 Layer B deleted `:build-engine`, `build-tools/*`, `templates/EmptyActivity/`, and the legacy plugin host. Every project routes through `GradleProjectInitializer` + on-device Gradle.
+2. **Every project gets a Shadow-transformed plugin APK.** The `KotlinComposeApp` template applies `com.tencent.shadow.plugin`, which adds `normal` + `plugin` flavors under the `Shadow` dimension. `assemble_debug_v2` builds the `plugin` flavor, running Shadow's bytecode transform so plugin Activities extend `com.tencent.shadow.core.runtime.ShadowActivity` and can be loaded in-process.
+3. **`ShadowComposeActivity` is the Compose entry point** — a template-shipped class that implements `LifecycleOwner`/`SavedStateRegistryOwner`/`ViewModelStoreOwner` by hand (Shadow's transform removes `ComponentActivity` from the hierarchy, so the `androidx.activity.compose.setContent` extension won't resolve). Users call `setComposeContent { … }` on it instead of `setContent { … }`.
+4. **Plugin hosting is single-process.** All plugins load into `:shadow_plugin` via `PluginManagerThatUseDynamicLoader` (in `com.vibe.app.plugin.v2.ShadowPluginHost`). The v1 5-slot LRU is gone.
+5. **Agent tooling is workspace-centric.** Tools read/write/list/grep project files, run the Gradle build, rename projects, update launcher icons, inspect and drive the running plugin's UI.
+6. **Agent system prompt lives in `app/src/main/assets/agent-system-prompt.md`** and is loaded at runtime by `DefaultAgentLoopCoordinator`. It supports `{{PACKAGE_NAME}}` and `{{PACKAGE_PATH}}` template variables.
 
 ## Common Tasks
 
 ### Adding or changing model/provider support
 
 1. Update the relevant types under `app/src/main/kotlin/com/vibe/app/data/model/`.
-2. Add or update API clients in `app/src/main/kotlin/com/vibe/app/data/network/`.
+2. Add or update API clients under `app/src/main/kotlin/com/vibe/app/data/network/`.
 3. Wire defaults and persistence through repository / DataStore layers.
 4. Update setup and settings UI under `presentation/ui/setup` and `presentation/ui/setting`.
 5. If the provider participates in the agent loop, update `feature/agent/loop`.
 
-### Modifying the build pipeline
+### Modifying the plugin template
 
-1. Treat `build-engine` as the source of truth for compile/package/sign behavior.
-2. Keep `docs/build-engine.md` and `docs/build-chain.md` aligned with any pipeline changes.
-3. Check template defaults in `ProjectInitializer` when SDK or generated project assumptions change.
+1. The template lives at `build-gradle/src/main/assets/templates/KotlinComposeApp/`.
+2. Placeholders (`{{PACKAGE_NAME}}`, `{{PACKAGE_PATH}}`, `{{PROJECT_NAME}}`, `{{SDK_DIR}}`, `{{GRADLE_USER_HOME}}`, `{{SHADOW_PLUGIN_REPO}}`) are substituted by `ProjectStager` at project creation time.
+3. Don't touch `ShadowComposeActivity.kt.tmpl` or the Shadow plugin config unless you know what you're doing — those are load-bearing for the Compose + Shadow bridge.
+
+### Modifying the Shadow integration
+
+1. Vendored Shadow source is under `third_party/shadow/upstream/`. Track changes in `third_party/shadow/README.md`.
+2. The host-side glue is in `app/src/main/kotlin/com/vibe/app/plugin/v2/`.
+3. Host-build tasks `copyShadowApks` and `copyShadowPluginRepo` (in `app/build.gradle.kts`) bundle the loader/runtime APKs and the Shadow-plugin local Maven repo into the app's assets.
+4. See `docs/superpowers/specs/2026-04-19-v2-phase-5b-exit-log.md` for the full Shadow integration state.
 
 ## Files To Treat As Prebuilt Inputs
 
-- `build-tools/**/libs/*.jar`
-- `build-engine/src/main/assets/*.zip`
-- Template assets under `app/src/main/assets/templates/`
-
-Do not rewrite or replace these casually unless the task is explicitly about updating bundled toolchain artifacts or template assets.
+- Template assets under `build-gradle/src/main/assets/templates/KotlinComposeApp/` (rendered at project creation — don't hand-edit rendered copies).
+- Bundled toolchain artifacts under `app/src/main/assets/` (Gradle host jar, Shadow APKs, Shadow plugin repo zip). These are produced by dedicated Gradle tasks.
+- Vendored Shadow source under `third_party/shadow/upstream/` — keep aligned with the upstream pin in `third_party/shadow/README.md`.
 
 ## Testing
 
-- Unit tests: `./gradlew test`
-- Build engine tests: `./gradlew :build-engine:test`
-- App build sanity check: `./gradlew assembleDebug`
-- UI/device validation when flows change: manual verification on an Android 10+ device or emulator
+- Unit tests: `./gradlew test`.
+- App build sanity check: `./gradlew :app:assembleDebug`.
+- On-device validation when flows change: install on an Android 10+ device / emulator and create a fresh project from the home "+" button; then `assemble_debug_v2` → `run_in_process_v2` → `inspect_ui` / `interact_ui` → `close_app`.
 
 ## Known Product Limits
 
-- Generated apps are still Java/XML-first
-- No general third-party dependency resolution pipeline yet
-- Single-project workspace/build flow is the primary path
-- Prompts and templates intentionally stay conservative to maximize device-side build success
+- **Single ABI per build.** The plugin APK is built for the device's ABI (arm64-v8a typically); native `.so` deps in plugin Gradle files will not mix across ABIs.
+- **Cold first build is slow** — 5–10 minutes for the first `assemble_debug_v2` on a given project (Maven + Kotlin daemon spinup). Subsequent builds are <60s.
+- **One plugin at a time** under Shadow. The v1 5-slot LRU is gone; concurrent plugins would need a new slot policy layered on top.

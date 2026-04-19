@@ -8,7 +8,6 @@ import com.vibe.app.data.database.entity.Project
 import com.vibe.app.data.database.entity.ProjectBuildStatus
 import com.vibe.app.data.database.entity.ProjectEngine
 import com.vibe.app.data.repository.ProjectRepository
-import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.plugin.v2.ShadowPluginRepoExtractor
 import com.vibe.build.gradle.GradleProjectInitializer
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,7 +28,6 @@ import kotlinx.coroutines.withContext
 class DefaultProjectManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val projectRepository: ProjectRepository,
-    private val projectInitializer: ProjectInitializer,
     private val chatRoomV2Dao: ChatRoomV2Dao,
     private val gradleProjectInitializer: GradleProjectInitializer,
     private val shadowPluginRepoExtractor: ShadowPluginRepoExtractor,
@@ -101,7 +99,7 @@ class DefaultProjectManager @Inject constructor(
         val project = requireNotNull(projectRepository.fetchProject(projectId)?.project) {
             "Project not found: $projectId"
         }
-        return DefaultProjectWorkspace(project = project, projectInitializer = projectInitializer)
+        return DefaultProjectWorkspace(project = project)
     }
 
     override fun observeProject(projectId: String): Flow<Project?> = flow {
@@ -111,11 +109,10 @@ class DefaultProjectManager @Inject constructor(
     override suspend fun deleteProject(projectId: String): Unit = withContext(Dispatchers.IO) {
         val project = projectRepository.fetchProject(projectId)?.project
         projectRepository.deleteProject(projectId)
-        // Clean up disk workspace
         project?.let {
-            val workspaceDir = workspaceDirFor(projectId).parentFile // projects/{projectId}/
-            workspaceDir?.deleteRecursively()
-            Log.d(tag, "Deleted workspace for $projectId at ${workspaceDir?.absolutePath}")
+            val workspaceDir = v2RootDirFor(projectId)
+            workspaceDir.deleteRecursively()
+            Log.d(tag, "Deleted workspace for $projectId at ${workspaceDir.absolutePath}")
         }
     }
 
@@ -132,10 +129,7 @@ class DefaultProjectManager @Inject constructor(
         base
     }
 
-    private fun workspaceDirFor(projectId: String): File =
-        File(context.filesDir, "projects/$projectId/app")
-
-    /** v2 GRADLE_COMPOSE projects use the `projects/{id}` root directly (no /app suffix). */
+    /** v2 projects live at `filesDir/projects/{id}/` (Gradle multi-module root). */
     private fun v2RootDirFor(projectId: String): File =
         File(context.filesDir, "projects/$projectId")
 

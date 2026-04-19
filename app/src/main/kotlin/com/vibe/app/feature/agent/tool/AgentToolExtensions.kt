@@ -2,14 +2,10 @@ package com.vibe.app.feature.agent.tool
 
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolResult
-import com.vibe.app.feature.build.BuildFailureAnalysis
-import com.vibe.build.engine.model.BuildLogLevel
-import com.vibe.build.engine.model.BuildResult
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -100,37 +96,3 @@ fun objectArrayProp(
     })
 }
 
-// ── Build result conversion ─────────────────────────────────────────
-
-fun BuildResult.toFilteredJson(analysis: BuildFailureAnalysis? = null): JsonObject {
-    val isSuccess = errorMessage == null
-    return buildJsonObject {
-        put("status", JsonPrimitive(status.name))
-        errorMessage?.let { put("errorMessage", JsonPrimitive(it)) }
-        analysis?.let { put("analysis", it.toJson()) }
-        val filteredLogs = logs.filter {
-            it.level == BuildLogLevel.WARNING || it.level == BuildLogLevel.ERROR
-        }
-        if (!isSuccess && filteredLogs.isNotEmpty()) {
-            put("totalLogCount", JsonPrimitive(filteredLogs.size))
-            put(
-                "logs",
-                buildJsonArray {
-                    filteredLogs.take(MAX_TOOL_LOGS).forEach { log ->
-                        add(
-                            buildJsonObject {
-                                put("stage", JsonPrimitive(log.stage.name))
-                                put("level", JsonPrimitive(log.level.name))
-                                put("message", JsonPrimitive(log.message))
-                                log.sourcePath?.let { put("sourcePath", JsonPrimitive(it)) }
-                                log.line?.let { put("line", JsonPrimitive(it)) }
-                            },
-                        )
-                    }
-                },
-            )
-        }
-    }
-}
-
-private const val MAX_TOOL_LOGS = 12

@@ -87,12 +87,6 @@ object DiagnosticLevels {
     const val ERROR = "ERROR"
 }
 
-object BuildTriggerSource {
-    const val CHAT_BUTTON = "chat_button"
-    const val AGENT_TOOL = "agent_tool"
-    const val TEMPLATE_INIT = "template_init"
-}
-
 class ModelExecutionTrace(
     val requestCreatedAt: Long = System.currentTimeMillis(),
 ) {

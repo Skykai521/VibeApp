@@ -21,24 +21,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * v2 plugin host backed by Tencent Shadow's
- * `PluginManagerThatUseDynamicLoader`. Exposes the same
- * `launchPlugin` / `getInspector` / `finishPluginAndReturn` contract as
- * the legacy [com.vibe.app.plugin.legacy.PluginManager] so callers can
- * migrate with an import swap per-call-site.
- *
- * **Not live end-to-end until Phase 5b-5.** Plugin APKs today still
- * extend framework `android.app.Activity`. Shadow requires them to
- * extend `com.tencent.shadow.core.runtime.ShadowActivity`, which
- * happens via Shadow's bytecode transform applied to plugin builds in
- * 5b-5. Until then the `launchPlugin` orchestration below will run but
- * Shadow's loader rejects the plugin APK. That's fine — the host
- * plumbing is what we need to get right now.
- *
- * Inspector bridging is deliberately stubbed. Layer B's concern is
- * launching a plugin; the `IPluginInspector` binder lives in the
- * plugin process under Shadow and needs a separate AIDL-bridge story
- * (Phase 5b-6 decision).
+ * The v2 plugin host, backed by Tencent Shadow's
+ * `PluginManagerThatUseDynamicLoader`. Single entry point for
+ * launching a Shadow-transformed plugin APK, getting the inspector
+ * binder, and bringing VibeApp back to the foreground.
  */
 @Singleton
 class ShadowPluginHost @Inject constructor(
@@ -184,14 +170,10 @@ class ShadowPluginHost @Inject constructor(
     }
 
     /**
-     * Best-effort: read the plugin APK's AndroidManifest and pick the
-     * activity with MAIN/LAUNCHER. Delegates to the v1 helper until we
-     * have a dedicated parser; the v1 code lives at
-     * [com.vibe.app.plugin.legacy.PluginResourceLoader] and has been
-     * battle-tested.
-     *
-     * TODO(5b-6): replace with Shadow's PluginManifest-parsed value
-     * once the transform is landing; for now we approximate.
+     * Best-effort launcher-Activity resolver: parse the plugin APK's
+     * AndroidManifest and return the first activity whose name lies
+     * under [packageName]. If nothing matches, fall back to the
+     * v2 template's conventional `$packageName.MainActivity`.
      */
     private fun resolveLauncherActivity(packageName: String, apkPath: String): String {
         val pm = context.packageManager

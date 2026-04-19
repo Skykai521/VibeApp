@@ -24,21 +24,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "VibeApp"
 include(":app")
-include(":build-engine")
-include(":build-tools:android-common-resources")
-include(":build-tools:android-stubs")
-include(":build-tools:build-logic")
-include(":build-tools:common")
-include(":build-tools:javac")
-include(":build-tools:jaxp")
-include(":build-tools:kotlinc")
-include(":build-tools:logging")
-include(":build-tools:manifmerger")
-include(":build-tools:project")
-include(":build-tools:snapshots")
-include(":build-tools:jaxp:jaxp-internal")
-include(":build-tools:jaxp:xml")
-include(":shadow-runtime")
+// v2 drives all builds through on-device Gradle (`:gradle-host` +
+// bootstrapped AGP) — the Java/XML on-device compiler pipeline
+// (`:build-engine` + `build-tools/*` + `:shadow-runtime` v1 stub) was
+// removed in Phase 6 Layer B.
 include(":build-runtime")
 include(":build-gradle")
 include(":gradle-host")

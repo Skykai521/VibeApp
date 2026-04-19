@@ -16,9 +16,6 @@ import com.vibe.app.data.repository.SettingRepository
 import com.vibe.app.feature.agent.service.AgentSessionManager
 import com.vibe.app.feature.agent.service.AgentSessionStatus
 import com.vibe.app.feature.agent.service.SessionMessageState
-import com.vibe.app.feature.agent.service.BuildMutex
-import com.vibe.app.feature.build.BuildFailureAnalyzer
-import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
 import com.vibe.app.feature.diagnostic.DiagnosticContext
@@ -28,15 +25,8 @@ import com.vibe.app.feature.project.memo.IntentStore
 import com.vibe.app.feature.project.snapshot.Snapshot
 import com.vibe.app.feature.project.snapshot.SnapshotManager
 import com.vibe.app.feature.project.snapshot.SnapshotType
-import com.vibe.app.feature.projectinit.ProjectInitializer
 import com.vibe.app.util.getPlatformName
 import com.vibe.app.util.FileUtils
-import com.vibe.app.plugin.legacy.PluginManager
-import com.vibe.build.engine.model.BuildLogLevel
-import com.vibe.build.engine.model.BuildMode
-import com.vibe.build.engine.model.BuildStage
-import com.vibe.build.engine.model.BuildStatus
-import com.vibe.build.engine.pipeline.BuildProgressListener
 import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -63,12 +53,8 @@ class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val settingRepository: SettingRepository,
     private val projectRepository: ProjectRepository,
-    private val projectInitializer: ProjectInitializer,
     private val diagnosticLogger: ChatDiagnosticLogger,
     private val sessionManager: AgentSessionManager,
-    private val buildMutex: BuildMutex,
-    private val pluginManager: PluginManager,
-    private val buildFailureAnalyzer: BuildFailureAnalyzer,
     private val snapshotManager: SnapshotManager,
     private val projectManager: ProjectManager,
     private val intentStore: IntentStore,
@@ -78,20 +64,10 @@ class ChatViewModel @Inject constructor(
         data object Loading : LoadingState()
     }
 
-    sealed class BuildEvent {
-        data class InstallApk(val apkPath: String) : BuildEvent()
-    }
-
     data class GroupedMessages(
         val userMessages: List<MessageV2> = listOf(),
         val assistantMessages: List<List<MessageV2>> = listOf(),
         val agentSteps: List<List<com.vibe.app.feature.agent.AgentStepItem>> = listOf(),
-    )
-
-    data class BuildProgressUiState(
-        val isVisible: Boolean = false,
-        val progress: Float = 0f,
-        val currentStage: BuildStage? = null,
     )
 
     data class CrashPrompt(
@@ -123,15 +99,6 @@ class ChatViewModel @Inject constructor(
 
     private val _projectName = MutableStateFlow<String?>(null)
     val projectName: StateFlow<String?> = _projectName.asStateFlow()
-
-    private val _isBuildRunning = MutableStateFlow(false)
-    val isBuildRunning = _isBuildRunning.asStateFlow()
-
-    private val _buildProgress = MutableStateFlow(BuildProgressUiState())
-    val buildProgress = _buildProgress.asStateFlow()
-
-    private val _buildEvent = MutableSharedFlow<BuildEvent>()
-    val buildEvent: SharedFlow<BuildEvent> = _buildEvent.asSharedFlow()
 
     private val _undoEvent = MutableSharedFlow<UndoEvent>()
     val undoEvent: SharedFlow<UndoEvent> = _undoEvent.asSharedFlow()
@@ -335,110 +302,6 @@ class ChatViewModel @Inject constructor(
     }
 
     fun openProjectNameDialog() = _isProjectNameDialogOpen.update { true }
-
-    fun getSignedApkPath(): String? {
-        val projectId = _currentProjectId.value ?: return null
-        return projectInitializer.findSignedApkPath(projectId)
-    }
-
-    private fun buildProgressListener() = BuildProgressListener { update ->
-        val progress = if (update.totalSteps == 0) 0f
-        else update.completedSteps.toFloat() / update.totalSteps
-        _buildProgress.update {
-            it.copy(
-                isVisible = true,
-                progress = progress.coerceIn(0f, 1f),
-                currentStage = update.stage,
-            )
-        }
-    }
-
-    fun runBuild() {
-        val projectId = _currentProjectId.value
-        Log.d("RunBuild", "runBuild called, projectId=$projectId")
-        if (projectId == null) {
-            Log.w("RunBuild", "projectId is null, aborting")
-            return
-        }
-        _isBuildRunning.update { true }
-        _buildProgress.update { BuildProgressUiState(isVisible = true) }
-        viewModelScope.launch {
-            try {
-                Log.d("RunBuild", "Starting PLUGIN build for projectId=$projectId")
-                val result = buildMutex.withBuildLock {
-                    projectInitializer.buildProject(
-                        projectId = projectId,
-                        triggerSource = BuildTriggerSource.CHAT_BUTTON,
-                        progressListener = buildProgressListener(),
-                        buildMode = BuildMode.STANDALONE,
-                    )
-                }
-                Log.d("RunBuild", "buildProject finished: status=${result.status}")
-                if (result.status == BuildStatus.SUCCESS) {
-                    val signedApkPath = result.artifacts
-                        .firstOrNull { it.stage == BuildStage.SIGN }?.path
-                    Log.d("RunBuild", "Build succeeded, signedApkPath=$signedApkPath")
-                    if (signedApkPath != null) {
-                        val packageName = projectInitializer.projectPackageName(projectId)
-                        pluginManager.launchPlugin(signedApkPath, packageName, projectId, _projectName.value)
-                    } else {
-                        Log.w("RunBuild", "No SIGN artifact found in: ${result.artifacts}")
-                    }
-                } else {
-                    val errorMsg = buildBuildErrorMessage(projectId, result)
-                    Log.w("RunBuild", "Build failed, sending error to chat: $errorMsg")
-                    sendBuildErrorToChat(errorMsg)
-                }
-            } finally {
-                _isBuildRunning.update { false }
-                _buildProgress.update { BuildProgressUiState() }
-            }
-        }
-    }
-
-    fun installBuild() {
-        val projectId = _currentProjectId.value
-        if (projectId == null) return
-        _isBuildRunning.update { true }
-        _buildProgress.update { BuildProgressUiState(isVisible = true) }
-        viewModelScope.launch {
-            try {
-                val result = buildMutex.withBuildLock {
-                    projectInitializer.buildProject(
-                        projectId = projectId,
-                        triggerSource = BuildTriggerSource.CHAT_BUTTON,
-                        progressListener = buildProgressListener(),
-                        buildMode = BuildMode.STANDALONE,
-                    )
-                }
-                if (result.status == BuildStatus.SUCCESS) {
-                    val signedApkPath = result.artifacts
-                        .firstOrNull { it.stage == BuildStage.SIGN }?.path
-                    if (signedApkPath != null) {
-                        _buildEvent.emit(BuildEvent.InstallApk(signedApkPath))
-                    }
-                } else {
-                    sendBuildErrorToChat(buildBuildErrorMessage(projectId, result))
-                }
-            } finally {
-                _isBuildRunning.update { false }
-                _buildProgress.update { BuildProgressUiState() }
-            }
-        }
-    }
-
-    private fun buildBuildErrorMessage(
-        projectId: String,
-        result: com.vibe.build.engine.model.BuildResult,
-    ): String {
-        val projectRoot = File(appContext.filesDir, "projects/$projectId/app")
-        val analysis = buildFailureAnalyzer.analyze(result, projectRoot)
-        return analysis?.toChatPrompt()
-            ?: result.errorMessage
-            ?: result.logs
-                .filter { it.level == BuildLogLevel.ERROR }
-                .joinToString("\n") { it.message }
-    }
 
     /**
      * Called from ChatScreen's ON_RESUME. Checks if crash.log has grown since the last check.

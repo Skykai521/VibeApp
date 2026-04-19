@@ -4,14 +4,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vibe.app.data.database.entity.PlatformV2
-import com.vibe.app.data.database.entity.ProjectEngine
 import com.vibe.app.data.database.entity.ProjectWithChat
-import com.vibe.app.data.datastore.SettingDataSource
 import com.vibe.app.data.repository.ProjectRepository
 import com.vibe.app.data.repository.SettingRepository
 import com.vibe.app.feature.agent.service.AgentSessionManager
 import com.vibe.app.feature.project.ProjectManager
-import com.vibe.app.feature.projectinit.ProjectInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
@@ -31,9 +28,7 @@ class HomeViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val projectManager: ProjectManager,
     private val settingRepository: SettingRepository,
-    private val projectInitializer: ProjectInitializer,
     private val sessionManager: AgentSessionManager,
-    private val settingDataSource: SettingDataSource,
 ) : ViewModel() {
 
     companion object {
@@ -71,14 +66,6 @@ class HomeViewModel @Inject constructor(
     private val _showDeleteWarningDialog = MutableStateFlow(false)
     val showDeleteWarningDialog: StateFlow<Boolean> = _showDeleteWarningDialog.asStateFlow()
 
-    /**
-     * True when the home screen should show the one-time v2 upgrade
-     * notice: the user has LEGACY projects AND hasn't dismissed the
-     * notice yet. Flipped false by [dismissV2UpgradeNotice].
-     */
-    private val _showV2UpgradeNotice = MutableStateFlow(false)
-    val showV2UpgradeNotice: StateFlow<Boolean> = _showV2UpgradeNotice.asStateFlow()
-
     init {
         _searchQuery
             .debounce(SEARCH_DEBOUNCE_MS)
@@ -90,14 +77,6 @@ class HomeViewModel @Inject constructor(
     fun fetchProjects() {
         viewModelScope.launch {
             val projects = projectRepository.fetchProjects()
-            projects
-                .filter { it.project.engine == ProjectEngine.LEGACY }
-                .forEach { projectWithChat ->
-                    // v1-shaped launcher icon prep — projects/{id}/app/res/mipmap-*.
-                    // v2 templates manage their own icons through the Gradle build,
-                    // so skip them to avoid writing v1 drawables into v2 res dirs.
-                    projectInitializer.ensureProjectLauncherResources(projectWithChat.project.projectId)
-                }
             _projectListState.update {
                 it.copy(
                     projects = projects,
@@ -105,17 +84,6 @@ class HomeViewModel @Inject constructor(
                 )
             }
             Log.d("HomeViewModel", "Loaded ${projects.size} projects")
-
-            val alreadySeen = settingDataSource.getV2UpgradeSeen()
-            val hasLegacy = projects.any { it.project.engine == ProjectEngine.LEGACY }
-            _showV2UpgradeNotice.value = !alreadySeen && hasLegacy
-        }
-    }
-
-    fun dismissV2UpgradeNotice() {
-        viewModelScope.launch {
-            settingDataSource.setV2UpgradeSeen(true)
-            _showV2UpgradeNotice.value = false
         }
     }
 

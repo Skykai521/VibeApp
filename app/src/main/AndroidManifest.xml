@@ -51,81 +51,16 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Plugin process slots (0-4): each in its own process with separate task affinity -->
-        <activity
-            android:name="com.vibe.app.plugin.legacy.PluginSlot0"
-            android:process=":plugin0"
-            android:taskAffinity="com.vibe.app.plugin0"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity
-            android:name="com.vibe.app.plugin.legacy.PluginSlot1"
-            android:process=":plugin1"
-            android:taskAffinity="com.vibe.app.plugin1"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity
-            android:name="com.vibe.app.plugin.legacy.PluginSlot2"
-            android:process=":plugin2"
-            android:taskAffinity="com.vibe.app.plugin2"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity
-            android:name="com.vibe.app.plugin.legacy.PluginSlot3"
-            android:process=":plugin3"
-            android:taskAffinity="com.vibe.app.plugin3"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <activity
-            android:name="com.vibe.app.plugin.legacy.PluginSlot4"
-            android:process=":plugin4"
-            android:taskAffinity="com.vibe.app.plugin4"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar" />
-        <!-- Plugin inspector services (0-4): each in matching plugin process -->
-        <service
-            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot0"
-            android:process=":plugin0"
-            android:exported="false" />
-        <service
-            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot1"
-            android:process=":plugin1"
-            android:exported="false" />
-        <service
-            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot2"
-            android:process=":plugin2"
-            android:exported="false" />
-        <service
-            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot3"
-            android:process=":plugin3"
-            android:exported="false" />
-        <service
-            android:name="com.vibe.app.plugin.legacy.PluginInspectorSlot4"
-            android:process=":plugin4"
-            android:exported="false" />
-
-        <!-- v2 Shadow plugin host (Phase 5b-4). Single dedicated process
-             for now; the legacy 5-slot model is preserved above while
-             the Shadow path stabilises. Move to :shadow_plugin0..4 if
-             we port the LRU slot policy onto Shadow. -->
+        <!-- v2 Shadow plugin host. All plugin APKs load into one dedicated
+             process via Tencent Shadow's PluginProcessService. -->
         <service
             android:name="com.vibe.app.plugin.v2.ShadowPluginProcessService"
             android:process=":shadow_plugin"
             android:exported="false" />
 
-        <!-- v2 inspector Service (Phase 5b-7). Runs in the same
-             :shadow_plugin process as Shadow's PPS + the plugin Activity,
-             so it can reach the Activity's decor view directly. -->
+        <!-- v2 inspector Service. Shares the :shadow_plugin process with
+             the PPS + the running plugin Activity, so it can walk the
+             Activity's decor view directly. -->
         <service
             android:name="com.vibe.app.plugin.v2.ShadowPluginInspectorService"
             android:process=":shadow_plugin"
