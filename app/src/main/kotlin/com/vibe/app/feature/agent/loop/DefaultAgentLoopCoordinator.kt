@@ -348,11 +348,42 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                             ),
                         )
                     }.getOrElse { error ->
+                        // Log the full stack — `error.message` is often null for
+                        // platform exceptions (RemoteException, etc.) and the
+                        // bare class name in the agent payload isn't enough to
+                        // diagnose. logcat keeps the stack so logcat-grep on
+                        // tool name still works.
+                        android.util.Log.w(
+                            "AgentLoopCoordinator",
+                            "Tool ${call.name} (callId=${call.id}, iter=$iteration) threw",
+                            error,
+                        )
+                        val rootCause = generateSequence(error) { it.cause }.last()
                         AgentToolResult(
                             toolCallId = call.id,
                             toolName = call.name,
                             output = buildJsonObject {
-                                put("error", JsonPrimitive(error.message ?: "Tool execution failed"))
+                                put(
+                                    "error",
+                                    JsonPrimitive(
+                                        buildString {
+                                            append(error.javaClass.simpleName)
+                                            error.message?.let { append(": ").append(it) }
+                                            if (rootCause !== error) {
+                                                append(" | rootCause=")
+                                                append(rootCause.javaClass.simpleName)
+                                                rootCause.message?.let { append(": ").append(it) }
+                                            }
+                                            // Top frame to point at the offending call site.
+                                            error.stackTrace.firstOrNull()?.let {
+                                                append(" | at ")
+                                                append(it.className).append('.').append(it.methodName)
+                                                append('(').append(it.fileName ?: "?")
+                                                append(':').append(it.lineNumber).append(')')
+                                            }
+                                        },
+                                    ),
+                                )
                             },
                             isError = true,
                         )

@@ -356,11 +356,15 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
             "Tool ${result.toolName} finished"
         }
         if (result.isError) {
-            Log.w(
-                TAG,
-                "Tool ${result.toolName} (callId=${result.toolCallId}, iter=$iteration) failed: " +
-                    "${errorMessage ?: "<no message>"} | output=${outputString.clipPreview(500)}",
-            )
+            // Emit the full failure across multiple log records — Android
+            // logcat truncates a single record around 4 KB, so any
+            // single-line `Log.w` carrying the whole tool output gets cut
+            // off mid-message. Splitting at the JSON boundary keeps the
+            // header + each chunk individually parseable.
+            val header = "Tool ${result.toolName} (callId=${result.toolCallId}, iter=$iteration) failed: " +
+                "${errorMessage ?: "<no message>"} | outputBytes=${outputString.length}"
+            Log.w(TAG, header)
+            outputString.logChunked(TAG, "output[${result.toolCallId}]")
         }
         writeEvent(
             DiagnosticEvent(
@@ -624,6 +628,25 @@ class ChatDiagnosticLoggerImpl @Inject constructor(
 
     private fun JsonObjectBuilder.putIfNotNull(key: String, value: Long?) {
         if (value != null) put(key, value)
+    }
+
+    // Split a long message across multiple Log.w records. Android's logd
+    // drops payloads above ~4 KB per record; we chunk at 3000 chars to
+    // leave room for the tag + thread metadata and stay well under that.
+    private fun String.logChunked(tag: String, label: String, chunkSize: Int = 3000) {
+        if (length <= chunkSize) {
+            Log.w(tag, "$label: $this")
+            return
+        }
+        val totalChunks = (length + chunkSize - 1) / chunkSize
+        var index = 0
+        var part = 1
+        while (index < length) {
+            val end = (index + chunkSize).coerceAtMost(length)
+            Log.w(tag, "$label[$part/$totalChunks]: ${substring(index, end)}")
+            index = end
+            part++
+        }
     }
 
     private companion object {
