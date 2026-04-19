@@ -1,0 +1,18 @@
+# Rendered by ProjectStager (.tmpl suffix is stripped on copy).
+#
+# Memory budget for the on-device Android emulator/device. Sized for
+# Compose compilation; loosen if a real phone has more headroom.
+org.gradle.jvmargs=-Xmx896m -XX:MaxMetaspaceSize=384m
+kotlin.daemon.jvm.options=-Xmx768m -XX:MaxMetaspaceSize=256m
+org.gradle.parallel=false
+org.gradle.caching=false
+
+android.useAndroidX=true
+android.nonTransitiveRClass=true
+
+# AGP's default Maven aapt2 ships an x86_64 ELF binary that can't exec
+# on Android arm64. Force AGP to use the arm64 aapt2 bundled in our
+# on-device SDK tarball.
+android.aapt2FromMavenOverride={{SDK_DIR}}/build-tools/36.0.0/aapt2
+
+org.gradle.configuration-cache=false

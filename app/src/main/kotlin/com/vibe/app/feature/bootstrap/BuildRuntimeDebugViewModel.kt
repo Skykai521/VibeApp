@@ -5,9 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vibe.app.data.datastore.SettingDataSource
 import com.vibe.build.gradle.GradleBuildService
+import com.vibe.build.gradle.GradleProjectInitializer
 import com.vibe.build.gradle.HostEvent
-import com.vibe.build.gradle.ProjectStager
-import com.vibe.build.gradle.ProjectTemplate
 import com.vibe.build.runtime.bootstrap.BootstrapFileSystem
 import com.vibe.build.runtime.bootstrap.BootstrapStateStore
 import com.vibe.build.runtime.bootstrap.RuntimeBootstrapper
@@ -34,7 +33,7 @@ class BuildRuntimeDebugViewModel @Inject constructor(
     private val fs: BootstrapFileSystem,
     private val settingDataSource: SettingDataSource,
     private val gradleBuildService: GradleBuildService,
-    private val projectStager: ProjectStager,
+    private val projectInitializer: GradleProjectInitializer,
     @Named("bootstrapManifestUrl") private val manifestUrl: String,
     @Named("appCacheDir") private val cacheDir: File,
 ) : ViewModel() {
@@ -188,17 +187,17 @@ class BuildRuntimeDebugViewModel @Inject constructor(
                 val sdkDir = fs.componentInstallDir("android-sdk-36.0.0")
                 val gradleDist = fs.componentInstallDir("gradle-9.3.1")
                 val gradleUserHome = File(fs.usrRoot.parentFile, ".gradle").also { it.mkdirs() }
-                val projectDir = File(fs.usrRoot.parentFile, "projects/probe")
+                val projectDir = File(fs.usrRoot.parentFile, "projects/counter")
                 projectDir.parentFile?.mkdirs()
 
-                val templateSrc = File(cacheDir, "probe-src-${System.nanoTime()}")
-                copyAssetDir("probe-app", templateSrc)
-                projectStager.stage(
-                    template = ProjectTemplate.FromDirectory(templateSrc),
-                    destinationDir = projectDir,
-                    variables = mapOf(
-                        "SDK_DIR" to sdkDir.absolutePath,
-                        "GRADLE_USER_HOME" to gradleUserHome.absolutePath,
+                projectInitializer.initialize(
+                    GradleProjectInitializer.Input(
+                        templateName = "KotlinComposeApp",
+                        projectName = "Counter",
+                        packageName = "com.vibe.counter",
+                        sdkDir = sdkDir,
+                        gradleUserHome = gradleUserHome,
+                        destinationDir = projectDir,
                     ),
                 )
 
@@ -225,22 +224,6 @@ class BuildRuntimeDebugViewModel @Inject constructor(
                 log.append("\n[throw] ${t.javaClass.simpleName}: ${t.message}")
             } finally {
                 _uiState.update { it.copy(launchRunning = false, launchLog = log.toString()) }
-            }
-        }
-    }
-
-    private fun copyAssetDir(assetPath: String, destDir: File) {
-        destDir.mkdirs()
-        val entries = appContext.assets.list(assetPath) ?: emptyArray()
-        entries.forEach { entry ->
-            val child = "$assetPath/$entry"
-            val childEntries = appContext.assets.list(child) ?: emptyArray()
-            if (childEntries.isEmpty()) {
-                appContext.assets.open(child).use { input ->
-                    File(destDir, entry).outputStream().use { out -> input.copyTo(out) }
-                }
-            } else {
-                copyAssetDir(child, File(destDir, entry))
             }
         }
     }

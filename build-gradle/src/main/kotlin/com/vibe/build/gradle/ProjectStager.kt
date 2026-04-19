@@ -6,8 +6,11 @@ import javax.inject.Singleton
 
 /**
  * Copies a template project tree onto disk, substituting {{VAR}}
- * placeholders in any file whose name ends in `.tmpl`. The `.tmpl`
- * suffix is stripped in the destination.
+ * placeholders in:
+ *   - file contents of any file whose name ends in `.tmpl`
+ *     (the `.tmpl` suffix is stripped in the destination)
+ *   - every path component (so `{{PACKAGE_PATH}}/MainActivity.kt`
+ *     renders to e.g. `com/vibe/example/MainActivity.kt`).
  *
  * Idempotent: re-staging overwrites unconditionally. Cheap enough that
  * we don't bother with incremental hashing (probe projects have ~10
@@ -31,13 +34,14 @@ class ProjectStager @Inject constructor() {
 
         source.walkTopDown().forEach { entry ->
             if (entry == source) return@forEach
-            val rel = entry.relativeTo(source).path
+            val relPath = entry.relativeTo(source).path
+            val resolvedRel = substitutePath(relPath, variables)
             if (entry.isDirectory) {
-                File(destinationDir, rel).mkdirs()
+                File(destinationDir, resolvedRel).mkdirs()
                 return@forEach
             }
             val isTemplate = entry.name.endsWith(".tmpl")
-            val destName = if (isTemplate) rel.removeSuffix(".tmpl") else rel
+            val destName = if (isTemplate) resolvedRel.removeSuffix(".tmpl") else resolvedRel
             val destFile = File(destinationDir, destName)
             destFile.parentFile?.mkdirs()
             if (isTemplate) {
@@ -58,4 +62,13 @@ class ProjectStager @Inject constructor() {
         }
         return out
     }
+
+    /**
+     * Substitute `{{VAR}}` in each path component independently. Variables
+     * that contain `/` (notably PACKAGE_PATH = `com/vibe/example`) expand
+     * cleanly into multi-segment paths.
+     */
+    private fun substitutePath(relPath: String, variables: Map<String, String>): String =
+        relPath.split(File.separatorChar)
+            .joinToString(File.separator) { substitute(it, variables) }
 }

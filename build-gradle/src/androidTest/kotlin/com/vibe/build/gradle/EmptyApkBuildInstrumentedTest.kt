@@ -111,20 +111,20 @@ class EmptyApkBuildInstrumentedTest {
         }
         assertTrue("bootstrap failed: ${seen.last()}", seen.last() is BootstrapState.Ready)
 
-        // Extract the probe template from androidTest assets to a temp
-        // directory, then stage it onto filesDir via ProjectStager.
-        val templateSrc = File(scratchDir, "probe-src").also { it.mkdirs() }
-        copyAssetDir(ctx, "probe-app", templateSrc)
-
+        // Generate a probe project from the canonical KotlinComposeApp
+        // template (same path production code goes through). Variable
+        // names match what GradleProjectInitializer fills in.
         val projectDir = File(scratchDir, "projects/probe")
         val sdkDir = fs.componentInstallDir("android-sdk-36.0.0")
         val gradleUserHome = File(scratchDir, ".gradle")
-        ProjectStager().stage(
-            template = ProjectTemplate.FromDirectory(templateSrc),
-            destinationDir = projectDir,
-            variables = mapOf(
-                "SDK_DIR" to sdkDir.absolutePath,
-                "GRADLE_USER_HOME" to gradleUserHome.absolutePath,
+        GradleProjectInitializer(ctx, ProjectStager()).initialize(
+            GradleProjectInitializer.Input(
+                templateName = "KotlinComposeApp",
+                projectName = "Probe",
+                packageName = "com.vibe.probe",
+                sdkDir = sdkDir,
+                gradleUserHome = gradleUserHome,
+                destinationDir = projectDir,
             ),
         )
 
@@ -265,22 +265,4 @@ class EmptyApkBuildInstrumentedTest {
         return -1
     }
 
-    private fun copyAssetDir(ctx: Context, assetPath: String, destDir: File) {
-        destDir.mkdirs()
-        val entries = ctx.assets.list(assetPath) ?: emptyArray()
-        entries.forEach { entry ->
-            val childAssetPath = "$assetPath/$entry"
-            val childList = ctx.assets.list(childAssetPath) ?: emptyArray()
-            if (childList.isEmpty()) {
-                // Leaf (AssetManager.list on a file returns empty).
-                ctx.assets.open(childAssetPath).use { input ->
-                    File(destDir, entry).outputStream().use { out ->
-                        input.copyTo(out)
-                    }
-                }
-            } else {
-                copyAssetDir(ctx, childAssetPath, File(destDir, entry))
-            }
-        }
-    }
 }

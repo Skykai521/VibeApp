@@ -127,7 +127,7 @@ fun BuildRuntimeDebugScreen(
                 enabled = !ui.launchRunning,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Run probe :app:assembleDebug (5-10 min)")
+                Text("Generate Counter project + assembleDebug (5-10 min)")
             }
 
             if (ui.launchLog.isNotEmpty()) {

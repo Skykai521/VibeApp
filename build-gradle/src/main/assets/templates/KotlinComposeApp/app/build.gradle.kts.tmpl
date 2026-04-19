@@ -1,0 +1,49 @@
+plugins {
+    alias(libs.plugins.android.application)
+    // AGP 9.x has built-in Kotlin support; no separate kotlin.android plugin.
+    alias(libs.plugins.kotlin.compose)
+}
+
+android {
+    namespace = "{{PACKAGE_NAME}}"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "{{PACKAGE_NAME}}"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        compose = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.material3)
+}
