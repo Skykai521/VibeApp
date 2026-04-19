@@ -45,9 +45,15 @@ class DefaultProjectManager @Inject constructor(
     ): Project = withContext(Dispatchers.IO) {
         val projectId = generateProjectId()
         val displayName = name ?: "Demo"
-        val workspacePath = workspaceDirFor(projectId).absolutePath
+        // New projects default to v2 GRADLE_COMPOSE (Phase 6). Same
+        // package-name shape `createV2GradleComposeProject` validates —
+        // keyed off projectId so it's stable + unique per device.
+        val packageName = defaultPackageNameFor(projectId)
+        val rootDir = v2RootDirFor(projectId)
+        rootDir.mkdirs()
 
-        // Create ChatRoomV2 first (so we have the FK)
+        // Create ChatRoomV2 first (so we have the FK for both the
+        // Project row and the chat-entry the user lands in).
         val chatRoomId = chatRoomV2Dao.addChatRoom(
             ChatRoomV2(
                 title = displayName,
@@ -55,30 +61,41 @@ class DefaultProjectManager @Inject constructor(
             ),
         ).toInt()
 
+        val sdkDir = File(context.filesDir, "usr/opt/android-sdk-36.0.0")
+        val gradleUserHome = File(context.filesDir, ".gradle")
+        val shadowPluginRepo = shadowPluginRepoExtractor.extractIfNeeded()
+        gradleProjectInitializer.initialize(
+            GradleProjectInitializer.Input(
+                templateName = "KotlinComposeApp",
+                projectName = displayName,
+                packageName = packageName,
+                sdkDir = sdkDir,
+                gradleUserHome = gradleUserHome,
+                destinationDir = rootDir,
+                shadowPluginRepo = shadowPluginRepo,
+            ),
+        )
+
         val project = Project(
             projectId = projectId,
             name = displayName,
             chatId = chatRoomId,
-            workspacePath = workspacePath,
-            buildStatus = ProjectBuildStatus.INITIALIZING,
+            workspacePath = rootDir.absolutePath,
+            buildStatus = ProjectBuildStatus.READY,
+            engine = ProjectEngine.GRADLE_COMPOSE,
         )
         projectRepository.saveProject(project)
-        Log.d(tag, "Created project $projectId → chatId=$chatRoomId")
-
-        // Background: copy template files to project workspace
-        scope.launch {
-            try {
-                projectInitializer.prepareProjectWorkspace(projectId, displayName)
-                projectRepository.updateBuildStatus(projectId, ProjectBuildStatus.READY)
-                Log.d(tag, "Workspace ready for project $projectId")
-            } catch (e: Exception) {
-                Log.e(tag, "Failed to prepare workspace for $projectId", e)
-                projectRepository.updateBuildStatus(projectId, ProjectBuildStatus.FAILED)
-            }
-        }
-
+        Log.d(tag, "Created v2 project $projectId (pkg=$packageName, chatId=$chatRoomId)")
         project
     }
+
+    /**
+     * Auto-generated applicationId for projects created from the home
+     * "+" button. `createV2GradleComposeProject` validates applicationId
+     * with the same regex; keep this shape in sync with that check.
+     */
+    private fun defaultPackageNameFor(projectId: String): String =
+        "com.vibe.user.proj$projectId"
 
     override suspend fun openWorkspace(projectId: String): ProjectWorkspace {
         val project = requireNotNull(projectRepository.fetchProject(projectId)?.project) {

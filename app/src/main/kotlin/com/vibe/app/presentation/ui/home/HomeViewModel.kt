@@ -90,9 +90,14 @@ class HomeViewModel @Inject constructor(
     fun fetchProjects() {
         viewModelScope.launch {
             val projects = projectRepository.fetchProjects()
-            projects.forEach { projectWithChat ->
-                projectInitializer.ensureProjectLauncherResources(projectWithChat.project.projectId)
-            }
+            projects
+                .filter { it.project.engine == ProjectEngine.LEGACY }
+                .forEach { projectWithChat ->
+                    // v1-shaped launcher icon prep — projects/{id}/app/res/mipmap-*.
+                    // v2 templates manage their own icons through the Gradle build,
+                    // so skip them to avoid writing v1 drawables into v2 res dirs.
+                    projectInitializer.ensureProjectLauncherResources(projectWithChat.project.projectId)
+                }
             _projectListState.update {
                 it.copy(
                     projects = projects,
