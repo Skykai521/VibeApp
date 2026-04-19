@@ -1365,16 +1365,16 @@ DataStore flag `v2_migration_dialog_shown = true` 后不再弹。
 
 ### 9.3 重写
 
-| 路径 | 说明 |
-|---|---|
-| `app/src/main/assets/agent-system-prompt.md` | 完全重写（Kotlin+Compose+Gradle+新工具矩阵） |
-| `app/src/main/kotlin/com/vibe/app/feature/agent/tool/ProjectTools.kt` | 重写；按 §6.1 新工具矩阵重构 |
+| 路径                                                                           | 说明                                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------- |
+| `app/src/main/assets/agent-system-prompt.md`                                 | 完全重写（Kotlin+Compose+Gradle+新工具矩阵）              |
+| `app/src/main/kotlin/com/vibe/app/feature/agent/tool/ProjectTools.kt`        | 重写；按 §6.1 新工具矩阵重构                              |
 | `app/src/main/kotlin/com/vibe/app/feature/projectinit/ProjectInitializer.kt` | 改为 `GradleProjectInitializer`：生成完整 Gradle 项目结构 |
-| `app/src/main/kotlin/com/vibe/app/data/database/ProjectEntity.kt` | 新增 `engine` 字段 |
-| `docs/architecture.md` | 全面更新，反映新模块划分 |
-| `docs/build-chain.md` | 全面重写，从 Javac/D8 改为 Gradle-based |
-| `docs/build-engine.md` | 删除或改标记为 "removed in v2.0" |
-| `docs/shadow-plugin-feasibility.md` | 标记为 `superseded`，指向本文档 |
+| `app/src/main/kotlin/com/vibe/app/data/database/ProjectEntity.kt`            | 新增 `engine` 字段                                 |
+| `docs/architecture.md`                                                       | 全面更新，反映新模块划分                                   |
+| `docs/build-chain.md`                                                        | 全面重写，从 Javac/D8 改为 Gradle-based                |
+| `docs/build-engine.md`                                                       | 删除或改标记为 "removed in v2.0"                      |
+| `docs/shadow-plugin-feasibility.md`                                          | 标记为 `superseded`，指向本文档                         |
 
 ---
 
@@ -1542,30 +1542,30 @@ DataStore flag `v2_migration_dialog_shown = true` 后不再弹。
 
 ### 11.1 高风险
 
-| # | 风险 | 概率 | 影响 | 缓解 |
-|---|---|---|---|---|
-| R1 | Android 14+/15 对 `exec from filesDir` 的 SELinux 规则进一步收紧，Termux 现有方案失效 | 中 | 方案不可用 | 跟进 termux-app 社区；必要时回退到 proot-distro；最坏情况在 APK 里预打更多 `.so` |
-| R2 | Tooling API 与 Gradle 8.10 daemon 在 ART 生成的 JDK fork 上 IPC 不稳定（classloader 冲突） | 中 | Phase 2 卡壳 | Phase 2 首周做专项验证；失败则退路是自己写 `init-script` + CLI 结构化输出 |
-| R3 | Shadow 官方 Gradle 插件对 AGP 8.7 + Kotlin 2.1 + Compose compiler 的组合有未知兼容问题 | 中 | Phase 5 卡壳 | Phase 5 初期做集成实验；必要时 pin 插件版本 + 补 patch；最坏情况 fork Shadow |
-| R4 | Gradle 冷启动在 4GB RAM 低端机被 LMKD 杀死 | 中 | 低端机不可用 | 在最低档硬件上跑基准；必要时把 daemon heap 压到 384MB、禁用 parallel workers |
+| #   | 风险                                                                            | 概率  | 影响         | 缓解                                                         |
+| --- | ----------------------------------------------------------------------------- | --- | ---------- | ---------------------------------------------------------- |
+| R1  | Android 14+/15 对 `exec from filesDir` 的 SELinux 规则进一步收紧，Termux 现有方案失效         | 中   | 方案不可用      | 跟进 termux-app 社区；必要时回退到 proot-distro；最坏情况在 APK 里预打更多 `.so` |
+| R2  | Tooling API 与 Gradle 8.10 daemon 在 ART 生成的 JDK fork 上 IPC 不稳定（classloader 冲突） | 中   | Phase 2 卡壳 | Phase 2 首周做专项验证；失败则退路是自己写 `init-script` + CLI 结构化输出        |
+| R3  | Shadow 官方 Gradle 插件对 AGP 8.7 + Kotlin 2.1 + Compose compiler 的组合有未知兼容问题       | 中   | Phase 5 卡壳 | Phase 5 初期做集成实验；必要时 pin 插件版本 + 补 patch；最坏情况 fork Shadow    |
+| R4  | Gradle 冷启动在 4GB RAM 低端机被 LMKD 杀死                                              | 中   | 低端机不可用     | 在最低档硬件上跑基准；必要时把 daemon heap 压到 384MB、禁用 parallel workers   |
 
 ### 11.2 中风险
 
-| # | 风险 | 缓解 |
-|---|---|---|
-| R5 | 阿里云 / 清华镜像对 Maven 覆盖不全，少数 AAR 拉不到 | `init.gradle.kts` 里 fallback 到 Maven Central 重试；UI 透出镜像命中率 |
-| R6 | 国内用户首次 180MB 下载慢 / 失败 / 放弃 | 双镜像自动切换 + Range 续传 + Settings 里"仅 Wi-Fi 下载"选项 |
-| R7 | KSP / Compose compiler 在 ARM32 真机上 bug 多于 ARM64 | Phase 7 把 ARM32 作为 best-effort；先稳 ARM64 / x86_64 |
-| R8 | 用户引入含 native `.so` 的 AAR，无法跨 ABI | v2.0 单 ABI 产物（按运行设备 ABI）；README 声明限制 |
-| R9 | Plugin APK 体积膨胀（Shadow 变换带来冗余） | 基准测试后评估；v2.1 再做精简 |
+| #   | 风险                                              | 缓解                                                         |
+| --- | ----------------------------------------------- | ---------------------------------------------------------- |
+| R5  | 阿里云 / 清华镜像对 Maven 覆盖不全，少数 AAR 拉不到               | `init.gradle.kts` 里 fallback 到 Maven Central 重试；UI 透出镜像命中率 |
+| R6  | 国内用户首次 180MB 下载慢 / 失败 / 放弃                      | 双镜像自动切换 + Range 续传 + Settings 里"仅 Wi-Fi 下载"选项              |
+| R7  | KSP / Compose compiler 在 ARM32 真机上 bug 多于 ARM64 | Phase 7 把 ARM32 作为 best-effort；先稳 ARM64 / x86_64           |
+| R8  | 用户引入含 native `.so` 的 AAR，无法跨 ABI                | v2.0 单 ABI 产物（按运行设备 ABI）；README 声明限制                       |
+| R9  | Plugin APK 体积膨胀（Shadow 变换带来冗余）                  | 基准测试后评估；v2.1 再做精简                                          |
 
 ### 11.3 低风险
 
-| # | 风险 | 缓解 |
-|---|---|---|
-| R10 | GPLv3 下二次分发被严查 | 自身 GPLv3 OK；维护 NOTICE 文件 |
-| R11 | `.gradle` 缓存膨胀 > 2GB | `ProjectCleaner` LRU + Settings 透出 |
-| R12 | Bootstrap manifest 签名 private key 泄漏 | CI 环境离线签名；key 脱离 repo |
+| #   | 风险                                   | 缓解                                 |
+| --- | ------------------------------------ | ---------------------------------- |
+| R10 | GPLv3 下二次分发被严查                       | 自身 GPLv3 OK；维护 NOTICE 文件           |
+| R11 | `.gradle` 缓存膨胀 > 2GB                 | `ProjectCleaner` LRU + Settings 透出 |
+| R12 | Bootstrap manifest 签名 private key 泄漏 | CI 环境离线签名；key 脱离 repo              |
 
 ---
 
@@ -1601,17 +1601,17 @@ DataStore flag `v2_migration_dialog_shown = true` 后不再弹。
 
 ## 14. 术语表
 
-| 术语 | 含义 |
-|---|---|
-| **Bootstrap** | VibeApp 首次构建前需要下载到 `filesDir/usr/` 的 JDK / Gradle / Android SDK 等工具链资源 |
-| **GradleHost** | 运行在 bootstrap JDK 中的 Java 子进程，承载 Tooling API Client |
-| **Gradle Daemon** | Gradle 官方常驻守护进程；每个项目一组 |
-| **NativeProcess** | `:build-runtime` 提供的端上 native 进程抽象 |
-| **Plugin APK** | 通过 Shadow 官方 Gradle 插件变换后的 APK；可在 VibeApp 进程槽位内运行 |
-| **Plugin Session** | 一次进程内运行的生命周期对象 |
-| **Process Slot** | VibeApp manifest 静态声明的 `:pluginN` 进程位；v2.0 共 4 个 |
-| **Legacy Project** | v1.x 创建的 Java+XML 项目；v2.0 中只读归档 |
-| **Tier-0/1/2 Bootstrap** | Bootstrap 资源的分层；Tier-0 随 APK、Tier-1 首次构建下载、Tier-2 v2.0 不做 |
+| 术语                       | 含义                                                                     |
+| ------------------------ | ---------------------------------------------------------------------- |
+| **Bootstrap**            | VibeApp 首次构建前需要下载到 `filesDir/usr/` 的 JDK / Gradle / Android SDK 等工具链资源 |
+| **GradleHost**           | 运行在 bootstrap JDK 中的 Java 子进程，承载 Tooling API Client                    |
+| **Gradle Daemon**        | Gradle 官方常驻守护进程；每个项目一组                                                 |
+| **NativeProcess**        | `:build-runtime` 提供的端上 native 进程抽象                                     |
+| **Plugin APK**           | 通过 Shadow 官方 Gradle 插件变换后的 APK；可在 VibeApp 进程槽位内运行                      |
+| **Plugin Session**       | 一次进程内运行的生命周期对象                                                         |
+| **Process Slot**         | VibeApp manifest 静态声明的 `:pluginN` 进程位；v2.0 共 4 个                       |
+| **Legacy Project**       | v1.x 创建的 Java+XML 项目；v2.0 中只读归档                                        |
+| **Tier-0/1/2 Bootstrap** | Bootstrap 资源的分层；Tier-0 随 APK、Tier-1 首次构建下载、Tier-2 v2.0 不做              |
 
 ---
 

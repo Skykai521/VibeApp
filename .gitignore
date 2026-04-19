@@ -37,3 +37,5 @@ app/build/**
 
 # Git worktrees (subagent-driven-development)
 /.worktrees
+
+/.obsidian
