@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Phase 2c instrumented test talks to the dev bootstrap server over
+         cleartext http:// (emulator loopback 10.0.2.2:8000). targetSdk=28
+         defaults usesCleartextTraffic to false, so we opt back in for the
+         test APK only. -->
+    <application
+        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/phase2c_nsc"
+        tools:replace="android:usesCleartextTraffic,android:networkSecurityConfig"
+        tools:ignore="UnusedAttribute" />
+</manifest>

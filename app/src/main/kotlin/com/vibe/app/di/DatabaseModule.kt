@@ -42,6 +42,19 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * v3 → v4: add `engine` column to `projects`. Pre-existing rows are
+     * v1 build-engine projects; default them to LEGACY. New v2 rows
+     * created via GradleProjectInitializer set GRADLE_COMPOSE explicitly.
+     */
+    private val MIGRATION_CHAT_DB_V2_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `projects` ADD COLUMN `engine` TEXT NOT NULL DEFAULT 'LEGACY'"
+            )
+        }
+    }
+
     private val MIGRATION_CHAT_DB_V2_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(
@@ -117,5 +130,6 @@ object DatabaseModule {
     ).addMigrations(
         MIGRATION_CHAT_DB_V2_1_2,
         MIGRATION_CHAT_DB_V2_2_3,
+        MIGRATION_CHAT_DB_V2_3_4,
     ).build()
 }

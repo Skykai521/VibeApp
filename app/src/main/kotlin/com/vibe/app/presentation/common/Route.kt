@@ -15,4 +15,5 @@ object Route {
     const val PLATFORM_SETTINGS = "platform_settings/{platformUid}"
     const val ABOUT_PAGE = "about"
     const val LICENSE = "license"
+    const val BUILD_RUNTIME_DEBUG = "build_runtime_debug"
 }

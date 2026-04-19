@@ -27,6 +27,12 @@ import com.vibe.app.feature.agent.tool.GetUiPatternTool
 import com.vibe.app.feature.agent.tool.GetDesignGuideTool
 import com.vibe.app.feature.agent.tool.GetProjectMemoTool
 import com.vibe.app.feature.agent.tool.UpdateProjectIntentTool
+import com.vibe.app.feature.agent.tool.AddDependencyV2Tool
+import com.vibe.app.feature.agent.tool.AssembleDebugV2Tool
+import com.vibe.app.feature.agent.tool.CreateComposeProjectTool
+import com.vibe.app.feature.agent.tool.ExportProjectSourceV2Tool
+import com.vibe.app.feature.agent.tool.InstallApkV2Tool
+import com.vibe.app.feature.agent.tool.RemoveDependencyV2Tool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -63,4 +69,12 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindGetDesignGuide(tool: GetDesignGuideTool): AgentTool
     @Binds @IntoSet abstract fun bindUpdateProjectIntent(tool: UpdateProjectIntentTool): AgentTool
     @Binds @IntoSet abstract fun bindGetProjectMemo(tool: GetProjectMemoTool): AgentTool
+
+    // ── v2 (GRADLE_COMPOSE) tools ──────────────────────────────────
+    @Binds @IntoSet abstract fun bindCreateComposeProject(tool: CreateComposeProjectTool): AgentTool
+    @Binds @IntoSet abstract fun bindAssembleDebugV2(tool: AssembleDebugV2Tool): AgentTool
+    @Binds @IntoSet abstract fun bindInstallApkV2(tool: InstallApkV2Tool): AgentTool
+    @Binds @IntoSet abstract fun bindAddDependencyV2(tool: AddDependencyV2Tool): AgentTool
+    @Binds @IntoSet abstract fun bindRemoveDependencyV2(tool: RemoveDependencyV2Tool): AgentTool
+    @Binds @IntoSet abstract fun bindExportProjectSourceV2(tool: ExportProjectSourceV2Tool): AgentTool
 }

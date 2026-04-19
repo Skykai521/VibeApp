@@ -23,6 +23,33 @@ class ProjectBuildStatusConverter {
         runCatching { ProjectBuildStatus.valueOf(value) }.getOrDefault(ProjectBuildStatus.READY)
 }
 
+/**
+ * Which build pipeline owns this project.
+ *
+ *  - [LEGACY] = v1 build-engine (Java + XML, single-module under
+ *    `projects/{id}/app/`, AAPT2 + javac + d8 + AndroidApkBuilder).
+ *    All pre-Phase-3a projects.
+ *  - [GRADLE_COMPOSE] = v2 on-device Gradle (Kotlin + Compose,
+ *    multi-module under `projects/{id}/`, GradleBuildService → Termux JDK
+ *    → Gradle 9.3.1 daemon). Created by GradleProjectInitializer.
+ *
+ * Persisted as the string column `engine`. Migration defaults pre-existing
+ * rows to LEGACY; the v2 init code sets GRADLE_COMPOSE explicitly.
+ */
+enum class ProjectEngine {
+    LEGACY,
+    GRADLE_COMPOSE,
+}
+
+class ProjectEngineConverter {
+    @TypeConverter
+    fun fromEngine(engine: ProjectEngine): String = engine.name
+
+    @TypeConverter
+    fun toEngine(value: String): ProjectEngine =
+        runCatching { ProjectEngine.valueOf(value) }.getOrDefault(ProjectEngine.LEGACY)
+}
+
 @Entity(
     tableName = "projects",
     foreignKeys = [
@@ -59,6 +86,9 @@ data class Project(
 
     @ColumnInfo("updated_at")
     val updatedAt: Long = System.currentTimeMillis() / 1000,
+
+    @ColumnInfo("engine", defaultValue = "LEGACY")
+    val engine: ProjectEngine = ProjectEngine.LEGACY,
 )
 
 data class ProjectWithChat(

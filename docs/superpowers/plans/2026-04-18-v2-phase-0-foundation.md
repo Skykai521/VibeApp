@@ -17,25 +17,18 @@
 
 ## File Structure
 
-**Create (all new):**
+**AGP 9.x note (correction applied 2026-04-18 during Task 5):** AGP 9.1.0 bundles Kotlin support; applying the standalone `org.jetbrains.kotlin.android` plugin errors out. The Tasks 2-4 code blocks below have been updated to drop that plugin alias + the `kotlinOptions {}` block. Java level is enforced via `compileOptions` only. Each new module also carries a `.gitignore` containing `/build` to match existing module convention.
 
-- `build-runtime/build.gradle.kts` — Android library module; Kotlin + Hilt; no runtime deps yet.
-- `build-runtime/consumer-rules.pro` — empty placeholder.
-- `build-runtime/proguard-rules.pro` — empty placeholder.
-- `build-runtime/src/main/AndroidManifest.xml` — empty `<manifest>` with namespace only.
-- `build-runtime/src/main/kotlin/com/vibe/build/runtime/BuildRuntime.kt` — placeholder `@Singleton` class.
+**Create (all new, per module):**
 
-- `build-gradle/build.gradle.kts` — same as above.
-- `build-gradle/consumer-rules.pro`
-- `build-gradle/proguard-rules.pro`
-- `build-gradle/src/main/AndroidManifest.xml`
-- `build-gradle/src/main/kotlin/com/vibe/build/gradle/GradleBuildService.kt` — placeholder `@Singleton` class.
+- `<module>/.gitignore` — one line `/build`.
+- `<module>/build.gradle.kts` — Android library + Hilt + KSP. Kotlin support comes from AGP automatically.
+- `<module>/consumer-rules.pro` — empty placeholder.
+- `<module>/proguard-rules.pro` — empty placeholder.
+- `<module>/src/main/AndroidManifest.xml` — empty `<manifest>` with namespace only.
+- `<module>/src/main/kotlin/<package path>/<Class>.kt` — placeholder `@Singleton` class.
 
-- `plugin-host/build.gradle.kts` — same as above.
-- `plugin-host/consumer-rules.pro`
-- `plugin-host/proguard-rules.pro`
-- `plugin-host/src/main/AndroidManifest.xml`
-- `plugin-host/src/main/kotlin/com/vibe/plugin/host/PluginHost.kt` — placeholder `@Singleton` class.
+Applied to each of `build-runtime/` (class `BuildRuntime`), `build-gradle/` (class `GradleBuildService`), `plugin-host/` (class `PluginHost`).
 
 - `app/src/main/kotlin/com/vibe/app/di/BuildRuntimeModule.kt` — Hilt stub.
 - `app/src/main/kotlin/com/vibe/app/di/BuildGradleModule.kt` — Hilt stub.
@@ -124,7 +117,6 @@ Expected: BUILD SUCCESSFUL. (No code changes yet — just sanity check.)
 ```kotlin
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.kotlin.ksp)
 }
@@ -152,10 +144,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
     }
 }
 
@@ -229,7 +217,6 @@ Verification deferred to Task 5.
 ```kotlin
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.kotlin.ksp)
 }
@@ -257,10 +244,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
     }
 }
 
@@ -336,7 +319,6 @@ Verification deferred to Task 5.
 ```kotlin
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.kotlin.ksp)
 }
@@ -364,10 +346,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
     }
 }
 

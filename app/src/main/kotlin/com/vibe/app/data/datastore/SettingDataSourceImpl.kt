@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.vibe.app.data.model.DynamicTheme
 import com.vibe.app.data.model.ThemeMode
 import javax.inject.Inject
@@ -17,6 +18,7 @@ class SettingDataSourceImpl @Inject constructor(
     private val dynamicThemeKey = intPreferencesKey("dynamic_mode")
     private val themeModeKey = intPreferencesKey("theme_mode")
     private val debugModeKey = booleanPreferencesKey("debug_mode")
+    private val devBootstrapManifestUrlKey = stringPreferencesKey("dev_bootstrap_manifest_url")
 
     override suspend fun updateDynamicTheme(theme: DynamicTheme) {
         dataStore.edit { pref ->
@@ -56,5 +58,15 @@ class SettingDataSourceImpl @Inject constructor(
         return dataStore.data.map { pref ->
             pref[debugModeKey]
         }.first() ?: false
+    }
+
+    override suspend fun getDevBootstrapManifestUrl(): String? =
+        dataStore.data.map { it[devBootstrapManifestUrlKey] }.first()
+
+    override suspend fun updateDevBootstrapManifestUrl(url: String?) {
+        dataStore.edit { prefs ->
+            if (url.isNullOrBlank()) prefs.remove(devBootstrapManifestUrlKey)
+            else prefs[devBootstrapManifestUrlKey] = url
+        }
     }
 }

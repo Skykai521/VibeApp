@@ -154,6 +154,36 @@ After a successful build, use `launch_app` → `inspect_ui` (View hierarchy: cla
 3. After build succeeds, verify the app if the task warrants it (see Phase 5). For simple fixes, stop after build succeeds.
 4. Keep the final answer concise: summarize what was built and whether it was verified.
 
+## v2 (Kotlin + Compose) Tools — opt-in
+
+The default project template above is the legacy v1 Java + XML stack
+(`run_build_pipeline`, `launch_app`, etc.). A separate v2 pipeline can
+build Kotlin + Jetpack Compose projects via the bundled on-device
+Gradle 9.3.1 + AGP 9.1.0 toolchain.
+
+Use these v2 tools ONLY when the user explicitly asks for a Kotlin /
+Compose app, OR when the current project is already engine
+GRADLE_COMPOSE (every v2 tool errors otherwise).
+
+- `create_compose_project(project_name, package_name)` — lay down a
+  fresh KotlinComposeApp project tied to this chat. Inserts a Project
+  row with engine=GRADLE_COMPOSE.
+- `assemble_debug_v2()` — runs `:app:assembleDebug` via on-device
+  Gradle. Cold first build is 5–10 minutes (Maven + Kotlin daemon
+  spinup); subsequent builds < 60 s. Returns the APK path on success.
+- `install_apk_v2()` — hands the most recently built APK to the
+  system installer; user confirms in the system dialog.
+- `add_dependency_v2(alias, group, name, version)` — atomic edit of
+  `gradle/libs.versions.toml` + `app/build.gradle.kts`. Use sparingly.
+- `remove_dependency_v2(alias)` — symmetric remove.
+- `export_project_source_v2()` — zip the project for off-device use,
+  with a README explaining how to open it in Android Studio.
+
+For v2 projects: `read_project_file` / `write_project_file` /
+`list_project_files` / `grep_project_files` paths are relative to the
+project root (e.g. `app/src/main/kotlin/<package>/MainActivity.kt`),
+NOT the `app/` subdir as in v1.
+
 ## Task Planning
 
 For complex tasks, call `create_plan` before writing code, then `update_plan_step` as each step completes (or mark `failed` with notes and reassess). A task is complex if it touches 3+ files, has multiple interacting components, requires tracing several code paths, or is a "build/create/implement a multi-screen app" request. Skip planning for single-file edits, minor fixes, or text/color tweaks.
