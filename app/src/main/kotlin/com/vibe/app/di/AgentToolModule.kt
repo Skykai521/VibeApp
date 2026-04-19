@@ -33,6 +33,7 @@ import com.vibe.app.feature.agent.tool.CreateComposeProjectTool
 import com.vibe.app.feature.agent.tool.ExportProjectSourceV2Tool
 import com.vibe.app.feature.agent.tool.InstallApkV2Tool
 import com.vibe.app.feature.agent.tool.RemoveDependencyV2Tool
+import com.vibe.app.feature.agent.tool.RunInProcessV2Tool
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -77,4 +78,5 @@ abstract class AgentToolModule {
     @Binds @IntoSet abstract fun bindAddDependencyV2(tool: AddDependencyV2Tool): AgentTool
     @Binds @IntoSet abstract fun bindRemoveDependencyV2(tool: RemoveDependencyV2Tool): AgentTool
     @Binds @IntoSet abstract fun bindExportProjectSourceV2(tool: ExportProjectSourceV2Tool): AgentTool
+    @Binds @IntoSet abstract fun bindRunInProcessV2(tool: RunInProcessV2Tool): AgentTool
 }

@@ -179,6 +179,12 @@ GRADLE_COMPOSE (every v2 tool errors otherwise).
   field at the user — `diagnostics_markdown` is the actionable view.
 - `install_apk_v2()` — hands the most recently built APK to the
   system installer; user confirms in the system dialog.
+- `run_in_process_v2()` — launch the most recently built APK inside
+  one of VibeApp's plugin process slots (without going through the
+  system installer). Returns the initial View tree so you can verify
+  the UI with `inspect_ui` / `interact_ui`. **Always call `close_app`
+  when done.** Use this instead of `install_apk_v2` when you only
+  want to verify the UI works — much faster than installing.
 - `add_dependency_v2(alias, group, name, version)` — atomic edit of
   `gradle/libs.versions.toml` + `app/build.gradle.kts`. Use sparingly.
 - `remove_dependency_v2(alias)` — symmetric remove.
