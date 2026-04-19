@@ -12,6 +12,8 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/build-engine" />
+            <option value="$PROJECT_DIR$/build-gradle" />
+            <option value="$PROJECT_DIR$/build-runtime" />
             <option value="$PROJECT_DIR$/build-tools" />
             <option value="$PROJECT_DIR$/build-tools/android-common-resources" />
             <option value="$PROJECT_DIR$/build-tools/android-stubs" />
@@ -26,6 +28,8 @@
             <option value="$PROJECT_DIR$/build-tools/manifmerger" />
             <option value="$PROJECT_DIR$/build-tools/project" />
             <option value="$PROJECT_DIR$/build-tools/snapshots" />
+            <option value="$PROJECT_DIR$/gradle-host" />
+            <option value="$PROJECT_DIR$/plugin-host" />
             <option value="$PROJECT_DIR$/shadow-runtime" />
           </set>
         </option>

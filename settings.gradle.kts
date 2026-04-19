@@ -43,3 +43,10 @@ include(":build-runtime")
 include(":build-gradle")
 include(":plugin-host")
 include(":gradle-host")
+
+// ── Vendored Tencent Shadow modules (Phase 5b-2 onwards) ──
+// Source under third_party/shadow/upstream/, with our build.gradle.kts
+// per module. See third_party/shadow/README.md.
+include(":shadow-common")
+project(":shadow-common").projectDir =
+    file("third_party/shadow/upstream/core/common")
