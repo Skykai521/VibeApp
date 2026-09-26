@@ -22,6 +22,7 @@ import com.vibe.app.feature.diagnostic.BuildTriggerSource
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ChatTurnDiagnosticContext
 import com.vibe.app.feature.diagnostic.DiagnosticContext
+import com.vibe.app.feature.project.CrashLogWatcher
 import com.vibe.app.feature.project.ProjectManager
 import com.vibe.app.feature.project.VibeProjectDirs
 import com.vibe.app.feature.project.memo.IntentStore
@@ -72,6 +73,7 @@ class ChatViewModel @Inject constructor(
     private val snapshotManager: SnapshotManager,
     private val projectManager: ProjectManager,
     private val intentStore: IntentStore,
+    private val crashLogWatcher: CrashLogWatcher,
 ) : ViewModel() {
     sealed class LoadingState {
         data object Idle : LoadingState()
@@ -209,6 +211,7 @@ class ChatViewModel @Inject constructor(
     private val _crashPrompt = MutableStateFlow<CrashPrompt?>(null)
     val crashPrompt = _crashPrompt.asStateFlow()
     private var lastKnownCrashLogSize: Long = 0L
+    private var crashWatchJob: Job? = null
 
     // State for the message loading state (From the database)
     private val _isLoaded = MutableStateFlow(false)
@@ -269,6 +272,9 @@ class ChatViewModel @Inject constructor(
                         val crashFile = File(appContext.filesDir, "projects/${project.projectId}/logs/crash.log")
                         lastKnownCrashLogSize = if (crashFile.exists()) crashFile.length() else 0L
                     }
+                    // Proactively push crash prompts via FileObserver instead of relying
+                    // solely on ChatScreen ON_RESUME polling (checkForNewCrashLog remains a fallback).
+                    startCrashWatcher(project.projectId)
                 }
             }
         }
@@ -441,8 +447,28 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
+     * Starts watching the current project's crash.log via [CrashLogWatcher] (inotify),
+     * so a crash prompt appears the moment a crash is written — even while the user is
+     * still on the plugin UI and hasn't returned to ChatScreen. Cancels any previous
+     * watcher when the project changes. Works for both plugin-mode crashes and
+     * installed-mode reports written through DebugReportProvider (Task 3.6/3.7).
+     */
+    private fun startCrashWatcher(projectId: String) {
+        crashWatchJob?.cancel()
+        crashWatchJob = viewModelScope.launch {
+            crashLogWatcher.watch(projectId).collect { summary ->
+                lastKnownCrashLogSize = withContext(Dispatchers.IO) {
+                    File(appContext.filesDir, "projects/$projectId/logs/crash.log").length()
+                }
+                _crashPrompt.update { CrashPrompt(crashSummary = summary) }
+            }
+        }
+    }
+
+    /**
      * Called from ChatScreen's ON_RESUME. Checks if crash.log has grown since the last check.
-     * If so, shows a crash prompt in the chat list.
+     * If so, shows a crash prompt in the chat list. Kept as a fallback for the occasional
+     * FileObserver missed event; the primary path is [startCrashWatcher].
      */
     fun checkForNewCrashLog() {
         val projectId = _currentProjectId.value ?: return
@@ -453,11 +479,7 @@ class ChatViewModel @Inject constructor(
                 val currentSize = crashFile.length()
                 if (currentSize <= lastKnownCrashLogSize) return@withContext null
                 lastKnownCrashLogSize = currentSize
-                // Read the last crash entry
-                val lines = crashFile.readLines()
-                val lastCrashIdx = lines.indexOfLast { it.startsWith("--- CRASH") }
-                if (lastCrashIdx < 0) return@withContext null
-                lines.drop(lastCrashIdx).take(15).joinToString("\n")
+                CrashLogWatcher.extractLatestCrash(crashFile)
             } ?: return@launch
             _crashPrompt.update { CrashPrompt(crashSummary = crashInfo) }
         }

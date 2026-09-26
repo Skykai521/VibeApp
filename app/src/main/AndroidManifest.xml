@@ -51,6 +51,25 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- DebugBridge: receives crash/log reports from installed generated apps.
+             Must be exported (callers are separately-installed generated APKs); safety
+             comes from DebugReportProvider verifying the caller's package prefix AND
+             signing cert against the bundled testkey, not from a signature permission
+             (VibeApp's release cert differs from the generated-app testkey). -->
+        <provider
+            android:name="com.vibe.app.plugin.DebugReportProvider"
+            android:authorities="com.vibe.app.debugreport"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+
+        <!-- Invisible trampoline: launched from the "tap to preview" notification so the
+             plugin container can start with foreground privileges from the main process. -->
+        <activity
+            android:name="com.vibe.app.plugin.PluginLaunchProxyActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true" />
+
         <!-- Plugin process slots (0-4): each in its own process with separate task affinity -->
         <activity
             android:name="com.vibe.app.plugin.PluginSlot0"

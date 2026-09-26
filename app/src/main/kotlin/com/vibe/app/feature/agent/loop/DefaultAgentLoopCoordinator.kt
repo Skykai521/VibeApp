@@ -41,9 +41,11 @@ import com.vibe.app.feature.agent.AgentPlan
 import com.vibe.app.feature.agent.AgentPlanStep
 import com.vibe.app.feature.agent.PlanStepStatus
 import com.vibe.app.feature.agent.tool.requireString
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -525,11 +527,20 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
                 // Build tool result items and append to full history.
                 val toolResultItems = pendingToolResults.map { result ->
+                    // A tool may surface image/file artifacts via an "attachment_paths"
+                    // array in its output (e.g. capture_screenshot). Lift them into the
+                    // conversation item so vision-capable gateways can inline them into
+                    // the tool_result; other gateways ignore attachments.
+                    val attachmentPaths = ((result.output as? JsonObject)
+                        ?.get("attachment_paths") as? JsonArray)
+                        ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                        .orEmpty()
                     AgentConversationItem(
                         role = AgentMessageRole.TOOL,
                         toolCallId = result.toolCallId,
                         toolName = result.toolName,
                         payload = result.output,
+                        attachments = attachmentPaths,
                     )
                 }
                 fullConversation += toolResultItems

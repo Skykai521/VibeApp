@@ -79,6 +79,48 @@ public class ShadowActivity extends AppCompatActivity {
         onPluginDestroy();
     }
 
+    public void performStart() {
+        pluginLifecycleActive = true;
+        onStart();
+        pluginLifecycleActive = false;
+    }
+
+    public void performSaveInstanceState(Bundle outState) {
+        pluginLifecycleActive = true;
+        onSaveInstanceState(outState);
+        pluginLifecycleActive = false;
+    }
+
+    public void performRestoreInstanceState(Bundle savedInstanceState) {
+        pluginLifecycleActive = true;
+        onRestoreInstanceState(savedInstanceState);
+        pluginLifecycleActive = false;
+    }
+
+    public void performConfigurationChanged(android.content.res.Configuration newConfig) {
+        pluginLifecycleActive = true;
+        onConfigurationChanged(newConfig);
+        pluginLifecycleActive = false;
+    }
+
+    public void performRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    /**
+     * Back-key dispatch. Returns true when the plugin requested the default
+     * behavior (its onBackPressed called super) — the container should finish.
+     */
+    public boolean performBackPressed() {
+        backDefaultRequested = false;
+        pluginLifecycleActive = true;
+        onBackPressed();
+        pluginLifecycleActive = false;
+        return backDefaultRequested;
+    }
+
+    private boolean backDefaultRequested;
+
     /**
      * Called in plugin mode instead of onCreate. Subclasses override onCreate
      * as normal — this method calls it only when NOT in plugin mode (standalone).
@@ -154,6 +196,45 @@ public class ShadowActivity extends AppCompatActivity {
         if (!pluginLifecycleActive) {
             super.onDestroy();
         }
+    }
+
+    @Override
+    protected void onStart() {
+        if (!pluginLifecycleActive) super.onStart();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (!pluginLifecycleActive) super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        if (!pluginLifecycleActive) super.onRestoreInstanceState(savedInstanceState);
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        if (!pluginLifecycleActive) super.onConfigurationChanged(newConfig);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (hostDelegator == null) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+        // Plugin mode: FragmentActivity's implementation touches mFragments
+        // (never initialized) — subclasses override this directly.
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        if (hostDelegator != null) {
+            backDefaultRequested = true; // user code called super.onBackPressed()
+            return;
+        }
+        super.onBackPressed();
     }
 
     // --- AppCompat overrides: no-op in plugin mode ---
@@ -278,7 +359,7 @@ public class ShadowActivity extends AppCompatActivity {
 
     @Override
     public Intent getIntent() {
-        if (hostDelegator != null) return hostDelegator.getHostIntent();
+        if (hostDelegator != null) return hostDelegator.getPluginIntent();
         return super.getIntent();
     }
 

@@ -268,12 +268,19 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                     val toolResultBlocks = buildList {
                         while (i < conversation.size && conversation[i].role == AgentMessageRole.TOOL) {
                             val t = conversation[i]
+                            val payloadText = t.payload?.toString() ?: t.text.orEmpty()
+                            // Text payload first, then any image attachments the tool surfaced
+                            // (e.g. capture_screenshot) so vision models see the rendering.
+                            val blocks = buildList<MessageContent> {
+                                add(TextContent(payloadText))
+                                addImageAttachments(t.attachments)
+                            }
                             add(
                                 ToolResultContent(
                                     toolUseId = requireNotNull(t.toolCallId) {
                                         "TOOL item missing toolCallId"
                                     },
-                                    content = t.payload?.toString() ?: t.text.orEmpty(),
+                                    content = blocks,
                                     isError = null,
                                 ),
                             )
@@ -296,13 +303,18 @@ class AnthropicMessagesAgentGateway @Inject constructor(
     }
 
     private fun buildUserContent(item: AgentConversationItem): List<MessageContent> = buildList {
-        item.attachments.forEach { path ->
+        addImageAttachments(item.attachments)
+        add(TextContent(item.text.orEmpty()))
+    }
+
+    /** Encodes each attachment path as an [ImageContent] block, skipping non-image or unreadable ones. */
+    private fun MutableList<MessageContent>.addImageAttachments(attachments: List<String>) {
+        attachments.forEach { path ->
             val mimeType = FileUtils.getMimeType(context, path)
             val mediaType = mimeTypeToMediaType(mimeType) ?: return@forEach
             val base64 = FileUtils.readAndEncodeFile(context, path) ?: return@forEach
             add(ImageContent(source = ImageSource(type = ImageSourceType.BASE64, mediaType = mediaType, data = base64)))
         }
-        add(TextContent(item.text.orEmpty()))
     }
 
     private fun mimeTypeToMediaType(mimeType: String): MediaType? = when (mimeType.lowercase()) {

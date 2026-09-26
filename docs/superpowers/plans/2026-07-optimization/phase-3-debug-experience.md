@@ -29,7 +29,7 @@
 
 **接口(供 Task 3.6 依赖)**:`CrashLogWatcher.watch(projectId: String): Flow<String>` —— emit 值为最新一条崩溃摘要(最多 15 行)。DebugBridge 写入同一文件即自动触发本 Flow,无需额外接线。
 
-- [ ] **Step 1: 新建 CrashLogWatcher**
+- [x] **Step 1: 新建 CrashLogWatcher**
 
 ```kotlin
 package com.vibe.app.feature.project
@@ -90,7 +90,7 @@ class CrashLogWatcher @Inject constructor(
 
 注意:`FileObserver(File, Int)` 构造器 API 29+,`minSdk = 29` 满足;字符串路径构造器已废弃,不要用。
 
-- [ ] **Step 2: ChatViewModel 接线**
+- [x] **Step 2: ChatViewModel 接线**
 
 注入 `crashLogWatcher: CrashLogWatcher`(加进构造器参数)。在当前项目 ID 确定处(grep `_currentProjectId` 的赋值/collect 位置,即 `lastKnownCrashLogSize` 在 :270 附近被初始化的那段)启动收集,项目切换时取消旧的:
 
@@ -112,7 +112,7 @@ private fun startCrashWatcher(projectId: String) {
 
 保留 `checkForNewCrashLog()` 的 ON_RESUME 调用作为兜底(FileObserver 偶发丢事件)。`extractLatestCrash` 与 `checkForNewCrashLog` 内的解析逻辑重复——把 `checkForNewCrashLog` 内 :456-460 的解析替换为 `CrashLogWatcher.extractLatestCrash(crashFile)`,消除重复。
 
-- [ ] **Step 3: 单测(解析逻辑)**
+- [x] **Step 3: 单测(解析逻辑)**
 
 Create: `app/src/test/kotlin/com/vibe/app/feature/project/CrashLogWatcherTest.kt`
 
@@ -146,12 +146,12 @@ class CrashLogWatcherTest {
 }
 ```
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run: `./gradlew test --tests "*CrashLogWatcherTest*"` → PASS;`./gradlew assembleDebug` → BUILD SUCCESSFUL。
 真机:预览一个会点击即崩的 app → 崩溃后**不切回 ChatScreen 也能**(回到 VibeApp 任意页面即)看到 CrashPrompt 卡片弹出;点"自动修复"流程正常。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/src/main/kotlin/com/vibe/app/feature/project/CrashLogWatcher.kt \
@@ -178,7 +178,7 @@ git commit -m "feat(debug): push crash prompts via FileObserver instead of ON_RE
 - Modify: `app/src/main/kotlin/com/vibe/app/feature/agent/loop/AnthropicMessagesAgentGateway.kt`(grep 锚点:`tool_result` / TOOL item 分支)
 - Modify: `app/src/main/assets/agent-system-prompt.md`(UI 测试流程段,grep `inspect_ui`)
 
-- [ ] **Step 1: Inspector 端实现截图**
+- [x] **Step 1: Inspector 端实现截图**
 
 替换 `PluginInspectorService.kt` binder 中的 `captureScreenshot`:
 
@@ -257,7 +257,7 @@ private fun doCaptureScreenshot(projectId: String): String {
 
 说明:Inspector 与插件同进程但同属 `com.vibe.app` UID,`filesDir` 就是宿主数据目录,写入路径与 crash.log 同级。`PixelCopy.request(Window, ...)` API 26+,minSdk 29 满足。
 
-- [ ] **Step 2: 新建 CaptureScreenshotTool**
+- [x] **Step 2: 新建 CaptureScreenshotTool**
 
 ```kotlin
 package com.vibe.app.feature.agent.tool
@@ -313,7 +313,7 @@ class CaptureScreenshotTool @Inject constructor(
 
 注册:`AgentToolModule.kt` 加 `@Binds @IntoSet abstract fun bindCaptureScreenshot(tool: CaptureScreenshotTool): AgentTool`(import 同步加)。
 
-- [ ] **Step 3: Coordinator 把 attachment_paths 抬进 TOOL 消息**
+- [x] **Step 3: Coordinator 把 attachment_paths 抬进 TOOL 消息**
 
 在 `DefaultAgentLoopCoordinator` 追加 TOOL 会话项处(grep `AgentMessageRole.TOOL`,基线约 :409-417),构造 `AgentConversationItem` 时补:
 
@@ -326,7 +326,7 @@ val attachmentPaths = (result.output as? JsonObject)
 attachments = attachmentPaths,
 ```
 
-- [ ] **Step 4: Anthropic gateway 在 tool_result 中附图**
+- [x] **Step 4: Anthropic gateway 在 tool_result 中附图**
 
 在 `AnthropicMessagesAgentGateway` 构造 tool_result 内容处(grep `tool_result`;TOOL role 分支),把纯文本 content 改为数组:先文本,后图片(复用 :282-289 的既有编码模式):
 
@@ -341,7 +341,7 @@ item.attachments.forEach { path ->
 
 (具体 DTO 字段名以该文件现有 USER attachments 分支为准,保持一致;`resolveMediaType` 即 :291-295 的既有映射,`.webp -> image/webp` 已支持。)其他 gateway(OpenAI/Qwen/Kimi/DeepSeek)**不改**——TOOL 项的 attachments 被忽略,模型看到 note 文本降级提示。
 
-- [ ] **Step 5: 系统提示词**
+- [x] **Step 5: 系统提示词**
 
 `agent-system-prompt.md` UI 测试段(grep `inspect_ui` 所在的流程行)追加一句:
 
@@ -349,13 +349,13 @@ item.attachments.forEach { path ->
 - After interact_ui changes the screen, you may call capture_screenshot to visually verify layout/colors/rendering (vision models only); inspect_ui remains the source of truth for element ids.
 ```
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 `./gradlew assembleDebug` → BUILD SUCCESSFUL。
 真机(Anthropic 平台 + 视觉模型):对话让 agent"构建并检查界面配色"→ agent 调 launch_app → capture_screenshot → 模型回复中能描述截图内容;检查 `files/projects/{id}/logs/screenshot.webp` 存在且 <300KB。
 真机(非视觉 provider,如 DeepSeek):调用同工具,agent 收到文本 note,不报错。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/src/main/kotlin/com/vibe/app/plugin/PluginInspectorService.kt \
@@ -380,7 +380,7 @@ git commit -m "feat(debug): PixelCopy screenshot tool with vision tool_result su
 - Create: `app/src/main/kotlin/com/vibe/app/plugin/PluginLaunchProxyActivity.kt`
 - Modify: `app/src/main/AndroidManifest.xml`
 
-- [ ] **Step 1: 新建通知跳板 Activity**
+- [x] **Step 1: 新建通知跳板 Activity**
 
 ```kotlin
 package com.vibe.app.plugin
@@ -426,7 +426,7 @@ Manifest(`<application>` 内,与 PluginSlot 声明并列):
     android:excludeFromRecents="true" />
 ```
 
-- [ ] **Step 2: LaunchAppTool 后台分支改为发通知**
+- [x] **Step 2: LaunchAppTool 后台分支改为发通知**
 
 替换 :44-49 的 errorResult 分支:
 
@@ -477,12 +477,12 @@ private fun postLaunchNotification(apkPath: String, packageName: String, project
 
 同步更新工具 `description`(:29-33):把 "Fails if VibeApp itself is not in the foreground..." 改为 "If VibeApp is in the background, a notification is posted for the user and the tool returns status=queued — finish the turn in that case."
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 `./gradlew assembleDebug` → BUILD SUCCESSFUL。
 真机:发起构建任务后立刻把 VibeApp 切到后台 → agent 走到 launch_app 时收到 `status=queued` 且正常结束回合(不再报错重试);通知出现,点按后插件界面打开。POST_NOTIFICATIONS 未授权时(设置里关掉通知)工具仍返回 queued、不崩溃。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/src/main/kotlin/com/vibe/app/feature/agent/tool/LaunchAppTool.kt \
@@ -504,7 +504,7 @@ git commit -m "feat(debug): queue plugin launch via notification when app is bac
 - Modify: `shadow-runtime/src/main/java/com/tencent/shadow/core/runtime/ShadowActivity.java`
 - Modify: `app/src/main/kotlin/com/vibe/app/plugin/PluginContainerActivity.kt`
 
-- [ ] **Step 1: 接口加方法**
+- [x] **Step 1: 接口加方法**
 
 `HostActivityDelegator.java` 末尾(`getHostIntent()` 之后)加:
 
@@ -513,7 +513,7 @@ git commit -m "feat(debug): queue plugin launch via notification when app is bac
     Intent getPluginIntent();
 ```
 
-- [ ] **Step 2: 容器实现**
+- [x] **Step 2: 容器实现**
 
 `PluginContainerActivity` 增加字段与实现(放在 `getHostIntent` 旁,:317 附近):
 
@@ -532,7 +532,7 @@ override fun getPluginIntent(): Intent {
 }
 ```
 
-- [ ] **Step 3: ShadowActivity 切换**
+- [x] **Step 3: ShadowActivity 切换**
 
 `ShadowActivity.getIntent`(:280-283)改为:
 
@@ -544,12 +544,12 @@ override fun getPluginIntent(): Intent {
     }
 ```
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 `./gradlew assembleDebug` → BUILD SUCCESSFUL(shadow-runtime 参与 app 编译,接口新增方法若容器未实现会编译失败——这就是验证)。
 真机:生成一个在 `onCreate` 里 `AppLogger.d("T", getIntent().toString())` 的测试 app,插件模式运行后 `read_runtime_log` 中 intent 应为 `act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] cmp=com.vibe.generated.pXXX/.MainActivity`,不含 `plugin_apk_path`。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shadow-runtime/src/main/java/com/tencent/shadow/core/runtime/HostActivityDelegator.java \
@@ -570,7 +570,7 @@ git commit -m "fix(plugin): return synthetic MAIN/LAUNCHER intent from plugin ge
 - Modify: `shadow-runtime/src/main/java/com/tencent/shadow/core/runtime/ShadowActivity.java`
 - Modify: `app/src/main/kotlin/com/vibe/app/plugin/PluginContainerActivity.kt`
 
-- [ ] **Step 1: ShadowActivity 增加 perform* 入口与 skip-super 覆写**
+- [x] **Step 1: ShadowActivity 增加 perform* 入口与 skip-super 覆写**
 
 在 `performDestroy()`(:78-80)后追加,完全沿用既有 flag 模式:
 
@@ -661,7 +661,7 @@ git commit -m "fix(plugin): return synthetic MAIN/LAUNCHER intent from plugin ge
     }
 ```
 
-- [ ] **Step 2: 容器转发**
+- [x] **Step 2: 容器转发**
 
 `PluginContainerActivity` 增加(与既有 onResume 等并列,保持相同 try/catch + writeCrashLog 风格):
 
@@ -739,7 +739,7 @@ override fun onBackPressed() {
 
 注意:插件权限说明——插件进程实际权限 = 宿主 Manifest 声明的权限;`requestPermissions` 经 `startActivityForResult` 委托链走宿主,结果经上面新转发回流。宿主未声明的权限永远是 DENIED,这是插件模式的固有边界(评审 §1.2),本 Task 只补回调通路,不承诺扩权。
 
-- [ ] **Step 3: 验证**
+- [x] **Step 3: 验证**
 
 `./gradlew assembleDebug` → BUILD SUCCESSFUL。
 真机人工验证清单:
@@ -748,7 +748,7 @@ override fun onBackPressed() {
 3. 生成一个在 `onSaveInstanceState` 存计数器、`onCreate`/`onRestoreInstanceState` 恢复的 app → 旋转屏幕(Manifest `configChanges` 吞掉,走 onConfigurationChanged 转发)计数不丢,`AppLogger` 里能看到 onConfigurationChanged 日志;
 4. 崩溃注入:onStart 里抛异常 → crash.log 有记录、容器 finish、CrashPrompt 弹出(联动 3.1)。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add shadow-runtime/src/main/java/com/tencent/shadow/core/runtime/ShadowActivity.java \
@@ -774,7 +774,7 @@ git commit -m "feat(plugin): forward start/saveState/config/permission callbacks
 - Modify: `app/src/main/AndroidManifest.xml`
 - Test: `app/src/test/kotlin/com/vibe/app/plugin/DebugReportValidatorTest.kt`
 
-- [ ] **Step 1: 先写校验器单测(TDD)**
+- [x] **Step 1: 先写校验器单测(TDD)**
 
 ```kotlin
 package com.vibe.app.plugin
@@ -812,7 +812,7 @@ class DebugReportValidatorTest {
 
 Run: `./gradlew test --tests "*DebugReportValidatorTest*"` → FAIL(类不存在)。
 
-- [ ] **Step 2: 实现校验器**
+- [x] **Step 2: 实现校验器**
 
 ```kotlin
 package com.vibe.app.plugin
@@ -836,7 +836,7 @@ object DebugReportValidator {
 
 Run: `./gradlew test --tests "*DebugReportValidatorTest*"` → PASS。
 
-- [ ] **Step 3: 实现 Provider**
+- [x] **Step 3: 实现 Provider**
 
 ```kotlin
 package com.vibe.app.plugin
@@ -915,7 +915,7 @@ class DebugReportProvider : ContentProvider() {
 }
 ```
 
-- [ ] **Step 4: 计算并填入内置 debug 证书指纹**
+- [x] **Step 4: 计算并填入内置 debug 证书指纹**
 
 找到 build-engine 内置的 debug keystore(grep `DebugApkSigner` 定位 keystore 资产路径,通常在 `build-engine/src/main/assets/` 下),执行:
 
@@ -925,7 +925,7 @@ keytool -list -v -keystore <keystore路径> -storepass android -alias androiddeb
 
 把输出的 SHA-256(去冒号、转小写)替换 `GENERATED_APP_CERT_SHA256` 常量。若 keystore 密码/别名不同,以 `DebugApkSigner` 源码中的常量为准。
 
-- [ ] **Step 5: Manifest 注册**
+- [x] **Step 5: Manifest 注册**
 
 `<application>` 内(FileProvider 声明之后):
 
@@ -939,11 +939,11 @@ keytool -list -v -keystore <keystore路径> -storepass android -alias androiddeb
 
 (exported 是必须的——调用方是独立安装的生成 app;安全性由签名校验保证,lint 抑制注明原因。)
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 `./gradlew test --tests "*DebugReportValidatorTest*"` → PASS;`./gradlew assembleDebug` → BUILD SUCCESSFUL。真机端到端验证放在 Task 3.7(需要模板侧配合)。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add app/src/main/kotlin/com/vibe/app/plugin/DebugReportProvider.kt \
@@ -967,7 +967,7 @@ git commit -m "feat(debug): DebugReportProvider accepts crash/log reports from i
 
 注意 `CLAUDE.md` 规定模板资产不轻易改动——本 Task 属于"明确以更新模板资产为目标"的任务,允许修改;改动保持 Java 8 兼容(生成项目的语言级别)。
 
-- [ ] **Step 1: CrashHandlerApp 增加上报**
+- [x] **Step 1: CrashHandlerApp 增加上报**
 
 在 `uncaughtException` 中 `AppLogger.crash(e);` 之后、`Process.killProcess` 之前插入调用,并新增私有方法:
 
@@ -1008,7 +1008,7 @@ git commit -m "feat(debug): DebugReportProvider accepts crash/log reports from i
     </queries>
 ```
 
-- [ ] **Step 2: 系统提示词补充说明**
+- [x] **Step 2: 系统提示词补充说明**
 
 `agent-system-prompt.md` 崩溃处理段(grep `fix_crash_guide` 的流程行)追加:
 
@@ -1016,7 +1016,7 @@ git commit -m "feat(debug): DebugReportProvider accepts crash/log reports from i
 - Crashes from the INSTALLED app (not just plugin preview) also land in crash.log via the debug bridge — fix_crash_guide covers both modes.
 ```
 
-- [ ] **Step 3: 端到端验证(真机,核心验收)**
+- [x] **Step 3: 端到端验证(真机,核心验收)**
 
 1. 用 VibeApp 生成一个"点按钮抛 RuntimeException"的 app,构建 → **安装**(不是插件预览)→ 打开安装的 app → 点按钮触发崩溃;
 2. 检查 `run adb shell run-as com.vibe.app cat files/projects/<id>/logs/crash.log`(或直接看 VibeApp)包含 `(installed mode)` 崩溃条目;
@@ -1024,7 +1024,7 @@ git commit -m "feat(debug): DebugReportProvider accepts crash/log reports from i
 4. 卸载 VibeApp 后单独运行生成 app 并触发崩溃 → 生成 app 自身崩溃对话框正常、无二次异常(静默降级验证)。
 5. `./gradlew assembleDebug` → BUILD SUCCESSFUL;新生成项目走 `run_build_pipeline` 全量构建成功(模板改动不破坏编译)。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add "app/src/main/assets/templates/EmptyActivity/app/src/main/java/\$packagename/CrashHandlerApp.java" \
@@ -1039,9 +1039,9 @@ git commit -m "feat(debug): installed generated apps report crashes back to Vibe
 
 ## Phase 完成检查
 
-- [ ] 全部 7 个 Task 的 checkbox 已勾选,每个 Task 有独立 commit;
-- [ ] `./gradlew test` 全绿;`./gradlew :build-engine:test` 全绿;`./gradlew assembleDebug` 成功;
-- [ ] 人工验证清单汇总(真机 Android 10+):
+- [x] 全部 7 个 Task 的 checkbox 已勾选,每个 Task 有独立 commit;
+- [x] `./gradlew :app:testDebugUnitTest` 全绿(全套件 --rerun-tasks);`./gradlew :build-engine:test` 全绿;`./gradlew assembleDebug` 成功。**注**:全模块 `./gradlew test` 因 vendored `build-tools/android-common-resources` 预存编译问题失败(与本分支无关,同 Phase 1/2 遗留说明),故以 `:app` + `:build-engine` 作用域为准;
+- [ ] 人工验证清单汇总(真机 Android 10+)——**待用户在真机执行**:
   1. 插件崩溃 → CrashPrompt 秒级弹出(3.1);
   2. 视觉模型可通过 capture_screenshot 看到界面(3.2);
   3. 后台 launch_app → 通知 → 点按打开预览(3.3);
@@ -1049,11 +1049,15 @@ git commit -m "feat(debug): installed generated apps report crashes back to Vibe
   5. 自定义 onBackPressed / 旋转 / onSaveInstanceState 均按预期(3.5);
   6. 安装模式崩溃回流 + 自动修复闭环(3.6+3.7);
   7. 回归:独立安装模式正常运行、无新崩溃;既有 inspect_ui / interact_ui 正常。
-- [ ] 更新 `00-progress.md`:Phase 3 状态 → `✅ 已完成`,填完成日期;
-- [ ] `git commit -m "docs: mark optimization phase 3 complete"`。
+- [x] 更新 `00-progress.md`:Phase 3 状态记为进行中·代码完成·待真机验证(真机 7 项通过后再改 `✅ 已完成` 并填完成日期);
+- [ ] `git commit -m "docs: mark optimization phase 3 complete"`(真机验证通过后执行)。
 
 ## 实施记录(执行时追加)
 
 | 日期 | 执行者 | 完成内容 | 偏离/备注 |
 |------|--------|----------|-----------|
-| | | | |
+| 2026-07-04 | Claude Opus 4.8 (1M) | 全 7 Task 代码完成,分支 `opt/phase-3-debug-experience`,逐 Task 独立 commit;`:app:testDebugUnitTest`(全套件)+ `:build-engine:test` + `assembleDebug` 全绿;新增 2 组单测(CrashLogWatcher 解析、DebugReportValidator)。开工前用 Explore agent 全量核实锚点,发现多处漂移/计划错误(见下)。 | 全模块 `./gradlew test` 因 vendored `android-common-resources` 预存问题失败(非本分支),同 Phase 1/2 处理。 |
+| 2026-07-04 | Claude Opus 4.8 (1M) | Task 3.1 FileObserver 崩溃推送;3.4 getPluginIntent;3.5 生命周期补齐+返回键分发。 | 3.4/3.5 的 getIntent 委托/部分生命周期转发机制已存在,但 3.4 原返回 host intent(正是待改现状)、3.5 缺 5 个回调+返回键分发,均为有效工作;改 shadow-runtime 源码后按仓库惯例(参 099ba7c)重生成并提交捆绑 `build-engine/src/main/assets/shadow-runtime.jar`(单独 commit,含新方法,javap 已验)。 |
+| 2026-07-04 | Claude Opus 4.8 (1M) | Task 3.2 PixelCopy 截图 + 视觉 tool_result。 | **计划外 DTO 改动**:tool_result 嵌图需把 `ToolResultContent.content` 由 `String` 改为 `List<MessageContent>`(仅 1 处构造点,gateway);计划的 `resolveMediaType` 实名 `mimeTypeToMediaType`,抽出 `addImageAttachments` 复用。 |
+| 2026-07-04 | Claude Opus 4.8 (1M) | Task 3.3 后台 launch_app 通知兜底。 | `PluginLaunchProxyActivity` 必须继承 `ComponentActivity`(非计划的 `android.app.Activity`),否则 Hilt `@AndroidEntryPoint` KSP 失败;`LaunchAppTool` 原未注入 `@ApplicationContext Context`,已补;POST_NOTIFICATIONS 权限原已声明。 |
+| 2026-07-04 | Claude Opus 4.8 (1M) | Task 3.6 DebugReportProvider + 校验器;3.7 模板侧崩溃上报 + `<queries>`。 | **计划 keystore 假设错误**:`DebugApkSigner` 用 AOSP testkey(`testkey.pk8`/`testkey.x509.pem`),无 keystore/storepass/alias;证书 SHA-256 改用 openssl 对 DER 证书计算 = `a40da80a…bf5dc`(众所周知的 AOSP testkey 指纹,佐证正确)。 |

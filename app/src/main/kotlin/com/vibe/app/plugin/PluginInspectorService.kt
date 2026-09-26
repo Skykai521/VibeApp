@@ -80,7 +80,16 @@ open class PluginInspectorService : Service() {
         }
 
         override fun captureScreenshot(optionsJson: String?): String {
-            return jsonError("screenshot not implemented yet")
+            return try {
+                val options = JSONObject(optionsJson ?: "{}")
+                val projectId = options.optString("project_id")
+                if (!projectId.matches(Regex("[A-Za-z0-9_-]+"))) {
+                    return jsonError("invalid project_id")
+                }
+                doCaptureScreenshot(projectId)
+            } catch (e: Exception) {
+                jsonError("screenshot failed: ${e.message}")
+            }
         }
     }
 
@@ -157,6 +166,69 @@ open class PluginInspectorService : Service() {
                 put("height", metrics.heightPixels)
             })
             put("windows", windowsArray)
+        }.toString()
+    }
+
+    // ── Screenshot ───────────────────────────────────────────────────
+
+    /**
+     * Captures the current plugin Activity window via PixelCopy, downscales so the long
+     * edge is <= 1280px, writes a WebP q80 to projects/{id}/logs/screenshot.webp (fixed
+     * name, overwritten each time), and returns JSON with path + dimensions. Only JSON
+     * crosses the Binder — the image bytes go through the filesystem to avoid the 1MB
+     * Binder limit. `filesDir` is the host data dir (same UID as the host process).
+     */
+    private fun doCaptureScreenshot(projectId: String): String {
+        val activity = ActivityHolder.get(slotIndex)
+            ?: return jsonError("no active plugin activity in slot $slotIndex")
+        val window = activity.window ?: return jsonError("activity has no window")
+        val decor = window.decorView
+        if (decor.width <= 0 || decor.height <= 0) return jsonError("window not laid out yet")
+
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            decor.width, decor.height, android.graphics.Bitmap.Config.ARGB_8888,
+        )
+        val latch = CountDownLatch(1)
+        var copyResult = -1
+        mainHandler.post {
+            try {
+                android.view.PixelCopy.request(window, bitmap, { result ->
+                    copyResult = result
+                    latch.countDown()
+                }, mainHandler)
+            } catch (e: Exception) {
+                latch.countDown()
+            }
+        }
+        if (!latch.await(3, TimeUnit.SECONDS)) return jsonError("screenshot timed out")
+        if (copyResult != android.view.PixelCopy.SUCCESS) {
+            return jsonError("PixelCopy failed with code $copyResult")
+        }
+
+        // Downscale so the long edge is <= 1280px, compress to WebP q80.
+        val maxEdge = 1280
+        val scale = maxEdge.toFloat() / maxOf(bitmap.width, bitmap.height)
+        val scaled = if (scale < 1f) {
+            android.graphics.Bitmap.createScaledBitmap(
+                bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true,
+            )
+        } else bitmap
+
+        val outFile = java.io.File(filesDir, "projects/$projectId/logs/screenshot.webp")
+        outFile.parentFile?.mkdirs()
+        val format = if (Build.VERSION.SDK_INT >= 30) {
+            android.graphics.Bitmap.CompressFormat.WEBP_LOSSY
+        } else {
+            @Suppress("DEPRECATION") android.graphics.Bitmap.CompressFormat.WEBP
+        }
+        outFile.outputStream().use { scaled.compress(format, 80, it) }
+        if (scaled !== bitmap) bitmap.recycle()
+
+        return JSONObject().apply {
+            put("path", outFile.absolutePath)
+            put("width", scaled.width)
+            put("height", scaled.height)
+            put("bytes", outFile.length())
         }.toString()
     }
 

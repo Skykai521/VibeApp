@@ -47,6 +47,9 @@ public class CrashHandlerApp extends Application {
                 e.printStackTrace(new PrintWriter(sw));
                 String stackTrace = sw.toString();
 
+                // Report to VibeApp (if installed) so the AI agent sees installed-mode crashes.
+                reportCrashToVibeApp(stackTrace);
+
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                         .edit()
                         .putString(KEY_CRASH_LOG, stackTrace)
@@ -90,6 +93,26 @@ public class CrashHandlerApp extends Application {
             @Override
             public void onActivityDestroyed(Activity activity) {}
         });
+    }
+
+    /**
+     * Best-effort crash report to VibeApp's DebugReportProvider so the AI
+     * agent can see install-mode crashes. Silently no-ops when VibeApp is
+     * not installed or rejects the call.
+     */
+    private void reportCrashToVibeApp(String stackTrace) {
+        try {
+            android.content.ContentValues values = new android.content.ContentValues();
+            values.put("kind", "crash");
+            java.text.SimpleDateFormat fmt =
+                    new java.text.SimpleDateFormat("MM-dd HH:mm:ss.SSS", java.util.Locale.US);
+            values.put("content", "--- CRASH " + fmt.format(new java.util.Date())
+                    + " (installed mode) ---\n" + stackTrace + "\n");
+            getContentResolver().insert(
+                    android.net.Uri.parse("content://com.vibe.app.debugreport/report"), values);
+        } catch (Throwable ignored) {
+            // VibeApp absent / provider rejected — local crash dialog still works.
+        }
     }
 
     private void showCrashDialog(Activity activity, final String crashLog) {

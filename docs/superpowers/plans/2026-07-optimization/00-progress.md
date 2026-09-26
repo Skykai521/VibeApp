@@ -45,7 +45,7 @@
 |-------|------|------|----------|------|------|----------|----------|
 | 1 | [phase-1](./phase-1-agent-loop-reliability.md) | Agent Loop 可靠性止血 | 无 | ~1 周 | 🔵 进行中 | 代码完成·9 Task 全审查通过·PR→dev,待真机 5 项验证 | — |
 | 2 | [phase-2](./phase-2-context-web-hotfix.md) | Context 与 Web 止血包 | 无 | ~1 周 | 🔵 进行中 | 代码完成·7 Task 全审查通过·整支终审 With fixes(1 回归+1 Minor 已修复复核)·[PR #26](https://github.com/Skykai521/VibeApp/pull/26)→dev,待真机 4 项验证 | — |
-| 3 | [phase-3](./phase-3-debug-experience.md) | 调试体验强化(截图/崩溃推送/DebugBridge) | 无 | ~1.5 周 | ⬜ 未开始 | — | — |
+| 3 | [phase-3](./phase-3-debug-experience.md) | 调试体验强化(截图/崩溃推送/DebugBridge) | 无 | ~1.5 周 | 🔵 进行中 | 代码完成·7 Task 全独立 commit·`:app`+`:build-engine` 测试全绿+`assembleDebug`·[PR #27](https://github.com/Skykai521/VibeApp/pull/27)→dev,待真机 7 项验证 | — |
 | 4 | [phase-4](./phase-4-context-refactor.md) | Context 核心重构(淘汰/持久化/校准/预算) | Phase 2 | ~2 周 | ⬜ 未开始 | — | — |
 | 5 | [phase-5](./phase-5-web-search-providers.md) | Web 搜索 Provider 化与内容管理 | Phase 2 | ~1.5 周 | ⬜ 未开始 | — | — |
 | 6 | [phase-6](./phase-6-performance-and-cost.md) | 性能与成本(prompt cache/R.class 缓存/Room) | 无硬前置(6.3 与 4.3 有衔接) | ~1.5 周 | ⬜ 未开始 | — | — |
@@ -73,6 +73,16 @@
 - **cosmetic(won't-fix / 择机)**:`deliveredRangeEnd` 在 char 截断跨行时 `range.end` 至多多算一行(保守、已封顶);`clampFileContent` 两次 `lines()`;2.7 选择器轮询探测 11 次 vs 名义 10(延迟界仍 3s);`EngineCircuitBreaker.blockedUntil` 不清理过期项(仅 3 引擎)。
 - **共享接口(Phase 5 复用)**:`WebFailureKind` / `EngineFailure` / `WebSearchFailedException` / `EngineCircuitBreaker` 已就绪,终审确认公共面设计良好。
 - **待真机验证(标 ✅ 前必做)**:见 phase-2 文档"Phase 完成检查"的 4 项人工清单。
+
+### Phase 3 遗留跟进(代码完成,2026-07-04)
+
+> Phase 3 全 7 Task 代码完成,分支 `opt/phase-3-debug-experience`,逐 Task 独立 commit,`:app:testDebugUnitTest`(全套件)+`:build-engine:test`+`assembleDebug` 全绿。开工前用 Explore agent 全量核实锚点,修正了若干计划错误(详见 phase-3 文档"实施记录")。以下为合并前后需注意项:
+
+- **必须一起合并的构建产物**:`build-engine/src/main/assets/shadow-runtime.jar` 已随 3.4/3.5 的 shadow-runtime 源码改动重生成并提交(单独 commit)。生成 app 编译链接此 jar,漏合会导致新 runtime API 缺失。
+- **计划偏差(已在分支内处理,供追溯)**:(1) `ToolResultContent.content` 由 `String` 改 `List<MessageContent>` 以支持 tool_result 嵌图(3.2);(2) `PluginLaunchProxyActivity` 继承 `ComponentActivity`(Hilt 要求,非计划的 `Activity`)(3.3);(3) DebugBridge 证书校验基于 AOSP testkey 的 DER SHA-256(`a40da80a…bf5dc`),非计划设想的 keystore/keytool(3.6)。
+- **共享接口就绪**:`DebugReportProvider`/`DebugReportValidator`(注册表第 3/7 行)已按注册表命名交付,authority `com.vibe.app.debugreport`。
+- **非视觉 provider 降级**:capture_screenshot 的图片仅 Anthropic gateway 内联进 tool_result;其它 gateway 忽略 attachments,模型见文本 note(设计如此,无需改)。
+- **待真机验证(标 ✅ 前必做)**:见 phase-3 文档"Phase 完成检查"的 7 项人工清单(崩溃推送/截图/后台通知/getIntent/生命周期/安装模式回流/独立模式回归)。
 
 ---
 
