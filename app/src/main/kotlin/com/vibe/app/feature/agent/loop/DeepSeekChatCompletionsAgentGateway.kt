@@ -1,5 +1,6 @@
 package com.vibe.app.feature.agent.loop
 
+import com.vibe.app.data.dto.openai.response.ErrorDetail
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.request.QwenChatMessage
 import com.vibe.app.data.dto.qwen.request.QwenFunctionCall
@@ -15,6 +16,7 @@ import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolChoiceMode
+import com.vibe.app.feature.agent.INVALID_TOOL_ARGUMENTS_KEY
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
@@ -50,8 +52,6 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
     }
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
-        openAIAPI.setToken(request.platform.token)
-        openAIAPI.setAPIUrl(request.platform.apiUrl.toDeepSeekBaseUrl())
         val trace = ModelExecutionTrace()
         val isReasoning = request.platform.reasoning
 
@@ -82,7 +82,7 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
         val toolCallAccumulators = mutableMapOf<Int, ToolCallAccumulator>()
         var finishReason: String? = null
         val reasoningBuilder = StringBuilder()
-        var streamError: String? = null
+        var streamError: ErrorDetail? = null
 
         openAIAPI.streamQwenChatCompletion(
             QwenChatCompletionRequest(
@@ -101,11 +101,13 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
                 stream = true,
                 thinking = if (isReasoning) QwenThinkingParam(type = "enabled") else null,
             ),
+            token = request.platform.token,
+            apiUrl = request.platform.apiUrl.toDeepSeekBaseUrl(),
             diagnosticContext = requestContext,
             trace = trace,
         ).collect { chunk ->
             if (chunk.error != null) {
-                streamError = chunk.error.message
+                streamError = chunk.error
                 trace.markFailed(chunk.error.type ?: "provider_error", chunk.error.message)
                 return@collect
             }
@@ -139,7 +141,15 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
                 diagnosticLogger.logModelResponse(requestContext, trace, success = false)
                 diagnosticLogger.logLatencyBreakdown(requestContext, trace)
             }
-            emit(AgentModelEvent.Failed(error))
+            val status = error.code?.toIntOrNull()
+            emit(
+                AgentModelEvent.Failed(
+                    message = error.message,
+                    statusCode = status,
+                    retryable = ModelFailureClassifier.isRetryable(status, error.type),
+                    retryAfterSeconds = error.retryAfterSeconds,
+                ),
+            )
             return@flow
         }
 
@@ -149,7 +159,7 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
             val arguments = runCatching {
                 json.parseToJsonElement(acc.arguments.toString())
             }.getOrElse {
-                buildJsonObject { put("raw", JsonPrimitive(acc.arguments.toString())) }
+                buildJsonObject { put(INVALID_TOOL_ARGUMENTS_KEY, JsonPrimitive(acc.arguments.toString().take(2000))) }
             }
             emit(
                 AgentModelEvent.ToolCallReady(
@@ -166,7 +176,12 @@ class DeepSeekChatCompletionsAgentGateway @Inject constructor(
             diagnosticLogger.logModelResponse(requestContext, trace, success = true)
             diagnosticLogger.logLatencyBreakdown(requestContext, trace)
         }
-        emit(AgentModelEvent.Completed(reasoningContent = reasoningContent))
+        emit(
+            AgentModelEvent.Completed(
+                reasoningContent = reasoningContent,
+                truncatedByMaxTokens = finishReason == "length",
+            ),
+        )
     }
 
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {

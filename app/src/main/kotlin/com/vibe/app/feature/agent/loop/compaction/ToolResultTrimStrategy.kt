@@ -72,6 +72,10 @@ class ToolResultTrimStrategy : CompactionStrategy {
     }
 
     private fun trimToolPayload(toolName: String?, payload: JsonElement): JsonElement {
+        when (toolName) {
+            "web_search" -> return trimWebSearchPayload(payload)
+            "fetch_web_page" -> if (payload is JsonObject) return trimFetchPagePayload(payload)
+        }
         if (payload !is JsonObject) return payload
         return when (toolName) {
             "read_project_file" -> trimReadFilePayload(payload)
@@ -90,6 +94,23 @@ class ToolResultTrimStrategy : CompactionStrategy {
             }
             "grep_project_files" -> trimGrepPayload(payload)
             else -> payload
+        }
+    }
+
+    private fun trimWebSearchPayload(payload: JsonElement): JsonElement {
+        val count = (payload as? JsonArray)?.size
+        return buildJsonObject {
+            put("note", JsonPrimitive("[Search results trimmed (${count ?: 0} results) — run web_search again if needed]"))
+        }
+    }
+
+    private fun trimFetchPagePayload(payload: JsonObject): JsonElement {
+        val url = payload["url"]?.jsonPrimitive?.content ?: "unknown"
+        val chars = payload["content"]?.jsonPrimitive?.content?.length ?: 0
+        return buildJsonObject {
+            payload["title"]?.let { put("title", it) }
+            put("url", JsonPrimitive(url))
+            put("content", JsonPrimitive("[Web page: $url, $chars chars — trimmed, re-fetch if needed]"))
         }
     }
 
@@ -170,7 +191,10 @@ class ToolResultTrimStrategy : CompactionStrategy {
             for (item in items) {
                 if (item.role == AgentMessageRole.USER) {
                     turns.add(mutableListOf(item))
-                } else if (turns.isNotEmpty()) {
+                } else {
+                    // Leading non-USER items (e.g. compaction summaries) form a preamble
+                    // group so they are never silently dropped by re-compaction.
+                    if (turns.isEmpty()) turns.add(mutableListOf())
                     turns.last().add(item)
                 }
             }

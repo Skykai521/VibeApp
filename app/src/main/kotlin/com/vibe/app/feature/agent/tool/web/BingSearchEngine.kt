@@ -7,6 +7,8 @@ class BingSearchEngine : WebSearchEngine {
 
     override val name: String = "Bing"
 
+    override val resultsSelector: String = "li.b_algo"
+
     override fun buildSearchUrl(query: String): String {
         val encoded = URLEncoder.encode(query, "UTF-8")
         return "https://cn.bing.com/search?q=$encoded&ensearch=0"

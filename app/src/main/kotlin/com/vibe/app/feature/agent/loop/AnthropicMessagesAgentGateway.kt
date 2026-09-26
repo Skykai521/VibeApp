@@ -32,6 +32,7 @@ import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolChoiceMode
+import com.vibe.app.feature.agent.INVALID_TOOL_ARGUMENTS_KEY
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
@@ -43,6 +44,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 
 /**
@@ -71,8 +73,6 @@ class AnthropicMessagesAgentGateway @Inject constructor(
     }
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
-        anthropicAPI.setToken(request.platform.token)
-        anthropicAPI.setAPIUrl(request.platform.apiUrl)
         val trace = ModelExecutionTrace()
 
         val messages = buildMessages(request.fullConversation)
@@ -115,7 +115,13 @@ class AnthropicMessagesAgentGateway @Inject constructor(
         val activeToolBlocks = mutableMapOf<Int, ToolUseBlock>()
         var stopReason: StopReason? = null
 
-        anthropicAPI.streamChatMessage(messageRequest, requestContext, trace).collect { chunk ->
+        anthropicAPI.streamChatMessage(
+            messageRequest,
+            token = request.platform.token,
+            apiUrl = request.platform.apiUrl,
+            diagnosticContext = requestContext,
+            trace = trace,
+        ).collect { chunk ->
             when (chunk) {
                 is MessageStartResponseChunk -> {
                     trace.markInputTokens(
@@ -166,7 +172,11 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                     activeToolBlocks.remove(chunk.index)?.let { block ->
                         val arguments = block.inputBuilder.toString()
                             .takeIf { it.isNotBlank() }
-                            ?.let { runCatching { json.parseToJsonElement(it) }.getOrElse { buildJsonObject {} } }
+                            ?.let { raw ->
+                                runCatching { json.parseToJsonElement(raw) }.getOrElse {
+                                    buildJsonObject { put(INVALID_TOOL_ARGUMENTS_KEY, JsonPrimitive(raw.take(2000))) }
+                                }
+                            }
                             ?: buildJsonObject {}
                         emit(
                             AgentModelEvent.ToolCallReady(
@@ -187,12 +197,19 @@ class AnthropicMessagesAgentGateway @Inject constructor(
 
                 is MessageStopResponseChunk -> {
                     trace.markCompleted(stopReason?.name?.lowercase())
-                    emit(AgentModelEvent.Completed())
+                    emit(AgentModelEvent.Completed(truncatedByMaxTokens = stopReason == StopReason.MAX_TOKENS))
                 }
 
                 is ErrorResponseChunk -> {
                     trace.markFailed("provider_error", chunk.error.message)
-                    emit(AgentModelEvent.Failed(chunk.error.message))
+                    emit(
+                        AgentModelEvent.Failed(
+                            message = chunk.error.message,
+                            statusCode = chunk.error.statusCode,
+                            retryable = ModelFailureClassifier.isRetryable(chunk.error.statusCode, chunk.error.type),
+                            retryAfterSeconds = chunk.error.retryAfterSeconds,
+                        ),
+                    )
                 }
 
                 else -> Unit
@@ -251,12 +268,19 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                     val toolResultBlocks = buildList {
                         while (i < conversation.size && conversation[i].role == AgentMessageRole.TOOL) {
                             val t = conversation[i]
+                            val payloadText = t.payload?.toString() ?: t.text.orEmpty()
+                            // Text payload first, then any image attachments the tool surfaced
+                            // (e.g. capture_screenshot) so vision models see the rendering.
+                            val blocks = buildList<MessageContent> {
+                                add(TextContent(payloadText))
+                                addImageAttachments(t.attachments)
+                            }
                             add(
                                 ToolResultContent(
                                     toolUseId = requireNotNull(t.toolCallId) {
                                         "TOOL item missing toolCallId"
                                     },
-                                    content = t.payload?.toString() ?: t.text.orEmpty(),
+                                    content = blocks,
                                     isError = null,
                                 ),
                             )
@@ -267,7 +291,7 @@ class AnthropicMessagesAgentGateway @Inject constructor(
                 }
             }
         }
-        return messages
+        return ensureLeadingUserMessage(mergeConsecutiveSameRole(messages))
     }
 
     private fun buildToolChoice(mode: AgentToolChoiceMode): AnthropicToolChoice {
@@ -279,13 +303,18 @@ class AnthropicMessagesAgentGateway @Inject constructor(
     }
 
     private fun buildUserContent(item: AgentConversationItem): List<MessageContent> = buildList {
-        item.attachments.forEach { path ->
+        addImageAttachments(item.attachments)
+        add(TextContent(item.text.orEmpty()))
+    }
+
+    /** Encodes each attachment path as an [ImageContent] block, skipping non-image or unreadable ones. */
+    private fun MutableList<MessageContent>.addImageAttachments(attachments: List<String>) {
+        attachments.forEach { path ->
             val mimeType = FileUtils.getMimeType(context, path)
             val mediaType = mimeTypeToMediaType(mimeType) ?: return@forEach
             val base64 = FileUtils.readAndEncodeFile(context, path) ?: return@forEach
             add(ImageContent(source = ImageSource(type = ImageSourceType.BASE64, mediaType = mediaType, data = base64)))
         }
-        add(TextContent(item.text.orEmpty()))
     }
 
     private fun mimeTypeToMediaType(mimeType: String): MediaType? = when (mimeType.lowercase()) {
@@ -300,3 +329,33 @@ class AnthropicMessagesAgentGateway @Inject constructor(
         private const val DEFAULT_MAX_TOKENS = 16000
     }
 }
+
+/**
+ * Anthropic Messages API requires alternating user/assistant roles.
+ * Compaction summaries can produce consecutive same-role messages —
+ * merge their content blocks into a single message defensively.
+ */
+internal fun mergeConsecutiveSameRole(messages: List<InputMessage>): List<InputMessage> {
+    val merged = mutableListOf<InputMessage>()
+    for (msg in messages) {
+        val last = merged.lastOrNull()
+        if (last != null && last.role == msg.role) {
+            merged[merged.size - 1] = last.copy(content = last.content + msg.content)
+        } else {
+            merged += msg
+        }
+    }
+    return merged
+}
+
+/**
+ * The Anthropic Messages API requires the first message to use the `user` role.
+ * Compaction can now emit an ASSISTANT-role summary at the head of the conversation,
+ * which would 400. Prepend a minimal synthetic user turn when that happens.
+ */
+internal fun ensureLeadingUserMessage(messages: List<InputMessage>): List<InputMessage> =
+    if (messages.firstOrNull()?.role == MessageRole.ASSISTANT) {
+        listOf(InputMessage(role = MessageRole.USER, content = listOf(TextContent("(conversation continues)")))) + messages
+    } else {
+        messages
+    }

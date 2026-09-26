@@ -8,7 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
 /**
  * Strategy 2: Structurally summarize older turns into compact single-item representations.
  *
- * Each older turn is compressed into a single USER-role item containing:
+ * Each older turn is compressed into a single ASSISTANT-role item containing:
  * - User request (up to 500 chars)
  * - Tool names and file paths operated on
  * - Assistant response summary (up to 500 chars)
@@ -30,7 +30,9 @@ class StructuralSummaryStrategy : CompactionStrategy {
         val olderTurns = turns.dropLast(recentTurnCount)
         val recentTurns = turns.takeLast(recentTurnCount)
 
-        val summaryItems = olderTurns.mapNotNull { turn -> summarizeTurn(turn) }
+        val summaryItems = olderTurns.flatMap { turn ->
+            summarizeTurn(turn)?.let { listOf(it) } ?: turn
+        }
         val recentItems = recentTurns.flatten()
         val result = summaryItems + recentItems
 
@@ -84,7 +86,7 @@ class StructuralSummaryStrategy : CompactionStrategy {
             .take(MAX_ASSISTANT_TEXT)
 
         val summary = buildString {
-            append("[Compacted Turn]\n")
+            append("[Compacted context]\n")
             append("User: $userText\n")
             if (toolSummaries.isNotEmpty()) {
                 append("Tools: ${toolSummaries.joinToString(", ")}\n")
@@ -98,7 +100,7 @@ class StructuralSummaryStrategy : CompactionStrategy {
         }
 
         return AgentConversationItem(
-            role = AgentMessageRole.USER,
+            role = AgentMessageRole.ASSISTANT,
             text = summary,
         )
     }

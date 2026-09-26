@@ -84,5 +84,8 @@ data class ErrorDetail(
     val type: String? = null,
 
     @SerialName("code")
-    val code: String? = null
+    val code: String? = null,
+
+    // Filled locally by OpenAIAPIImpl from the HTTP response; never sent by the server.
+    val retryAfterSeconds: Int? = null,
 )

@@ -9,6 +9,11 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Package visibility (API 30+) so crash reports can reach VibeApp's DebugBridge provider. -->
+    <queries>
+        <provider android:authorities="com.vibe.app.debugreport" />
+    </queries>
+
     <application
         android:name=".CrashHandlerApp"
         android:allowBackup="true"

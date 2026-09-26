@@ -10,5 +10,9 @@ data class ErrorDetail(
     val type: String,
 
     @SerialName("message")
-    val message: String
+    val message: String,
+
+    // Filled locally by AnthropicAPIImpl from the HTTP response; never sent by the server.
+    val statusCode: Int? = null,
+    val retryAfterSeconds: Int? = null,
 )

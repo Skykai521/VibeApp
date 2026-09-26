@@ -14,7 +14,7 @@ import com.vibe.app.feature.agent.AgentMessageRole
  *
  * Makes a non-streaming API call to the same provider, asking it to produce
  * a concise summary of the conversation history. The summary replaces all
- * older turns with a single USER-role item.
+ * older turns with a single ASSISTANT-role item.
  *
  * Only available for OpenAI-compatible providers (Qwen, Kimi, etc.)
  * via the existing completeQwenChatCompletion endpoint.
@@ -61,8 +61,8 @@ class ModelSummaryStrategy(
         if (summary.isNullOrBlank()) return null
 
         val summaryItem = AgentConversationItem(
-            role = AgentMessageRole.USER,
-            text = "[Conversation Summary]\n$summary",
+            role = AgentMessageRole.ASSISTANT,
+            text = "[Compacted context]\n$summary",
         )
 
         val result = listOf(summaryItem) + recentTurns.flatten()
@@ -98,10 +98,6 @@ class ModelSummaryStrategy(
     }
 
     private suspend fun callSummarizationAPI(text: String): String? {
-        // Configure API credentials for the summarization call
-        openAIAPI.setToken(token)
-        openAIAPI.setAPIUrl(apiUrl)
-
         val response = openAIAPI.completeQwenChatCompletion(
             QwenChatCompletionRequest(
                 model = model,
@@ -117,6 +113,8 @@ class ModelSummaryStrategy(
                 ),
                 stream = false,
             ),
+            token = token,
+            apiUrl = apiUrl,
         )
         return response.choices?.firstOrNull()?.message?.content?.trim()
     }

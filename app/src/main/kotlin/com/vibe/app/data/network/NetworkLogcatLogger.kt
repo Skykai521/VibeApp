@@ -1,8 +1,12 @@
 package com.vibe.app.data.network
 
 import android.util.Log
+import com.vibe.app.BuildConfig
 
 object NetworkLogcatLogger {
+
+    /** Verbose bodies/SSE only in debug builds; release logs metadata and errors only. */
+    private val verbose: Boolean = BuildConfig.DEBUG
 
     private const val TAG = "VibeNetwork"
     private const val MAX_LOGCAT_CHUNK_LENGTH = 3_000
@@ -30,7 +34,7 @@ object NetworkLogcatLogger {
             appendHeaders("COMMON HEADERS", commonHeaders)
             appendHeaders("CONTENT HEADERS", contentHeaders)
 
-            if (bodyContentType != null || body != null) {
+            if (verbose && (bodyContentType != null || body != null)) {
                 appendLine("BODY Content-Type: ${bodyContentType ?: "unknown"}")
                 appendLine("BODY START")
                 appendLine((body ?: "").clip(MAX_BODY_LENGTH))
@@ -66,10 +70,14 @@ object NetworkLogcatLogger {
 
             when {
                 body != null -> {
-                    appendLine("BODY Content-Type: ${bodyContentType ?: "unknown"}")
-                    appendLine("BODY START")
-                    appendLine(body.clip(MAX_BODY_LENGTH))
-                    append("BODY END")
+                    // release still triages HTTP errors, so >=400 bodies are logged
+                    // (clipped shorter) even when verbose request/response logging is off.
+                    if (verbose || statusCode >= 400) {
+                        appendLine("BODY Content-Type: ${bodyContentType ?: "unknown"}")
+                        appendLine("BODY START")
+                        appendLine(body.clip(if (verbose) MAX_BODY_LENGTH else 500))
+                        append("BODY END")
+                    }
                 }
 
                 streamedBody -> {
@@ -85,6 +93,8 @@ object NetworkLogcatLogger {
         url: String,
         block: String,
     ) {
+        if (!verbose) return
+
         debug(
             buildString {
                 appendLine("SSE EVENT FROM: $url")
@@ -105,7 +115,7 @@ object NetworkLogcatLogger {
                 appendLine("SSE DECODE FAILURE: $url")
                 appendLine("ERROR: ${throwable.message ?: throwable::class.java.simpleName}")
                 appendLine("BODY START")
-                appendLine(rawData.clip(MAX_BODY_LENGTH))
+                appendLine(rawData.clip(if (verbose) MAX_BODY_LENGTH else 500))
                 append("BODY END")
             },
         )

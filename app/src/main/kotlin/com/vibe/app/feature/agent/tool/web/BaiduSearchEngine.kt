@@ -7,6 +7,8 @@ class BaiduSearchEngine : WebSearchEngine {
 
     override val name: String = "Baidu"
 
+    override val resultsSelector: String = "div.c-result, div.result, div.c-container"
+
     override fun buildSearchUrl(query: String): String {
         val encoded = URLEncoder.encode(query, "UTF-8")
         return "https://www.baidu.com/s?wd=$encoded"

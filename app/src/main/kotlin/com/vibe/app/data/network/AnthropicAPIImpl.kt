@@ -5,6 +5,7 @@ import com.vibe.app.data.dto.anthropic.request.MessageRequest
 import com.vibe.app.data.dto.anthropic.response.ErrorDetail
 import com.vibe.app.data.dto.anthropic.response.ErrorResponseChunk
 import com.vibe.app.data.dto.anthropic.response.MessageResponseChunk
+import com.vibe.app.data.dto.anthropic.response.MessageStopResponseChunk
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
@@ -31,9 +32,6 @@ class AnthropicAPIImpl @Inject constructor(
     private val diagnosticLogger: ChatDiagnosticLogger,
 ) : AnthropicAPI {
 
-    private var token: String? = null
-    private var apiUrl: String = ModelConstants.ANTHROPIC_API_URL
-
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -41,20 +39,15 @@ class AnthropicAPIImpl @Inject constructor(
         explicitNulls = false
     }
 
-    override fun setToken(token: String?) {
-        this.token = token
-    }
-
-    override fun setAPIUrl(url: String) {
-        this.apiUrl = url
-    }
-
     override fun streamChatMessage(
         messageRequest: MessageRequest,
+        token: String?,
+        apiUrl: String,
         diagnosticContext: ModelRequestDiagnosticContext?,
         trace: ModelExecutionTrace?,
     ): Flow<MessageResponseChunk> = flow {
-        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/messages" else "$apiUrl/v1/messages"
+        val baseUrl = apiUrl.ifBlank { ModelConstants.ANTHROPIC_API_URL }
+        val endpoint = if (baseUrl.endsWith("/")) "${baseUrl}v1/messages" else "$baseUrl/v1/messages"
         val requestBody = json.encodeToJsonElement(messageRequest).toString()
         val requestStartedAt = System.currentTimeMillis()
         trace?.markRequestStarted(requestStartedAt)
@@ -122,25 +115,54 @@ class AnthropicAPIImpl @Inject constructor(
                         "HTTP ${response.status.value}: $errorBody"
                     }
 
-                    emit(ErrorResponseChunk(error = ErrorDetail(type = "api_error", message = errorMessage)))
+                    emit(
+                        ErrorResponseChunk(
+                            error = ErrorDetail(
+                                type = "api_error",
+                                message = errorMessage,
+                                statusCode = response.status.value,
+                                retryAfterSeconds = response.headers["Retry-After"]?.toIntOrNull(),
+                            ),
+                        ),
+                    )
                     return@execute
                 }
 
                 // Success - read SSE stream
                 val channel = response.bodyAsChannel()
                 val eventLines = mutableListOf<String>()
+                var sawTerminal = false
+                val trackingEmit: suspend (MessageResponseChunk) -> Unit = { chunk ->
+                    // message_stop is the normal terminator; a server-sent error chunk (e.g.
+                    // overloaded_error) also legitimately ends the stream without message_stop —
+                    // treat both as terminal so a real error isn't masked by a spurious
+                    // stream_interrupted emitted after it.
+                    if (chunk is MessageStopResponseChunk || chunk is ErrorResponseChunk) {
+                        sawTerminal = true
+                    }
+                    emit(chunk)
+                }
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
                     if (line.isBlank()) {
-                        handleAnthropicSseEvent(endpoint, eventLines) { emit(it) }
+                        handleAnthropicSseEvent(endpoint, eventLines, trackingEmit)
                         eventLines.clear()
                         continue
                     }
                     eventLines += line
                 }
-
                 if (eventLines.isNotEmpty()) {
-                    handleAnthropicSseEvent(endpoint, eventLines) { emit(it) }
+                    handleAnthropicSseEvent(endpoint, eventLines, trackingEmit)
+                }
+                if (!sawTerminal) {
+                    emit(
+                        ErrorResponseChunk(
+                            error = ErrorDetail(
+                                type = "stream_interrupted",
+                                message = "SSE stream ended without message_stop — response was truncated by a dropped connection.",
+                            ),
+                        ),
+                    )
                 }
             }
         } catch (e: Exception) {

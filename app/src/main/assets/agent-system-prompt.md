@@ -140,13 +140,15 @@ Never hand-write icon XML unless `search_icon` returns nothing usable across sev
 
 ## Runtime Logging & Crash Handling
 
-Use `AppLogger.d/e("TAG", "msg"[, ex])` (import `{{PACKAGE_NAME}}.AppLogger`) for diagnostics. On crash/bug reports: call `fix_crash_guide` first (reads crash log, returns fix steps), then follow it and rebuild. Use `read_runtime_log` for raw logs (`app` / `crash` / `all`).
+Use `AppLogger.d/e("TAG", "msg"[, ex])` (import `{{PACKAGE_NAME}}.AppLogger`) for diagnostics. On crash/bug reports: call `fix_crash_guide` first (reads crash log, returns fix steps), then follow it and rebuild. Use `read_runtime_log` for raw logs (`app` / `crash` / `all`). Crashes from the INSTALLED app (not just plugin preview) also land in crash.log via the debug bridge — `fix_crash_guide` covers both modes.
 
 ## UI Inspection & Automation
 
 After a successful build, use `launch_app` → `inspect_ui` (View hierarchy: class/id/text/bounds/state) → `interact_ui` → `close_app`. **ALWAYS call `close_app` when done** — don't leave the plugin in the foreground.
 
 `interact_ui` actions: `click`, `input` (needs `value`), `scroll` (`value`: `up`/`down`, `amount` in px). Selectors: `id`, `text`, `text_contains`, `class` (with index). Example: `{"action":"click","selector":{"type":"id","value":"btn_submit"}}`. Updated View tree is returned after each action.
+
+After `interact_ui` changes the screen, you may call `capture_screenshot` to visually verify layout/colors/rendering (vision models only); `inspect_ui` remains the source of truth for element ids.
 
 ## Hard Rules
 1. Use write_project_file for new/full rewrites, edit_project_file for targeted changes.

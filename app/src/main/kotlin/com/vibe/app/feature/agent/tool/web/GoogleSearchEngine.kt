@@ -7,6 +7,8 @@ class GoogleSearchEngine : WebSearchEngine {
 
     override val name: String = "Google"
 
+    override val resultsSelector: String = "div.g"
+
     override fun buildSearchUrl(query: String): String {
         val encoded = URLEncoder.encode(query, "UTF-8")
         return "https://www.google.com/search?q=$encoded&hl=en"

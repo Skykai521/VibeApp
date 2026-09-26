@@ -5,7 +5,9 @@ import com.vibe.app.data.dto.openai.request.ChatCompletionRequest
 import com.vibe.app.data.dto.openai.request.ResponsesRequest
 import com.vibe.app.data.dto.openai.response.ChatCompletionChunk
 import com.vibe.app.data.dto.openai.response.ErrorDetail
+import com.vibe.app.data.dto.openai.response.ResponseCompletedEvent
 import com.vibe.app.data.dto.openai.response.ResponseErrorEvent
+import com.vibe.app.data.dto.openai.response.ResponseFailedEvent
 import com.vibe.app.data.dto.openai.response.ResponsesStreamEvent
 import com.vibe.app.data.dto.openai.response.UnknownEvent
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
@@ -14,6 +16,7 @@ import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
 import io.ktor.client.call.body
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.preparePost
@@ -35,23 +38,15 @@ class OpenAIAPIImpl @Inject constructor(
     private val diagnosticLogger: ChatDiagnosticLogger,
 ) : OpenAIAPI {
 
-    private var token: String? = null
-    private var apiUrl: String = ModelConstants.OPENAI_API_URL
-
-    override fun setToken(token: String?) {
-        this.token = token
-    }
-
-    override fun setAPIUrl(url: String) {
-        this.apiUrl = url
-    }
-
     override fun streamQwenChatCompletion(
         request: QwenChatCompletionRequest,
+        token: String?,
+        apiUrl: String,
         diagnosticContext: ModelRequestDiagnosticContext?,
         trace: ModelExecutionTrace?,
     ): Flow<ChatCompletionChunk> = flow {
-        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val baseUrl = apiUrl.ifBlank { ModelConstants.OPENAI_API_URL }
+        val endpoint = if (baseUrl.endsWith("/")) "${baseUrl}v1/chat/completions" else "$baseUrl/v1/chat/completions"
         val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
         val requestStartedAt = System.currentTimeMillis()
         trace?.markRequestStarted(requestStartedAt)
@@ -63,7 +58,7 @@ class OpenAIAPIImpl @Inject constructor(
                 startedAt = requestStartedAt,
             )
         }
-        logOpenAiRequest(endpoint, requestBody)
+        logOpenAiRequest(endpoint, requestBody, token)
 
         try {
             val startTime = requestStartedAt
@@ -94,6 +89,7 @@ class OpenAIAPIImpl @Inject constructor(
                                 message = errorBody,
                                 type = "http_error",
                                 code = response.status.value.toString(),
+                                retryAfterSeconds = response.headers["Retry-After"]?.toIntOrNull(),
                             ),
                         ),
                     )
@@ -102,19 +98,40 @@ class OpenAIAPIImpl @Inject constructor(
 
                 val channel = response.bodyAsChannel()
                 val eventLines = mutableListOf<String>()
+                var sawTerminal = false
+                val trackingEmit: suspend (ChatCompletionChunk) -> Unit = { chunk ->
+                    // A non-null finish_reason is the normal terminator. A decoded inline `error`
+                    // object (some OpenAI-compatible endpoints, e.g. Ollama, can send one as the
+                    // final chunk on a 200 response) also legitimately ends the stream — treat it
+                    // as terminal so it isn't masked by a spurious stream_interrupted after it.
+                    if (chunk.choices?.firstOrNull()?.finishReason != null || chunk.error != null) sawTerminal = true
+                    emit(chunk)
+                }
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
                     if (line.isBlank()) {
-                        val shouldStop = handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                        val shouldStop = handleChatCompletionSseEvent(endpoint, eventLines, trackingEmit)
                         eventLines.clear()
-                        if (shouldStop) break
+                        if (shouldStop) {
+                            sawTerminal = true
+                            break
+                        }
                         continue
                     }
                     eventLines += line
                 }
-
                 if (eventLines.isNotEmpty()) {
-                    handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                    handleChatCompletionSseEvent(endpoint, eventLines, trackingEmit)
+                }
+                if (!sawTerminal) {
+                    emit(
+                        ChatCompletionChunk(
+                            error = ErrorDetail(
+                                message = "SSE stream ended without [DONE]/finish_reason — response was truncated.",
+                                type = "stream_interrupted",
+                            ),
+                        ),
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -137,10 +154,13 @@ class OpenAIAPIImpl @Inject constructor(
 
     override suspend fun completeQwenChatCompletion(
         request: QwenChatCompletionRequest,
+        token: String?,
+        apiUrl: String,
         diagnosticContext: ModelRequestDiagnosticContext?,
         trace: ModelExecutionTrace?,
     ): QwenChatCompletionResponse {
-        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val baseUrl = apiUrl.ifBlank { ModelConstants.OPENAI_API_URL }
+        val endpoint = if (baseUrl.endsWith("/")) "${baseUrl}v1/chat/completions" else "$baseUrl/v1/chat/completions"
         val requestBody = NetworkClient.json.encodeToJsonElement(request).toString()
         val requestStartedAt = System.currentTimeMillis()
         trace?.markRequestStarted(requestStartedAt)
@@ -169,6 +189,7 @@ class OpenAIAPIImpl @Inject constructor(
         return try {
             val startTime = requestStartedAt
             networkClient().preparePost(endpoint) {
+                timeout { requestTimeoutMillis = 300_000 }
                 contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 setBody(requestBody)
@@ -257,10 +278,13 @@ class OpenAIAPIImpl @Inject constructor(
 
     override fun streamChatCompletion(
         request: ChatCompletionRequest,
+        token: String?,
+        apiUrl: String,
         diagnosticContext: ModelRequestDiagnosticContext?,
         trace: ModelExecutionTrace?,
     ): Flow<ChatCompletionChunk> = flow {
-        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/chat/completions" else "$apiUrl/v1/chat/completions"
+        val baseUrl = apiUrl.ifBlank { ModelConstants.OPENAI_API_URL }
+        val endpoint = if (baseUrl.endsWith("/")) "${baseUrl}v1/chat/completions" else "$baseUrl/v1/chat/completions"
         val requestBody = NetworkClient.openAIJson.encodeToJsonElement(request).toString()
         val requestStartedAt = System.currentTimeMillis()
         trace?.markRequestStarted(requestStartedAt)
@@ -272,7 +296,7 @@ class OpenAIAPIImpl @Inject constructor(
                 startedAt = requestStartedAt,
             )
         }
-        logOpenAiRequest(endpoint, requestBody)
+        logOpenAiRequest(endpoint, requestBody, token)
 
         try {
             val startTime = requestStartedAt
@@ -319,7 +343,8 @@ class OpenAIAPIImpl @Inject constructor(
                             error = ErrorDetail(
                                 message = errorMessage,
                                 type = "http_error",
-                                code = response.status.value.toString()
+                                code = response.status.value.toString(),
+                                retryAfterSeconds = response.headers["Retry-After"]?.toIntOrNull(),
                             )
                         )
                     )
@@ -329,19 +354,40 @@ class OpenAIAPIImpl @Inject constructor(
                 // Success - read SSE stream
                 val channel = response.bodyAsChannel()
                 val eventLines = mutableListOf<String>()
+                var sawTerminal = false
+                val trackingEmit: suspend (ChatCompletionChunk) -> Unit = { chunk ->
+                    // A non-null finish_reason is the normal terminator. A decoded inline `error`
+                    // object (some OpenAI-compatible endpoints, e.g. Ollama, can send one as the
+                    // final chunk on a 200 response) also legitimately ends the stream — treat it
+                    // as terminal so it isn't masked by a spurious stream_interrupted after it.
+                    if (chunk.choices?.firstOrNull()?.finishReason != null || chunk.error != null) sawTerminal = true
+                    emit(chunk)
+                }
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
                     if (line.isBlank()) {
-                        val shouldStop = handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                        val shouldStop = handleChatCompletionSseEvent(endpoint, eventLines, trackingEmit)
                         eventLines.clear()
-                        if (shouldStop) break
+                        if (shouldStop) {
+                            sawTerminal = true
+                            break
+                        }
                         continue
                     }
                     eventLines += line
                 }
-
                 if (eventLines.isNotEmpty()) {
-                    handleChatCompletionSseEvent(endpoint, eventLines) { emit(it) }
+                    handleChatCompletionSseEvent(endpoint, eventLines, trackingEmit)
+                }
+                if (!sawTerminal) {
+                    emit(
+                        ChatCompletionChunk(
+                            error = ErrorDetail(
+                                message = "SSE stream ended without [DONE]/finish_reason — response was truncated.",
+                                type = "stream_interrupted",
+                            ),
+                        ),
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -367,10 +413,13 @@ class OpenAIAPIImpl @Inject constructor(
 
     override fun streamResponses(
         request: ResponsesRequest,
+        token: String?,
+        apiUrl: String,
         diagnosticContext: ModelRequestDiagnosticContext?,
         trace: ModelExecutionTrace?,
     ): Flow<ResponsesStreamEvent> = flow {
-        val endpoint = if (apiUrl.endsWith("/")) "${apiUrl}v1/responses" else "$apiUrl/v1/responses"
+        val baseUrl = apiUrl.ifBlank { ModelConstants.OPENAI_API_URL }
+        val endpoint = if (baseUrl.endsWith("/")) "${baseUrl}v1/responses" else "$baseUrl/v1/responses"
         val requestBody = NetworkClient.openAIJson.encodeToJsonElement(request).toString()
         val requestStartedAt = System.currentTimeMillis()
         trace?.markRequestStarted(requestStartedAt)
@@ -382,7 +431,7 @@ class OpenAIAPIImpl @Inject constructor(
                 startedAt = requestStartedAt,
             )
         }
-        logOpenAiRequest(endpoint, requestBody)
+        logOpenAiRequest(endpoint, requestBody, token)
 
         try {
             val startTime = requestStartedAt
@@ -431,19 +480,40 @@ class OpenAIAPIImpl @Inject constructor(
                 // Success - read SSE stream
                 val channel = response.bodyAsChannel()
                 val eventLines = mutableListOf<String>()
+                var sawTerminal = false
+                val trackingEmit: suspend (ResponsesStreamEvent) -> Unit = { chunk ->
+                    // response.completed is the normal terminator; response.failed and a
+                    // server-sent error event also legitimately end the stream — treat them as
+                    // terminal so a real failure isn't masked by a spurious stream_interrupted
+                    // emitted after it.
+                    if (chunk is ResponseCompletedEvent || chunk is ResponseFailedEvent || chunk is ResponseErrorEvent) {
+                        sawTerminal = true
+                    }
+                    emit(chunk)
+                }
                 while (!channel.isClosedForRead) {
                     val line = channel.readUTF8Line() ?: break
                     if (line.isBlank()) {
-                        val shouldStop = handleResponsesSseEvent(endpoint, eventLines) { emit(it) }
+                        val shouldStop = handleResponsesSseEvent(endpoint, eventLines, trackingEmit)
                         eventLines.clear()
-                        if (shouldStop) break
+                        if (shouldStop) {
+                            sawTerminal = true
+                            break
+                        }
                         continue
                     }
                     eventLines += line
                 }
-
                 if (eventLines.isNotEmpty()) {
-                    handleResponsesSseEvent(endpoint, eventLines) { emit(it) }
+                    handleResponsesSseEvent(endpoint, eventLines, trackingEmit)
+                }
+                if (!sawTerminal) {
+                    emit(
+                        ResponseErrorEvent(
+                            message = "SSE stream ended without response.completed — response was truncated.",
+                            code = "stream_interrupted",
+                        ),
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -468,6 +538,7 @@ class OpenAIAPIImpl @Inject constructor(
     private fun logOpenAiRequest(
         endpoint: String,
         requestBody: String,
+        token: String?,
     ) {
         NetworkLogcatLogger.logRequest(
             method = "POST",

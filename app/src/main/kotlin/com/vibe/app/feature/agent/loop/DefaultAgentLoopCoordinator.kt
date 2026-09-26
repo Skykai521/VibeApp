@@ -14,6 +14,7 @@ import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolChoiceMode
 import com.vibe.app.feature.agent.AgentToolRegistry
 import com.vibe.app.feature.agent.AgentToolResult
+import com.vibe.app.feature.agent.INVALID_TOOL_ARGUMENTS_KEY
 import com.vibe.app.feature.agent.loop.compaction.CompactionStrategyType
 import com.vibe.app.feature.agent.loop.compaction.ConversationCompactor
 import com.vibe.app.feature.agent.loop.compaction.ProviderContextBudget
@@ -31,14 +32,20 @@ import com.vibe.app.feature.project.snapshot.SnapshotManager
 import com.vibe.app.feature.project.snapshot.SnapshotType
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import com.vibe.app.feature.agent.AgentPlan
 import com.vibe.app.feature.agent.AgentPlanStep
 import com.vibe.app.feature.agent.PlanStepStatus
 import com.vibe.app.feature.agent.tool.requireString
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -179,8 +186,9 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 val pendingToolResults = mutableListOf<AgentToolResult>()
                 val pendingCalls = mutableListOf<com.vibe.app.feature.agent.AgentToolCall>()
                 val outputBuilder = StringBuilder()
-                var failureMessage: String? = null
+                var failure: AgentModelEvent.Failed? = null
                 var turnReasoningContent: String? = null
+                var completedTruncated = false
 
                 // Force tool use on the first iteration so the model cannot skip directly to
                 // a text-only answer (which happens on turn 3+ when it has seen prior exchanges).
@@ -208,67 +216,139 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                             itemsAfter = compactionResult.items.size,
                         )
                     }
-                }
-
-                agentModelGateway.streamTurn(
-                    AgentModelRequest(
-                        platform = request.platform,
-                        diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
-                        conversation = conversationDelta,
-                        fullConversation = compactionResult.items,
-                        instructions = buildInstructions(request, currentPlan, mode, memo),
-                        tools = request.tools,
-                        policy = effectivePolicy,
-                        previousResponseId = previousResponseId,
-                    ),
-                ).collect { event ->
-                    when (event) {
-                        is AgentModelEvent.ThinkingDelta -> {
-                            emit(AgentLoopEvent.ThinkingDelta(iteration, event.delta))
-                        }
-
-                        is AgentModelEvent.OutputDelta -> {
-                            outputBuilder.append(event.delta)
-                            emit(AgentLoopEvent.OutputDelta(iteration, event.delta))
-                        }
-
-                        is AgentModelEvent.ToolCallReady -> {
-                            pendingCalls += event.call
-                            emit(AgentLoopEvent.ToolCallDiscovered(iteration, event.call))
-                        }
-
-                        is AgentModelEvent.Completed -> {
-                            previousResponseId = event.responseId ?: previousResponseId
-                            if (event.reasoningContent != null) {
-                                turnReasoningContent = event.reasoningContent
-                            }
-                        }
-
-                        is AgentModelEvent.Failed -> {
-                            failureMessage = event.message
-                        }
+                    if (previousResponseId != null) {
+                        // The server-side Responses chain still holds the uncompacted history.
+                        // Drop it so the compacted fullConversation is sent fresh this iteration.
+                        previousResponseId = null
                     }
                 }
 
-                if (failureMessage != null) {
+                // Retry ring: a transient model failure (rate limit, 5xx, dropped connection)
+                // no longer kills the whole turn outright. We retry up to MAX_MODEL_RETRIES times
+                // with backoff, honoring Retry-After when the provider sends one.
+                // Known trade-off: if the model had already streamed partial output before the
+                // failure, a retry's regenerated output is appended after it, which can surface as
+                // a duplicated paragraph in the UI. That's an acceptable minor cost compared to
+                // discarding the whole turn; a proper fix needs a UI-side "reset current message"
+                // event, which is out of scope for this phase.
+                var attempt = 0
+                while (true) {
+                    pendingCalls.clear()
+                    outputBuilder.clear()
+                    failure = null
+                    turnReasoningContent = null
+                    completedTruncated = false
+
+                    agentModelGateway.streamTurn(
+                        AgentModelRequest(
+                            platform = request.platform,
+                            diagnosticContext = request.diagnosticContext?.copy(platformUid = request.platform.uid),
+                            conversation = conversationDelta,
+                            fullConversation = compactionResult.items,
+                            instructions = buildInstructions(request, currentPlan, mode, memo),
+                            tools = request.tools,
+                            policy = effectivePolicy,
+                            previousResponseId = previousResponseId,
+                        ),
+                    ).collect { event ->
+                        when (event) {
+                            is AgentModelEvent.ThinkingDelta -> {
+                                emit(AgentLoopEvent.ThinkingDelta(iteration, event.delta))
+                            }
+
+                            is AgentModelEvent.OutputDelta -> {
+                                outputBuilder.append(event.delta)
+                                emit(AgentLoopEvent.OutputDelta(iteration, event.delta))
+                            }
+
+                            is AgentModelEvent.ToolCallReady -> {
+                                pendingCalls += event.call
+                                emit(AgentLoopEvent.ToolCallDiscovered(iteration, event.call))
+                            }
+
+                            is AgentModelEvent.Completed -> {
+                                previousResponseId = event.responseId ?: previousResponseId
+                                if (event.reasoningContent != null) {
+                                    turnReasoningContent = event.reasoningContent
+                                }
+                                completedTruncated = event.truncatedByMaxTokens
+                            }
+
+                            is AgentModelEvent.Failed -> {
+                                failure = event
+                            }
+                        }
+                    }
+
+                    val attemptFailure = failure
+                    if (attemptFailure == null || !attemptFailure.retryable || attempt >= MAX_MODEL_RETRIES) {
+                        break
+                    }
+
+                    attempt++
+                    val backoffMs = RETRY_DELAYS_MS[attempt - 1]
+                    val delayMs = maxOf(attemptFailure.retryAfterSeconds?.times(1000L) ?: 0L, backoffMs)
+                    emit(
+                        AgentLoopEvent.ThinkingDelta(
+                            iteration,
+                            "\n[Transient model error, retrying $attempt/$MAX_MODEL_RETRIES in ${delayMs / 1000}s: ${attemptFailure.message.take(120)}]\n",
+                        ),
+                    )
+                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                        diagnosticLogger.logAgentLoopEvent(
+                            context = ctx,
+                            action = "model_retry",
+                            level = DiagnosticLevels.WARN,
+                            summary = "Retry $attempt/$MAX_MODEL_RETRIES after: ${attemptFailure.message.take(120)}",
+                            payload = buildJsonObject {
+                                put("action", "model_retry")
+                                put("iteration", iteration)
+                                put("attempt", attempt)
+                                put("statusCode", attemptFailure.statusCode ?: -1)
+                                put("delayMs", delayMs)
+                            },
+                        )
+                    }
+                    delay(delayMs)
+                }
+
+                val finalFailure = failure
+                if (finalFailure != null) {
                     request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
                         diagnosticLogger.logAgentLoopEvent(
                             context = ctx,
                             action = "loop_failed",
                             level = DiagnosticLevels.ERROR,
-                            summary = "Agent loop failed at iteration $iteration: ${failureMessage.take(120)}",
+                            summary = "Agent loop failed at iteration $iteration: ${finalFailure.message.take(120)}",
                             payload = buildJsonObject {
                                 put("action", "loop_failed")
                                 put("reason", "model_error")
                                 put("iteration", iteration)
                                 put("totalToolCalls", collectedToolResults.size)
                                 put("durationMs", System.currentTimeMillis() - loopStartedAt)
-                                put("errorMessage", failureMessage.take(500))
+                                put("errorMessage", finalFailure.message.take(500))
                             },
                         )
                     }
-                    emit(AgentLoopEvent.LoopFailed(message = failureMessage, iteration = iteration))
+                    emit(AgentLoopEvent.LoopFailed(message = finalFailure.message, iteration = iteration))
                     return@flow
+                }
+
+                if (completedTruncated && pendingCalls.isEmpty() && iteration < request.policy.maxIterations) {
+                    // Text-only response cut off by max_tokens: keep the partial text in
+                    // history and ask the model to continue instead of ending the loop.
+                    fullConversation += AgentConversationItem(
+                        role = AgentMessageRole.ASSISTANT,
+                        text = outputBuilder.toString().trim().takeIf { it.isNotEmpty() },
+                    )
+                    val continueMessage = AgentConversationItem(
+                        role = AgentMessageRole.USER,
+                        text = "[System] Your previous response was cut off by the output token limit. " +
+                            "Continue exactly where you stopped. Do not repeat content you already produced.",
+                    )
+                    fullConversation += continueMessage
+                    conversationDelta = listOf(continueMessage)
+                    continue
                 }
 
                 if (pendingCalls.isEmpty()) {
@@ -306,6 +386,27 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 )
 
                 pendingCalls.forEach { call ->
+                    val invalidRaw = (call.arguments as? JsonObject)?.get(INVALID_TOOL_ARGUMENTS_KEY)
+                    if (invalidRaw != null) {
+                        val result = AgentToolResult(
+                            toolCallId = call.id,
+                            toolName = call.name,
+                            output = buildJsonObject {
+                                put(
+                                    "error",
+                                    JsonPrimitive(
+                                        "Tool call arguments were not valid JSON (likely truncated by the output token limit). " +
+                                            "Re-issue this tool call with complete, valid JSON arguments.",
+                                    ),
+                                )
+                            },
+                            isError = true,
+                        )
+                        pendingToolResults += result
+                        collectedToolResults += result
+                        emit(AgentLoopEvent.ToolExecutionFinished(iteration, result))
+                        return@forEach
+                    }
                     val tool = agentToolRegistry.findTool(call.name)
                     if (tool == null) {
                         val result = AgentToolResult(
@@ -337,22 +438,41 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                     if (turnContext != null && call.name in WRITE_TOOL_NAMES && !turnContext.firstWriteDone) {
                         turnContext.firstWriteDone = true
                     }
-                    val result = runCatching {
-                        tool.execute(
-                            call = call,
-                            context = com.vibe.app.feature.agent.AgentToolContext(
-                                chatId = request.chatId,
-                                platformUid = request.platform.uid,
-                                iteration = iteration,
-                                projectId = request.projectId ?: "",
-                            ),
-                        )
-                    }.getOrElse { error ->
+                    val result = try {
+                        kotlinx.coroutines.withTimeout(toolTimeoutMillis(call.name)) {
+                            tool.execute(
+                                call = call,
+                                context = com.vibe.app.feature.agent.AgentToolContext(
+                                    chatId = request.chatId,
+                                    platformUid = request.platform.uid,
+                                    iteration = iteration,
+                                    projectId = request.projectId ?: "",
+                                ),
+                            )
+                        }
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                         AgentToolResult(
                             toolCallId = call.id,
                             toolName = call.name,
                             output = buildJsonObject {
-                                put("error", JsonPrimitive(error.message ?: "Tool execution failed"))
+                                put(
+                                    "error",
+                                    JsonPrimitive(
+                                        "Tool '${call.name}' timed out after ${toolTimeoutMillis(call.name) / 1000}s. " +
+                                            "Do not immediately retry the same call — try a different approach.",
+                                    ),
+                                )
+                            },
+                            isError = true,
+                        )
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AgentToolResult(
+                            toolCallId = call.id,
+                            toolName = call.name,
+                            output = buildJsonObject {
+                                put("error", JsonPrimitive(e.message ?: "Tool execution failed"))
                             },
                             isError = true,
                         )
@@ -407,11 +527,20 @@ class DefaultAgentLoopCoordinator @Inject constructor(
 
                 // Build tool result items and append to full history.
                 val toolResultItems = pendingToolResults.map { result ->
+                    // A tool may surface image/file artifacts via an "attachment_paths"
+                    // array in its output (e.g. capture_screenshot). Lift them into the
+                    // conversation item so vision-capable gateways can inline them into
+                    // the tool_result; other gateways ignore attachments.
+                    val attachmentPaths = ((result.output as? JsonObject)
+                        ?.get("attachment_paths") as? JsonArray)
+                        ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                        .orEmpty()
                     AgentConversationItem(
                         role = AgentMessageRole.TOOL,
                         toolCallId = result.toolCallId,
                         toolName = result.toolName,
                         payload = result.output,
+                        attachments = attachmentPaths,
                     )
                 }
                 fullConversation += toolResultItems
@@ -453,6 +582,11 @@ class DefaultAgentLoopCoordinator @Inject constructor(
                 clientType = request.platform.compatibleType,
                 platform = request.platform,
             )
+            if (windDownCompaction.strategyUsed != CompactionStrategyType.NONE && previousResponseId != null) {
+                // Same D1 fix as the main loop: drop the stale server-side Responses chain
+                // so the compacted wind-down history is sent fresh instead of a delta.
+                previousResponseId = null
+            }
             agentModelGateway.streamTurn(
                 AgentModelRequest(
                     platform = request.platform,
@@ -521,83 +655,87 @@ class DefaultAgentLoopCoordinator @Inject constructor(
             }
         } finally {
             // ─── FINALIZE ─────────────────────────────────────────────────────────
+            // Must survive job.cancel() from stopSession — the turn's file mutations
+            // already happened, so the snapshot MUST be committed or undo breaks.
             if (turnContext != null) {
-                runCatching {
-                    // A turn "succeeded" if at least one run_build_pipeline tool call returned
-                    // isError=false. If no build tool was called, buildSucceeded=false so the
-                    // snapshot is still finalized (for edit-only turns) but memo is not updated.
-                    val buildSucceeded = collectedToolResults.any {
-                        it.toolName == "run_build_pipeline" && !it.isError
-                    }
-                    if (buildSucceeded) {
-                        outlineGenerator.regenerate(
-                            turnContext.projectId,
-                            turnContext.workspaceRoot,
-                            turnContext.vibeDirs,
+                withContext(NonCancellable) {
+                    runCatching {
+                        // A turn "succeeded" if at least one run_build_pipeline tool call returned
+                        // isError=false. If no build tool was called, buildSucceeded=false so the
+                        // snapshot is still finalized (for edit-only turns) but memo is not updated.
+                        val buildSucceeded = collectedToolResults.any {
+                            it.toolName == "run_build_pipeline" && !it.isError
+                        }
+                        if (buildSucceeded) {
+                            outlineGenerator.regenerate(
+                                turnContext.projectId,
+                                turnContext.workspaceRoot,
+                                turnContext.vibeDirs,
+                            )
+                            request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                                diagnosticLogger.logAgentLoopEvent(
+                                    context = ctx,
+                                    action = "turn_outline_regenerated",
+                                    summary = "Outline regenerated for project ${turnContext.projectId}",
+                                    payload = buildJsonObject {
+                                        put("action", "turn_outline_regenerated")
+                                        put("projectId", turnContext.projectId)
+                                    },
+                                )
+                            }
+                        }
+                        // Capture the POST-turn workspace state so the snapshot labeled "turn N"
+                        // represents the result of turn N. Skip for edit-free turns — finalize()
+                        // is a no-op when nothing was committed.
+                        if (turnContext.firstWriteDone) {
+                            runCatching { turnContext.snapshotHandle.commit() }
+                                .onFailure { e ->
+                                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                                        diagnosticLogger.logAgentLoopEvent(
+                                            context = ctx,
+                                            action = "turn_snapshot_commit_failed",
+                                            level = DiagnosticLevels.WARN,
+                                            summary = "Snapshot commit failed at finalize: ${e.message?.take(120)}",
+                                            payload = buildJsonObject {
+                                                put("action", "turn_snapshot_commit_failed")
+                                                put("error", e.message.orEmpty().take(500))
+                                            },
+                                        )
+                                    }
+                                }
+                        }
+                        turnContext.snapshotHandle.finalize(
+                            buildSucceeded = buildSucceeded,
+                            affectedFiles = turnContext.writtenFiles.toList(),
+                            deletedFiles = turnContext.deletedFiles.toList(),
                         )
+                        snapshotManager.enforceRetention(turnContext.projectId, turnContext.vibeDirs)
                         request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
                             diagnosticLogger.logAgentLoopEvent(
                                 context = ctx,
-                                action = "turn_outline_regenerated",
-                                summary = "Outline regenerated for project ${turnContext.projectId}",
+                                action = "turn_snapshot_finalized",
+                                summary = "Snapshot ${turnContext.snapshotHandle.id} finalized (build=$buildSucceeded)",
                                 payload = buildJsonObject {
-                                    put("action", "turn_outline_regenerated")
-                                    put("projectId", turnContext.projectId)
+                                    put("action", "turn_snapshot_finalized")
+                                    put("snapshotId", turnContext.snapshotHandle.id)
+                                    put("buildSucceeded", buildSucceeded)
+                                    put("turnIndex", turnContext.turnIndex)
                                 },
                             )
                         }
-                    }
-                    // Capture the POST-turn workspace state so the snapshot labeled "turn N"
-                    // represents the result of turn N. Skip for edit-free turns — finalize()
-                    // is a no-op when nothing was committed.
-                    if (turnContext.firstWriteDone) {
-                        runCatching { turnContext.snapshotHandle.commit() }
-                            .onFailure { e ->
-                                request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                                    diagnosticLogger.logAgentLoopEvent(
-                                        context = ctx,
-                                        action = "turn_snapshot_commit_failed",
-                                        level = DiagnosticLevels.WARN,
-                                        summary = "Snapshot commit failed at finalize: ${e.message?.take(120)}",
-                                        payload = buildJsonObject {
-                                            put("action", "turn_snapshot_commit_failed")
-                                            put("error", e.message.orEmpty().take(500))
-                                        },
-                                    )
-                                }
-                            }
-                    }
-                    turnContext.snapshotHandle.finalize(
-                        buildSucceeded = buildSucceeded,
-                        affectedFiles = turnContext.writtenFiles.toList(),
-                        deletedFiles = turnContext.deletedFiles.toList(),
-                    )
-                    snapshotManager.enforceRetention(turnContext.projectId, turnContext.vibeDirs)
-                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                        diagnosticLogger.logAgentLoopEvent(
-                            context = ctx,
-                            action = "turn_snapshot_finalized",
-                            summary = "Snapshot ${turnContext.snapshotHandle.id} finalized (build=$buildSucceeded)",
-                            payload = buildJsonObject {
-                                put("action", "turn_snapshot_finalized")
-                                put("snapshotId", turnContext.snapshotHandle.id)
-                                put("buildSucceeded", buildSucceeded)
-                                put("turnIndex", turnContext.turnIndex)
-                            },
-                        )
-                    }
-                }.onFailure { e ->
-                    request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
-                        diagnosticLogger.logAgentLoopEvent(
-                            context = ctx,
-                            action = "iteration_finalize_failed",
-                            level = DiagnosticLevels.WARN,
-                            summary = "FINALIZE failed: ${e.message?.take(120)}",
-                            payload = buildJsonObject {
-                                put("action", "iteration_finalize_failed")
-                                put("error", e.message.orEmpty().take(500))
-                            },
-                        )
+                    }.onFailure { e ->
+                        request.diagnosticContext?.copy(platformUid = request.platform.uid)?.let { ctx ->
+                            diagnosticLogger.logAgentLoopEvent(
+                                context = ctx,
+                                action = "iteration_finalize_failed",
+                                level = DiagnosticLevels.WARN,
+                                summary = "FINALIZE failed: ${e.message?.take(120)}",
+                                payload = buildJsonObject {
+                                    put("action", "iteration_finalize_failed")
+                                    put("error", e.message.orEmpty().take(500))
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -744,6 +882,31 @@ class DefaultAgentLoopCoordinator @Inject constructor(
         private const val MAX_OLDER_ASSISTANT_CHARS = 1500
         /** Older turns: summary-level only. */
         private const val MAX_SUMMARY_CHARS = 500
+
+        /** Max number of in-iteration retries for a retryable model failure. */
+        private const val MAX_MODEL_RETRIES = 2
+        /** Backoff delay per retry attempt (index 0 = first retry), used as a floor under Retry-After. */
+        private val RETRY_DELAYS_MS = listOf(1_000L, 4_000L)
+
+        /**
+         * Per-tool execution timeouts. Cross-process tools (AIDL-based `launch_app`/`inspect_ui`)
+         * and the build pipeline (which holds the global BuildMutex) can hang forever without
+         * one of these — freezing the whole turn. `Mutex.withLock` releases in a `finally` on
+         * cancellation, so timing out `run_build_pipeline` here is safe for the mutex.
+         */
+        private val TOOL_TIMEOUTS_MS: Map<String, Long> = mapOf(
+            "run_build_pipeline" to 10 * 60_000L,
+            "launch_app" to 45_000L,
+            "inspect_ui" to 20_000L,
+            "interact_ui" to 30_000L,
+            "close_app" to 15_000L,
+            "web_search" to 90_000L, // worst case: 3 engines x 20s + parsing
+            "fetch_web_page" to 40_000L,
+        )
+        private const val DEFAULT_TOOL_TIMEOUT_MS = 60_000L
+
+        private fun toolTimeoutMillis(toolName: String): Long =
+            TOOL_TIMEOUTS_MS[toolName] ?: DEFAULT_TOOL_TIMEOUT_MS
     }
 
     private fun MessageV2.toAgentConversationItem(): AgentConversationItem {

@@ -12,6 +12,7 @@
 
 - [architecture.md](./architecture.md) — 架构设计总览
 - [ai-strategy.md](./ai-strategy.md) — AI 代码生成策略与核心原则
+- [optimization-review-2026-07.md](./optimization-review-2026-07.md) — 全局优化评审：插件调试 / Web 搜索 / 上下文压缩 / 工程质量（已细化为 [Phase 1-7 实施计划](./superpowers/plans/2026-07-optimization/00-progress.md)）
 
 ## 2. 构建链（Build Chain / Build Engine）
 
@@ -79,6 +80,7 @@ Agent 可调用的具体工具设计。
 
 ### Plans（实施计划）
 
+- **[2026-07-optimization/](./superpowers/plans/2026-07-optimization/00-progress.md) — 2026-07 全局优化工程（Phase 1-7 分册）**：入口是 `00-progress.md` 进度总控；覆盖 Agent Loop 可靠性、Context/Web 止血与重构、调试体验、搜索 Provider 化、性能成本、插件根治与工程还债。需求来源见 [optimization-review-2026-07.md](./optimization-review-2026-07.md)
 - [2026-03-28-shadow-full-integration.md](./superpowers/plans/2026-03-28-shadow-full-integration.md) — Shadow 集成整体计划
 - [2026-03-28-shadow-androidx-on-device-transform.md](./superpowers/plans/2026-03-28-shadow-androidx-on-device-transform.md) — 设备端 AndroidX 字节码改写（解决 Fragment 问题的长期方案）
 - [2026-04-03-minimax-provider-integration.md](./superpowers/plans/2026-04-03-minimax-provider-integration.md) — MiniMax Provider 接入

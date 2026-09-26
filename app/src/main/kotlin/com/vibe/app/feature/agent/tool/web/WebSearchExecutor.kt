@@ -15,33 +15,50 @@ class WebSearchExecutor @Inject constructor(
         GoogleSearchEngine(),
     )
 
-    suspend fun search(query: String): Result<List<SearchResult>> {
-        val errors = mutableListOf<String>()
+    private val circuitBreaker = EngineCircuitBreaker()
 
-        for (engine in engines) {
-            try {
-                val url = engine.buildSearchUrl(query)
-                val htmlResult = webViewExtractor.extractRawHtml(url)
-                val html = htmlResult.getOrNull()
-                if (html.isNullOrBlank()) {
-                    errors.add("${engine.name}: WebView returned empty HTML")
-                    continue
+    suspend fun search(query: String): Result<List<SearchResult>> {
+        val failures = mutableListOf<EngineFailure>()
+
+        val eligible = engines.filterNot { circuitBreaker.isOpen(it.name) }.ifEmpty { engines }
+        for (engine in eligible) {
+            val url = engine.buildSearchUrl(query)
+            val htmlResult = webViewExtractor.extractRawHtml(url, engine.resultsSelector)
+            val error = htmlResult.exceptionOrNull()
+            if (error != null) {
+                if (error is kotlinx.coroutines.CancellationException &&
+                    error !is kotlinx.coroutines.TimeoutCancellationException
+                ) throw error
+                failures += when (error) {
+                    is WebHttpBlockedException -> {
+                        circuitBreaker.recordBlocked(engine.name)
+                        EngineFailure(engine.name, WebFailureKind.BLOCKED, "HTTP ${error.statusCode}")
+                    }
+                    is kotlinx.coroutines.TimeoutCancellationException ->
+                        EngineFailure(engine.name, WebFailureKind.TIMEOUT, "${WebConstants.WEBVIEW_TIMEOUT_MS / 1000}s")
+                    else ->
+                        EngineFailure(engine.name, WebFailureKind.NETWORK_ERROR, error.message ?: "unknown")
                 }
-                val results = engine.parseResults(html)
-                if (results.isNotEmpty()) {
-                    Log.d(TAG, "${engine.name} returned ${results.size} results for: $query")
-                    return Result.success(results.take(MAX_RESULTS))
-                }
-                errors.add("${engine.name}: no results parsed")
-            } catch (e: Exception) {
-                Log.w(TAG, "${engine.name} failed for query: $query", e)
-                errors.add("${engine.name}: ${e.message}")
+                continue
+            }
+            val html = htmlResult.getOrNull().orEmpty()
+            val results = runCatching { engine.parseResults(html) }.getOrElse { e ->
+                failures += EngineFailure(engine.name, WebFailureKind.NETWORK_ERROR, "parse error: ${e.message}")
+                continue
+            }
+            if (results.isNotEmpty()) {
+                Log.d(TAG, "${engine.name} returned ${results.size} results for: $query")
+                return Result.success(results.take(MAX_RESULTS))
+            }
+            failures += if (BlockedPageDetector.isBlockedPage(html)) {
+                circuitBreaker.recordBlocked(engine.name)
+                EngineFailure(engine.name, WebFailureKind.BLOCKED, "captcha/anti-bot page")
+            } else {
+                EngineFailure(engine.name, WebFailureKind.NO_RESULTS, "no results parsed")
             }
         }
 
-        return Result.failure(
-            RuntimeException("All search engines failed: ${errors.joinToString("; ")}")
-        )
+        return Result.failure(WebSearchFailedException(failures))
     }
 
     companion object {

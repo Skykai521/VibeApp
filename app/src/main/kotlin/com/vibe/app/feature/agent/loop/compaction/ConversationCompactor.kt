@@ -71,20 +71,21 @@ class ConversationCompactor @Inject constructor(
         }
 
         // Strategy 3: Model-based summarization (only for supported providers)
+        var modelResult: CompactionResult? = null
         if (modelSummaryStrategy.isSupported(clientType) && platform != null) {
             modelSummaryStrategy.apiUrl = platform.apiUrl
             modelSummaryStrategy.token = platform.token
             modelSummaryStrategy.model = platform.model
-            val modelResult = modelSummaryStrategy.compact(
+            modelResult = modelSummaryStrategy.compact(
                 afterTrim, budget.recentTurns, budget.maxTokens,
             )
-            if (modelResult != null) {
+            if (modelResult != null && modelResult.estimatedTokens <= budget.maxTokens) {
                 return modelResult
             }
         }
 
         // All strategies exhausted or insufficient — enforce budget by truncating text
-        val bestResult = structuralResult ?: trimResult
+        val bestResult = modelResult ?: structuralResult ?: trimResult
         val bestItems = bestResult?.items ?: items
         val bestTokens = bestResult?.estimatedTokens
             ?: ConversationContextManager.estimateTokens(bestItems)

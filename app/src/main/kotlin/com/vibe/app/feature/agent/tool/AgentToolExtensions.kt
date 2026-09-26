@@ -106,7 +106,7 @@ fun BuildResult.toFilteredJson(analysis: BuildFailureAnalysis? = null): JsonObje
     val isSuccess = errorMessage == null
     return buildJsonObject {
         put("status", JsonPrimitive(status.name))
-        errorMessage?.let { put("errorMessage", JsonPrimitive(it)) }
+        errorMessage?.let { put("errorMessage", JsonPrimitive(it.take(MAX_ERROR_MESSAGE_CHARS))) }
         analysis?.let { put("analysis", it.toJson()) }
         val filteredLogs = logs.filter {
             it.level == BuildLogLevel.WARNING || it.level == BuildLogLevel.ERROR
@@ -121,7 +121,7 @@ fun BuildResult.toFilteredJson(analysis: BuildFailureAnalysis? = null): JsonObje
                             buildJsonObject {
                                 put("stage", JsonPrimitive(log.stage.name))
                                 put("level", JsonPrimitive(log.level.name))
-                                put("message", JsonPrimitive(log.message))
+                                put("message", JsonPrimitive(log.message.take(MAX_LOG_MESSAGE_CHARS)))
                                 log.sourcePath?.let { put("sourcePath", JsonPrimitive(it)) }
                                 log.line?.let { put("line", JsonPrimitive(it)) }
                             },
@@ -134,3 +134,5 @@ fun BuildResult.toFilteredJson(analysis: BuildFailureAnalysis? = null): JsonObje
 }
 
 private const val MAX_TOOL_LOGS = 12
+internal const val MAX_ERROR_MESSAGE_CHARS = 2_000
+internal const val MAX_LOG_MESSAGE_CHARS = 500

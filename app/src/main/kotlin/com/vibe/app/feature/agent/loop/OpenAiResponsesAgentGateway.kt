@@ -21,6 +21,7 @@ import com.vibe.app.feature.agent.AgentModelEvent
 import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
+import com.vibe.app.feature.agent.INVALID_TOOL_ARGUMENTS_KEY
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
@@ -49,13 +50,12 @@ class OpenAiResponsesAgentGateway @Inject constructor(
     }
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
-        openAIAPI.setToken(request.platform.token)
-        openAIAPI.setAPIUrl(request.platform.apiUrl)
         val trace = ModelExecutionTrace()
 
+        val selectedInput = selectResponsesInput(request.previousResponseId, request.conversation, request.fullConversation)
         val responseRequest = ResponsesRequest(
             model = request.platform.model,
-            input = request.conversation.map(::toResponseInputItem),
+            input = selectedInput.map(::toResponseInputItem),
             previousResponseId = request.previousResponseId,
             stream = true,
             instructions = request.instructions,
@@ -79,7 +79,7 @@ class OpenAiResponsesAgentGateway @Inject constructor(
                 stream = true,
                 reasoningEnabled = request.platform.reasoning,
                 estimatedContextTokens = request.estimateContextTokensForDiagnostics(),
-                messageCount = request.conversation.size,
+                messageCount = selectedInput.size,
                 toolCount = request.tools.size.takeIf { it > 0 },
                 toolChoiceMode = request.policy.toolChoiceMode.name.lowercase(),
                 systemPromptPresent = !request.instructions.isNullOrBlank(),
@@ -89,7 +89,13 @@ class OpenAiResponsesAgentGateway @Inject constructor(
 
         var lastResponseId: String? = request.previousResponseId
 
-        openAIAPI.streamResponses(responseRequest, requestContext, trace).collect { event ->
+        openAIAPI.streamResponses(
+            responseRequest,
+            token = request.platform.token,
+            apiUrl = request.platform.apiUrl,
+            diagnosticContext = requestContext,
+            trace = trace,
+        ).collect { event ->
             when (event) {
                 is ReasoningSummaryTextDeltaEvent -> {
                     trace.markThinking(event.delta)
@@ -115,9 +121,12 @@ class OpenAiResponsesAgentGateway @Inject constructor(
 
                 is ResponseFailedEvent -> {
                     trace.markFailed("provider_error", event.response.error?.message)
+                    val status = event.response.error?.code?.toIntOrNull()
                     emit(
                         AgentModelEvent.Failed(
-                            event.response.error?.message ?: "OpenAI Responses request failed",
+                            message = event.response.error?.message ?: "OpenAI Responses request failed",
+                            statusCode = status,
+                            retryable = ModelFailureClassifier.isRetryable(status, event.response.error?.code),
                         ),
                     )
                 }
@@ -127,7 +136,14 @@ class OpenAiResponsesAgentGateway @Inject constructor(
                         errorKind = if (event.code == "network_error") "network_error" else "provider_error",
                         errorMessage = event.message,
                     )
-                    emit(AgentModelEvent.Failed(event.message))
+                    val status = event.code?.toIntOrNull()
+                    emit(
+                        AgentModelEvent.Failed(
+                            message = event.message,
+                            statusCode = status,
+                            retryable = ModelFailureClassifier.isRetryable(status, event.code),
+                        ),
+                    )
                 }
                 else -> Unit
             }
@@ -188,10 +204,10 @@ private fun OutputItemDoneEvent.toToolCallOrNull(json: Json): AgentToolCall? {
 
     val arguments = item.arguments
         ?.takeIf { it.isNotBlank() }
-        ?.let {
-            runCatching { json.parseToJsonElement(it) }.getOrElse {
+        ?.let { raw ->
+            runCatching { json.parseToJsonElement(raw) }.getOrElse {
                 buildJsonObject {
-                    put("raw", JsonPrimitive(item.arguments))
+                    put(INVALID_TOOL_ARGUMENTS_KEY, JsonPrimitive(raw.take(2000)))
                 }
             }
         }
@@ -203,3 +219,15 @@ private fun OutputItemDoneEvent.toToolCallOrNull(json: Json): AgentToolCall? {
         arguments = arguments,
     )
 }
+
+/**
+ * Stateful Responses sessions accumulate history server-side, which client-side
+ * compaction cannot touch. Whenever the coordinator resets the response chain
+ * (previousResponseId == null), send the full — already compacted — history
+ * so the new chain starts from the compacted state.
+ */
+internal fun selectResponsesInput(
+    previousResponseId: String?,
+    delta: List<AgentConversationItem>,
+    full: List<AgentConversationItem>,
+): List<AgentConversationItem> = if (previousResponseId == null) full else delta

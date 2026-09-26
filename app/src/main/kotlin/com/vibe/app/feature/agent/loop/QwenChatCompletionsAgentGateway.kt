@@ -1,5 +1,6 @@
 package com.vibe.app.feature.agent.loop
 
+import com.vibe.app.data.dto.openai.response.ErrorDetail
 import com.vibe.app.data.dto.qwen.request.QwenChatCompletionRequest
 import com.vibe.app.data.dto.qwen.request.QwenChatMessage
 import com.vibe.app.data.dto.qwen.request.QwenFunctionCall
@@ -14,6 +15,7 @@ import com.vibe.app.feature.agent.AgentModelGateway
 import com.vibe.app.feature.agent.AgentModelRequest
 import com.vibe.app.feature.agent.AgentToolCall
 import com.vibe.app.feature.agent.AgentToolChoiceMode
+import com.vibe.app.feature.agent.INVALID_TOOL_ARGUMENTS_KEY
 import com.vibe.app.feature.diagnostic.ChatDiagnosticLogger
 import com.vibe.app.feature.diagnostic.ModelExecutionTrace
 import com.vibe.app.feature.diagnostic.ModelRequestDiagnosticContext
@@ -40,8 +42,6 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
     }
 
     override suspend fun streamTurn(request: AgentModelRequest): Flow<AgentModelEvent> = flow {
-        openAIAPI.setToken(request.platform.token)
-        openAIAPI.setAPIUrl(request.platform.apiUrl.toQwenChatCompletionsBaseUrl())
         val trace = ModelExecutionTrace()
         val effectiveToolChoice = request.toQwenToolChoice()
 
@@ -71,7 +71,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
         )
         val toolCallAccumulators = mutableMapOf<Int, ToolCallAccumulator>()
         var finishReason: String? = null
-        var streamError: String? = null
+        var streamError: ErrorDetail? = null
 
         openAIAPI.streamQwenChatCompletion(
             QwenChatCompletionRequest(
@@ -89,11 +89,13 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 toolChoice = effectiveToolChoice,
                 stream = true,
             ),
+            token = request.platform.token,
+            apiUrl = request.platform.apiUrl.toQwenChatCompletionsBaseUrl(),
             diagnosticContext = requestContext,
             trace = trace,
         ).collect { chunk ->
             if (chunk.error != null) {
-                streamError = chunk.error.message
+                streamError = chunk.error
                 trace.markFailed(chunk.error.type ?: "provider_error", chunk.error.message)
                 return@collect
             }
@@ -126,7 +128,15 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
                 diagnosticLogger.logModelResponse(requestContext, trace, success = false)
                 diagnosticLogger.logLatencyBreakdown(requestContext, trace)
             }
-            emit(AgentModelEvent.Failed(error))
+            val status = error.code?.toIntOrNull()
+            emit(
+                AgentModelEvent.Failed(
+                    message = error.message,
+                    statusCode = status,
+                    retryable = ModelFailureClassifier.isRetryable(status, error.type),
+                    retryAfterSeconds = error.retryAfterSeconds,
+                ),
+            )
             return@flow
         }
 
@@ -136,7 +146,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
             val arguments = runCatching {
                 json.parseToJsonElement(acc.arguments.toString())
             }.getOrElse {
-                buildJsonObject { put("raw", JsonPrimitive(acc.arguments.toString())) }
+                buildJsonObject { put(INVALID_TOOL_ARGUMENTS_KEY, JsonPrimitive(acc.arguments.toString().take(2000))) }
             }
             emit(
                 AgentModelEvent.ToolCallReady(
@@ -151,7 +161,7 @@ class QwenChatCompletionsAgentGateway @Inject constructor(
             diagnosticLogger.logModelResponse(requestContext, trace, success = true)
             diagnosticLogger.logLatencyBreakdown(requestContext, trace)
         }
-        emit(AgentModelEvent.Completed())
+        emit(AgentModelEvent.Completed(truncatedByMaxTokens = finishReason == "length"))
     }
 
     private fun buildMessages(request: AgentModelRequest): List<QwenChatMessage> {
@@ -268,7 +278,7 @@ private fun QwenToolCall.toAgentToolCall(json: Json): AgentToolCall {
         json.parseToJsonElement(function.arguments)
     }.getOrElse {
         buildJsonObject {
-            put("raw", JsonPrimitive(function.arguments))
+            put(INVALID_TOOL_ARGUMENTS_KEY, JsonPrimitive(function.arguments.take(2000)))
         }
     }
 

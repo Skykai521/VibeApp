@@ -25,4 +25,7 @@ public interface HostActivityDelegator {
     void superFinish();
     void setPluginResult(int resultCode, Intent data);
     Intent getHostIntent();
+
+    /** Synthetic launch intent for the plugin (MAIN/LAUNCHER, plugin component). */
+    Intent getPluginIntent();
 }

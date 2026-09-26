@@ -4,6 +4,7 @@ import com.vibe.app.feature.agent.AgentConversationItem
 import com.vibe.app.feature.agent.AgentMessageRole
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -165,5 +166,58 @@ class ToolResultTrimStrategyTest {
         assertFalse("counts field should be removed", olderGrepPayload.containsKey("counts"))
         assertNotNull(olderGrepPayload["file_count"])
         assertNotNull(olderGrepPayload["note"])
+    }
+
+    @Test
+    fun `web_search array payload in older turns is trimmed to a note`() = runBlocking {
+        val searchPayload = buildJsonArray {
+            repeat(5) { i ->
+                add(buildJsonObject {
+                    put("title", JsonPrimitive("result $i"))
+                    put("snippet", JsonPrimitive("snippet ".repeat(100)))
+                    put("url", JsonPrimitive("https://example.com/$i"))
+                })
+            }
+        }
+        val items = listOf(
+            userItem("search something"),
+            assistantItem("searching"),
+            AgentConversationItem(role = AgentMessageRole.TOOL, toolName = "web_search", payload = searchPayload),
+            userItem("recent turn"),
+            assistantItem("ok"),
+        )
+        val result = strategy.compact(items, recentTurnCount = 1, tokenBudget = Int.MAX_VALUE)
+        assertNotNull(result)
+        val trimmed = result!!.items[2].payload!!.jsonObject
+        val note = trimmed["note"]?.jsonPrimitive?.content
+        assertEquals("[Search results trimmed (5 results) — run web_search again if needed]", note)
+    }
+
+    @Test
+    fun `fetch_web_page content in older turns is replaced, title and url kept`() = runBlocking {
+        val items = listOf(
+            userItem("read the page"),
+            assistantItem("fetching"),
+            AgentConversationItem(
+                role = AgentMessageRole.TOOL,
+                toolName = "fetch_web_page",
+                payload = buildJsonObject {
+                    put("title", JsonPrimitive("Doc Title"))
+                    put("content", JsonPrimitive("m".repeat(8_000)))
+                    put("url", JsonPrimitive("https://example.com/doc"))
+                },
+            ),
+            userItem("recent"),
+            assistantItem("ok"),
+        )
+        val result = strategy.compact(items, recentTurnCount = 1, tokenBudget = Int.MAX_VALUE)
+        assertNotNull(result)
+        val trimmed = result!!.items[2].payload!!.jsonObject
+        assertEquals("Doc Title", trimmed["title"]?.jsonPrimitive?.content)
+        assertEquals("https://example.com/doc", trimmed["url"]?.jsonPrimitive?.content)
+        assertEquals(
+            "[Web page: https://example.com/doc, 8000 chars — trimmed, re-fetch if needed]",
+            trimmed["content"]?.jsonPrimitive?.content,
+        )
     }
 }

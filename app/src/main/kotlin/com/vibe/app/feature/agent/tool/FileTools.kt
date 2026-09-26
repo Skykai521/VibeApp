@@ -15,6 +15,50 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+internal const val MAX_READ_LINES = 2000
+internal const val MAX_READ_CHARS = 50_000
+
+internal data class ClampResult(val content: String, val truncated: Boolean, val totalLines: Int)
+
+/** Logical line count: a single trailing empty line (from a final newline) is not counted. */
+internal fun logicalLineCount(content: String): Int {
+    val lines = content.lines()
+    return if (lines.isNotEmpty() && lines.last().isEmpty()) lines.size - 1 else lines.size
+}
+
+/**
+ * Clamp [content] to at most [maxLines] lines and [maxChars] characters, in that order,
+ * so a single oversized file read can't blow up the model context.
+ */
+internal fun clampFileContent(
+    content: String,
+    maxLines: Int = MAX_READ_LINES,
+    maxChars: Int = MAX_READ_CHARS,
+): ClampResult {
+    val lines = content.lines()
+    val totalLines = logicalLineCount(content)
+    var clamped = content
+    var truncated = false
+    if (totalLines > maxLines) {
+        clamped = lines.take(maxLines).joinToString("\n")
+        truncated = true
+    }
+    if (clamped.length > maxChars) {
+        clamped = clamped.take(maxChars)
+        truncated = true
+    }
+    return ClampResult(clamped, truncated, totalLines)
+}
+
+/**
+ * When a sliced range is further clamped, the delivered content ends before the
+ * requested slice end. Report the line actually reached (capped at the slice end)
+ * so a resuming reader doesn't skip the truncated remainder.
+ */
+internal fun deliveredRangeEnd(rangeStart: Int, rangeEnd: Int, clamp: ClampResult): Int =
+    if (!clamp.truncated) rangeEnd
+    else minOf(rangeEnd, rangeStart + logicalLineCount(clamp.content) - 1)
+
 /**
  * Slice [content] by 1-based inclusive line numbers. `endLine = -1` means EOF.
  * Returns the sliced text and the (clamped) effective range, or empty + [IntRange.EMPTY]
@@ -104,22 +148,42 @@ class ReadProjectFileTool @Inject constructor(
                     put("path", JsonPrimitive(path))
                     if (useRange) {
                         val (sliced, range) = sliceByLines(fullContent, startLine, endLine)
-                        put("content", JsonPrimitive(sliced))
-                        val totalLines = fullContent.lines().let {
-                            if (it.isNotEmpty() && it.last().isEmpty()) it.size - 1 else it.size
-                        }
-                        put("total_lines", JsonPrimitive(totalLines))
+                        val clamp = clampFileContent(sliced)
+                        put("content", JsonPrimitive(clamp.content))
+                        put("total_lines", JsonPrimitive(logicalLineCount(fullContent)))
                         if (range != IntRange.EMPTY) {
                             put(
                                 "range",
                                 buildJsonObject {
                                     put("start", JsonPrimitive(range.first))
-                                    put("end", JsonPrimitive(range.last))
+                                    put("end", JsonPrimitive(deliveredRangeEnd(range.first, range.last, clamp)))
                                 },
                             )
                         }
+                        if (clamp.truncated) {
+                            put("truncated", JsonPrimitive(true))
+                            put(
+                                "hint",
+                                JsonPrimitive(
+                                    "Range truncated to the first $MAX_READ_LINES lines / $MAX_READ_CHARS chars. " +
+                                        "Narrow start_line/end_line further to read the remaining content.",
+                                ),
+                            )
+                        }
                     } else {
-                        put("content", JsonPrimitive(fullContent))
+                        val clamp = clampFileContent(fullContent)
+                        put("content", JsonPrimitive(clamp.content))
+                        if (clamp.truncated) {
+                            put("truncated", JsonPrimitive(true))
+                            put("total_lines", JsonPrimitive(clamp.totalLines))
+                            put(
+                                "hint",
+                                JsonPrimitive(
+                                    "File truncated to the first $MAX_READ_LINES lines / $MAX_READ_CHARS chars. " +
+                                        "Use start_line/end_line to read the remaining ranges.",
+                                ),
+                            )
+                        }
                     }
                 },
             )
@@ -136,7 +200,12 @@ class ReadProjectFileTool @Inject constructor(
                                 buildJsonObject {
                                     put("path", JsonPrimitive(path))
                                     if (content.isSuccess) {
-                                        put("content", JsonPrimitive(content.getOrThrow()))
+                                        val clamp = clampFileContent(content.getOrThrow())
+                                        put("content", JsonPrimitive(clamp.content))
+                                        if (clamp.truncated) {
+                                            put("truncated", JsonPrimitive(true))
+                                            put("total_lines", JsonPrimitive(clamp.totalLines))
+                                        }
                                     } else {
                                         put("error", JsonPrimitive(content.exceptionOrNull()?.message ?: "Read failed"))
                                     }
@@ -187,7 +256,8 @@ class EditProjectFileTool @Inject constructor(
     override val definition = AgentToolDefinition(
         name = "edit_project_file",
         description = "Apply search-and-replace edits to an existing project file. " +
-            "More efficient than rewriting the whole file for small changes.",
+            "Each old_string must match EXACTLY ONE location unless replace_all is set. " +
+            "Returns per-edit results; if no edit applies, the call fails and the file is unchanged.",
         inputSchema = buildJsonObject {
             put("type", JsonPrimitive("object"))
             put(
@@ -207,6 +277,7 @@ class EditProjectFileTool @Inject constructor(
                                         buildJsonObject {
                                             put("old_string", stringProp("Exact text to find."))
                                             put("new_string", stringProp("Replacement text."))
+                                            put("replace_all", booleanProp("Replace ALL occurrences. Without this, old_string must match exactly once."))
                                         },
                                     )
                                     put("required", requiredFields("old_string", "new_string"))
@@ -229,6 +300,7 @@ class EditProjectFileTool @Inject constructor(
         val workspace = projectManager.openWorkspace(context.projectId)
         var content = workspace.readTextFile(path)
         val results = mutableListOf<kotlinx.serialization.json.JsonObject>()
+        var appliedCount = 0
 
         for (editElement in (editsArray as JsonArray)) {
             val edit = editElement.jsonObject
@@ -236,33 +308,67 @@ class EditProjectFileTool @Inject constructor(
                 ?: throw IllegalArgumentException("Each edit must have old_string")
             val newString = edit["new_string"]?.jsonPrimitive?.content
                 ?: throw IllegalArgumentException("Each edit must have new_string")
+            val replaceAll = edit["replace_all"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
 
-            if (!content.contains(oldString)) {
-                results.add(
-                    buildJsonObject {
-                        put("old_string", JsonPrimitive(oldString.take(80)))
-                        put("matched", JsonPrimitive(false))
-                    },
+            val occurrences = countOccurrences(content, oldString)
+            when {
+                occurrences == 0 -> results.add(
+                    editResult(oldString, matched = false, applied = false, occurrences = 0,
+                        reason = "old_string not found in file"),
                 )
-                continue
+                occurrences > 1 && !replaceAll -> results.add(
+                    editResult(oldString, matched = true, applied = false, occurrences = occurrences,
+                        reason = "ambiguous: $occurrences occurrences, provide longer old_string or set replace_all"),
+                )
+                else -> {
+                    content = if (replaceAll) content.replace(oldString, newString)
+                    else content.replaceFirst(oldString, newString)
+                    appliedCount++
+                    results.add(editResult(oldString, matched = true, applied = true, occurrences = occurrences))
+                }
             }
-            content = content.replaceFirst(oldString, newString)
-            results.add(
-                buildJsonObject {
-                    put("old_string", JsonPrimitive(oldString.take(80)))
-                    put("matched", JsonPrimitive(true))
-                },
-            )
         }
 
-        workspace.writeTextFile(path, content)
+        val failedCount = results.size - appliedCount
+        if (appliedCount > 0) {
+            workspace.writeTextFile(path, content)
+        }
 
-        return call.result(
-            buildJsonObject {
-                put("path", JsonPrimitive(path))
-                put("edits", buildJsonArray { results.forEach { add(it) } })
-            },
-        )
+        val output = buildJsonObject {
+            put("path", JsonPrimitive(path))
+            put("applied_count", JsonPrimitive(appliedCount))
+            put("failed_count", JsonPrimitive(failedCount))
+            if (appliedCount == 0) {
+                put("error", JsonPrimitive("No edits were applied — the file is unchanged. Re-read the file and retry with exact text."))
+            }
+            put("edits", buildJsonArray { results.forEach { add(it) } })
+        }
+        return call.result(output, isError = appliedCount == 0)
+    }
+
+    private fun editResult(
+        oldString: String,
+        matched: Boolean,
+        applied: Boolean,
+        occurrences: Int,
+        reason: String? = null,
+    ): kotlinx.serialization.json.JsonObject = buildJsonObject {
+        put("old_string", JsonPrimitive(oldString.take(80)))
+        put("matched", JsonPrimitive(matched))
+        put("applied", JsonPrimitive(applied))
+        put("occurrences", JsonPrimitive(occurrences))
+        reason?.let { put("reason", JsonPrimitive(it)) }
+    }
+
+    private fun countOccurrences(content: String, needle: String): Int {
+        if (needle.isEmpty()) return 0
+        var count = 0
+        var index = content.indexOf(needle)
+        while (index >= 0) {
+            count++
+            index = content.indexOf(needle, index + needle.length)
+        }
+        return count
     }
 }
 

@@ -5,6 +5,13 @@ import com.vibe.app.data.database.entity.PlatformV2
 import com.vibe.app.feature.diagnostic.DiagnosticContext
 import kotlinx.serialization.json.JsonElement
 
+/**
+ * Sentinel key marking a tool call whose arguments failed to parse as JSON
+ * (typically because the model output was truncated by max_tokens).
+ * The coordinator turns such calls into an isError tool result instead of executing them.
+ */
+const val INVALID_TOOL_ARGUMENTS_KEY = "__invalid_arguments__"
+
 enum class AgentMessageRole {
     SYSTEM,
     USER,
