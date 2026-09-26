@@ -122,7 +122,10 @@ class LaunchAppTool @Inject constructor(
         nm.createNotificationChannel(
             NotificationChannel(channelId, "App preview", NotificationManager.IMPORTANCE_HIGH),
         )
+        // Explicit component + package: keeps the PendingIntent from ever being
+        // resolved against another app, satisfying the implicit-PendingIntent check.
         val intent = Intent(appContext, PluginLaunchProxyActivity::class.java).apply {
+            `package` = appContext.packageName
             putExtra(PluginLaunchProxyActivity.EXTRA_APK_PATH, apkPath)
             putExtra(PluginLaunchProxyActivity.EXTRA_PACKAGE_NAME, packageName)
             putExtra(PluginLaunchProxyActivity.EXTRA_PROJECT_ID, projectId)
